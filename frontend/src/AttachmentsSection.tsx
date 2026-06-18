@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import AttachmentReaderModal from "./AttachmentReaderModal";
 import type { Attachment, AttachmentKind } from "./types";
 import { formatFileSize, formatTimestamp } from "./utils";
+import ViewIcon from "./ViewIcon";
 
 const ACCEPTED_FILE_TYPES = ".txt,.md,.csv,.json,.log,.vtt,.srt,text/plain";
 
@@ -22,15 +23,6 @@ function UploadIcon() {
       <path d="M12 16V4" />
       <path d="m7 9 5-5 5 5" />
       <path d="M4 20h16" />
-    </svg>
-  );
-}
-
-function ViewIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
-      <circle cx="12" cy="12" r="3" />
     </svg>
   );
 }

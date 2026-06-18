@@ -1,3 +1,4 @@
+import { BRAND_NAME } from "./branding";
 import { formatCruiseLines } from "./CruiseLineMultiSelect";
 import type { RequestNote, TravelRequestDetail, TravelRequestInput } from "./types";
 import { formatDate, formatDestinationSummary } from "./utils";
@@ -34,7 +35,7 @@ export function buildResearchBriefText(
   };
 
   const sections: string[] = [
-    "Cruise Travel Now — Research Brief",
+    `${BRAND_NAME} — Research Brief`,
     line("Request", `#${request.id}`),
     line("Generated", new Date().toLocaleString()),
     "",

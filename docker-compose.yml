@@ -73,7 +73,7 @@ services:
     image: mysql:8.4
     environment:
       MYSQL_ROOT_PASSWORD: testroot
-      MYSQL_DATABASE: cruisetravelnow_test
+      MYSQL_DATABASE: sailspipeline_test
     tmpfs:
       - /var/lib/mysql
     volumes:
@@ -90,12 +90,12 @@ services:
     build:
       context: ./backend
     environment:
-      DATABASE_URL: mysql+pymysql://root:testroot@test-db:3306/cruisetravelnow_test
+      DATABASE_URL: mysql+pymysql://root:testroot@test-db:3306/sailspipeline_test
       APP_ENV: test
       JWT_SECRET: test-jwt-secret
       SEED_ADMIN_USERNAME: ""
       SEED_ADMIN_PASSWORD: ""
-      ATTACHMENTS_DIR: /tmp/cruisetravelnow-test-uploads
+      ATTACHMENTS_DIR: /tmp/sailspipeline-test-uploads
       GEMINI_API_KEY: ""
     volumes:
       - ./backend:/app

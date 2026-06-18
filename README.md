@@ -1,4 +1,4 @@
-# CruiseTravelNow
+# SailsPipeline
 
 Web app for managing cruise travel requests from intake through research, client communication, and booking prep.
 
@@ -413,19 +413,19 @@ Fresh installs use `db/init.sql` via Docker entrypoint. Existing volumes may nee
 
 ```powershell
 # Auth (users table)
-Get-Content db\migrate_auth.sql | docker compose exec -T db mysql -uroot -prootsecret cruisetravelnow
+Get-Content db\migrate_auth.sql | docker compose exec -T db mysql -uroot -prootsecret sailspipeline
 
 # Other migrations (run as needed for older databases)
-Get-Content db\migrate_questionnaire.sql | docker compose exec -T db mysql -uroot -prootsecret cruisetravelnow
-Get-Content db\migrate_dashboard.sql | docker compose exec -T db mysql -uroot -prootsecret cruisetravelnow
-Get-Content db\migrate_passengers.sql | docker compose exec -T db mysql -uroot -prootsecret cruisetravelnow
-Get-Content db\migrate_passenger_registry.sql | docker compose exec -T db mysql -uroot -prootsecret cruisetravelnow
-Get-Content db\migrate_cabins.sql | docker compose exec -T db mysql -uroot -prootsecret cruisetravelnow
-Get-Content db\migrate_proposed_cruises.sql | docker compose exec -T db mysql -uroot -prootsecret cruisetravelnow
-Get-Content db\migrate_quoted_insurance.sql | docker compose exec -T db mysql -uroot -prootsecret cruisetravelnow
-Get-Content db\migrate_request_notes.sql | docker compose exec -T db mysql -uroot -prootsecret cruisetravelnow
-Get-Content db\migrate_request_workflows.sql | docker compose exec -T db mysql -uroot -prootsecret cruisetravelnow
-Get-Content db\migrate_attachments_to_files.sql | docker compose exec -T db mysql -uroot -prootsecret cruisetravelnow
+Get-Content db\migrate_questionnaire.sql | docker compose exec -T db mysql -uroot -prootsecret sailspipeline
+Get-Content db\migrate_dashboard.sql | docker compose exec -T db mysql -uroot -prootsecret sailspipeline
+Get-Content db\migrate_passengers.sql | docker compose exec -T db mysql -uroot -prootsecret sailspipeline
+Get-Content db\migrate_passenger_registry.sql | docker compose exec -T db mysql -uroot -prootsecret sailspipeline
+Get-Content db\migrate_cabins.sql | docker compose exec -T db mysql -uroot -prootsecret sailspipeline
+Get-Content db\migrate_proposed_cruises.sql | docker compose exec -T db mysql -uroot -prootsecret sailspipeline
+Get-Content db\migrate_quoted_insurance.sql | docker compose exec -T db mysql -uroot -prootsecret sailspipeline
+Get-Content db\migrate_request_notes.sql | docker compose exec -T db mysql -uroot -prootsecret sailspipeline
+Get-Content db\migrate_request_workflows.sql | docker compose exec -T db mysql -uroot -prootsecret sailspipeline
+Get-Content db\migrate_attachments_to_files.sql | docker compose exec -T db mysql -uroot -prootsecret sailspipeline
 
 docker compose restart backend
 ```

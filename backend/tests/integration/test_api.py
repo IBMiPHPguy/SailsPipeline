@@ -7,7 +7,7 @@ def test_health_endpoint(client):
     assert response.status_code == 200
     payload = response.json()
     assert payload["status"] == "ok"
-    assert payload["service"] == "cruisetravelnow-api"
+    assert payload["service"] == "sailspipeline-api"
 
 
 @pytest.mark.integration
@@ -91,6 +91,68 @@ def test_delete_draft_communication_only(client, auth_headers, sample_request_pa
     )
     assert blocked_delete.status_code == 400
     assert "draft" in blocked_delete.json()["detail"].lower()
+
+
+@pytest.mark.integration
+def test_closed_requests_search_and_pagination(client, auth_headers, sample_request_payload, db, test_user):
+    from app.constants import REQUEST_STATUS_CLOSED
+    from app.models import TravelRequest
+
+    create_response = client.post("/api/requests", headers=auth_headers, json=sample_request_payload)
+    request_id = create_response.json()["id"]
+    request = db.get(TravelRequest, request_id)
+    request.status = REQUEST_STATUS_CLOSED
+    request.close_reason = "Client declined"
+    db.commit()
+
+    list_response = client.get("/api/requests/closed", headers=auth_headers)
+    assert list_response.status_code == 200
+    payload = list_response.json()
+    assert payload["total"] == 1
+    assert payload["page"] == 1
+    assert payload["page_size"] == 25
+    assert payload["total_pages"] == 1
+    assert len(payload["items"]) == 1
+    assert payload["items"][0]["first_name"] == "Jane"
+
+    search_response = client.get("/api/requests/closed?q=declined", headers=auth_headers)
+    assert search_response.status_code == 200
+    assert search_response.json()["total"] == 1
+
+    miss_response = client.get("/api/requests/closed?q=Alaska", headers=auth_headers)
+    assert miss_response.status_code == 200
+    assert miss_response.json()["total"] == 0
+
+
+@pytest.mark.integration
+def test_open_requests_search_and_pagination(client, auth_headers, sample_request_payload):
+    create_response = client.post("/api/requests", headers=auth_headers, json=sample_request_payload)
+    assert create_response.status_code == 201, create_response.text
+
+    list_response = client.get("/api/requests/open", headers=auth_headers)
+    assert list_response.status_code == 200
+    payload = list_response.json()
+    assert payload["total"] == 1
+    assert payload["page"] == 1
+    assert payload["page_size"] == 25
+    assert payload["total_pages"] == 1
+    assert len(payload["items"]) == 1
+    assert payload["items"][0]["first_name"] == "Jane"
+    assert "is_stale" in payload["items"][0]
+
+    dashboard_response = client.get("/api/dashboard", headers=auth_headers)
+    assert dashboard_response.status_code == 200
+    dashboard = dashboard_response.json()
+    assert dashboard["open_count"] == 1
+    assert "open_requests" not in dashboard
+
+    search_response = client.get("/api/requests/open?q=Jane", headers=auth_headers)
+    assert search_response.status_code == 200
+    assert search_response.json()["total"] == 1
+
+    miss_response = client.get("/api/requests/open?q=Alaska", headers=auth_headers)
+    assert miss_response.status_code == 200
+    assert miss_response.json()["total"] == 0
 
 
 @pytest.mark.integration

@@ -24,7 +24,7 @@ def _create_registry_client(client, auth_headers):
 
     list_response = client.get("/api/passengers", headers=auth_headers)
     assert list_response.status_code == 200
-    passenger = next(item for item in list_response.json() if item["last_name"] == "Inactive")
+    passenger = next(item for item in list_response.json()["items"] if item["last_name"] == "Inactive")
     return passenger["id"]
 
 
@@ -73,3 +73,26 @@ def test_reactivated_client_appears_in_search(client, auth_headers):
     assert active_search.status_code == 200
     assert len(active_search.json()) == 1
     assert active_search.json()[0]["id"] == passenger_id
+
+
+@pytest.mark.integration
+def test_clients_search_and_pagination(client, auth_headers, sample_request_payload):
+    create_response = client.post("/api/requests", headers=auth_headers, json=sample_request_payload)
+    assert create_response.status_code == 201, create_response.text
+
+    list_response = client.get("/api/passengers", headers=auth_headers)
+    assert list_response.status_code == 200
+    payload = list_response.json()
+    assert payload["registry_count"] >= 1
+    assert payload["total"] >= 1
+    assert payload["page"] == 1
+    assert payload["page_size"] == 25
+    assert len(payload["items"]) >= 1
+
+    search_response = client.get("/api/passengers?q=Jane", headers=auth_headers)
+    assert search_response.status_code == 200
+    assert search_response.json()["total"] >= 1
+
+    miss_response = client.get("/api/passengers?q=NoSuchClientName", headers=auth_headers)
+    assert miss_response.status_code == 200
+    assert miss_response.json()["total"] == 0

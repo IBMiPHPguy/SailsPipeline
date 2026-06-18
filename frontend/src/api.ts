@@ -4,8 +4,12 @@ import type {
   AttachmentKind,
   ClientDetail,
   ClientListItem,
+  ClientsPage,
   ClientUpdateInput,
+  ClosedRequestsPage,
   DashboardData,
+  DashboardOpenRequest,
+  OpenRequestsPage,
   RequestNote,
   RequestNoteInput,
   RequestPassenger,
@@ -41,6 +45,35 @@ export async function fetchDashboard(): Promise<DashboardData> {
   return response.json();
 }
 
+export type OpenRequestsQuery = {
+  q?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+export async function fetchOpenRequests(query: OpenRequestsQuery = {}): Promise<OpenRequestsPage> {
+  const params = new URLSearchParams();
+  const trimmedQuery = query.q?.trim();
+  if (trimmedQuery) {
+    params.set("q", trimmedQuery);
+  }
+  if (query.page && query.page > 1) {
+    params.set("page", String(query.page));
+  }
+  if (query.pageSize) {
+    params.set("page_size", String(query.pageSize));
+  }
+
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const response = await fetch(`${API_BASE}/requests/open${suffix}`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to load open requests."));
+  }
+  return response.json();
+}
+
 export async function fetchRequests(): Promise<TravelRequest[]> {
   const response = await fetch(`${API_BASE}/requests`, {
     headers: authHeaders(),
@@ -51,8 +84,27 @@ export async function fetchRequests(): Promise<TravelRequest[]> {
   return response.json();
 }
 
-export async function fetchClosedRequests(): Promise<TravelRequest[]> {
-  const response = await fetch(`${API_BASE}/requests/closed`, {
+export type ClosedRequestsQuery = {
+  q?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+export async function fetchClosedRequests(query: ClosedRequestsQuery = {}): Promise<ClosedRequestsPage> {
+  const params = new URLSearchParams();
+  const trimmedQuery = query.q?.trim();
+  if (trimmedQuery) {
+    params.set("q", trimmedQuery);
+  }
+  if (query.page && query.page > 1) {
+    params.set("page", String(query.page));
+  }
+  if (query.pageSize) {
+    params.set("page_size", String(query.pageSize));
+  }
+
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const response = await fetch(`${API_BASE}/requests/closed${suffix}`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -222,8 +274,27 @@ export async function searchPassengers(query = "", limit = 20): Promise<Passenge
   return response.json();
 }
 
-export async function fetchClients(): Promise<ClientListItem[]> {
-  const response = await fetch(`${API_BASE}/passengers`, {
+export type ClientsQuery = {
+  q?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+export async function fetchClients(query: ClientsQuery = {}): Promise<ClientsPage> {
+  const params = new URLSearchParams();
+  const trimmedQuery = query.q?.trim();
+  if (trimmedQuery) {
+    params.set("q", trimmedQuery);
+  }
+  if (query.page && query.page > 1) {
+    params.set("page", String(query.page));
+  }
+  if (query.pageSize) {
+    params.set("page_size", String(query.pageSize));
+  }
+
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const response = await fetch(`${API_BASE}/passengers${suffix}`, {
     headers: authHeaders(),
   });
   if (!response.ok) {

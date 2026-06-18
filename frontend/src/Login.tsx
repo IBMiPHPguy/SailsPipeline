@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import { login, register } from "./authApi";
 import { validatePassword } from "./authStorage";
+import { BRAND_APP_TITLE } from "./branding";
 import type { User } from "./types";
 
 type LoginProps = {
@@ -52,7 +53,7 @@ export default function Login({ onAuthenticated }: LoginProps) {
   return (
     <main className="page auth-page">
       <section className="card auth-card">
-        <h1>CruiseTravelNow</h1>
+        <h1>{BRAND_APP_TITLE}</h1>
         <p className="auth-subtitle">Sign in to manage cruise travel requests.</p>
 
         <div className="auth-toggle">

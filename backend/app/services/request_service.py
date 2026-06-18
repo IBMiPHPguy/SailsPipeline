@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from math import ceil
 
 from fastapi import HTTPException
+from sqlalchemy import String, cast, func, or_
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.audit_helpers import (
@@ -251,13 +253,99 @@ def list_requests(db: Session) -> list[TravelRequest]:
     return request_query(db).order_by(TravelRequest.created_at.desc()).all()
 
 
-def list_closed_requests(db: Session) -> list[TravelRequest]:
-    return (
-        request_query(db)
-        .filter(TravelRequest.status == REQUEST_STATUS_CLOSED)
-        .order_by(TravelRequest.updated_at.desc())
+CLOSED_REQUESTS_PAGE_SIZE_DEFAULT = 25
+CLOSED_REQUESTS_PAGE_SIZE_MAX = 100
+
+
+def search_closed_requests(
+    db: Session,
+    *,
+    query: str = "",
+    page: int = 1,
+    page_size: int = CLOSED_REQUESTS_PAGE_SIZE_DEFAULT,
+) -> tuple[list[TravelRequest], int]:
+    page = max(1, page)
+    page_size = max(1, min(page_size, CLOSED_REQUESTS_PAGE_SIZE_MAX))
+
+    base = request_query(db).filter(TravelRequest.status == REQUEST_STATUS_CLOSED)
+    term = query.strip()
+    if term:
+        pattern = f"%{term}%"
+        phone_digits = "".join(character for character in term if character.isdigit())
+        filters = [
+            TravelRequest.first_name.ilike(pattern),
+            TravelRequest.last_name.ilike(pattern),
+            TravelRequest.email.ilike(pattern),
+            TravelRequest.phone.ilike(pattern),
+            TravelRequest.destination.ilike(pattern),
+            TravelRequest.close_reason.ilike(pattern),
+            func.concat(TravelRequest.first_name, " ", TravelRequest.last_name).ilike(pattern),
+            cast(TravelRequest.cruise_lines, String).ilike(pattern),
+            User.username.ilike(pattern),
+        ]
+        if phone_digits:
+            filters.append(TravelRequest.phone.ilike(f"%{phone_digits}%"))
+        base = base.join(TravelRequest.updated_by).filter(or_(*filters))
+
+    total = base.count()
+    items = (
+        base.order_by(TravelRequest.updated_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
         .all()
     )
+    return items, total
+
+
+def closed_requests_total_pages(total: int, page_size: int) -> int:
+    if total <= 0:
+        return 0
+    return ceil(total / page_size)
+
+
+def search_open_requests(
+    db: Session,
+    *,
+    query: str = "",
+    page: int = 1,
+    page_size: int = CLOSED_REQUESTS_PAGE_SIZE_DEFAULT,
+) -> tuple[list[DashboardOpenRequest], int]:
+    page = max(1, page)
+    page_size = max(1, min(page_size, CLOSED_REQUESTS_PAGE_SIZE_MAX))
+
+    base = dashboard_query(db).filter(TravelRequest.status == REQUEST_STATUS_OPEN)
+    term = query.strip()
+    if term:
+        pattern = f"%{term}%"
+        phone_digits = "".join(character for character in term if character.isdigit())
+        filters = [
+            TravelRequest.first_name.ilike(pattern),
+            TravelRequest.last_name.ilike(pattern),
+            TravelRequest.email.ilike(pattern),
+            TravelRequest.phone.ilike(pattern),
+            TravelRequest.destination.ilike(pattern),
+            func.concat(TravelRequest.first_name, " ", TravelRequest.last_name).ilike(pattern),
+            cast(TravelRequest.cruise_lines, String).ilike(pattern),
+            User.username.ilike(pattern),
+            RequestTask.title.ilike(pattern),
+            RequestWorkflow.workflow_type.ilike(pattern),
+        ]
+        if phone_digits:
+            filters.append(TravelRequest.phone.ilike(f"%{phone_digits}%"))
+        base = (
+            base.outerjoin(TravelRequest.updated_by)
+            .outerjoin(TravelRequest.request_workflows)
+            .outerjoin(RequestWorkflow.tasks)
+            .filter(or_(*filters))
+            .distinct()
+        )
+
+    requests = base.all()
+    items = [build_dashboard_open_request(request) for request in requests]
+    items.sort(key=lambda item: item.last_worked_at)
+    total = len(items)
+    start = (page - 1) * page_size
+    return items[start : start + page_size], total
 
 
 def reopen_request(db: Session, request_id: int, current_user: User) -> TravelRequest:

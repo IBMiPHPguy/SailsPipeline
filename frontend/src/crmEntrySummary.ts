@@ -1,3 +1,4 @@
+import { BRAND_NAME } from "./branding";
 import { formatMoney } from "./cabinPricing";
 import { normalizeCabinHoldReservationDrafts } from "./cabinHoldReservations";
 import { proposedCruiseToCabinRooms } from "./cabinRooms";
@@ -99,7 +100,7 @@ export function buildCrmEntrySummaryText(
   const reservations = normalizeCabinHoldReservationDrafts(request.cabin_hold_reservation_ids, cabinsNeeded);
 
   const sections: string[] = [
-    "Cruise Travel Now — CRM Entry Summary",
+    `${BRAND_NAME} — CRM Entry Summary`,
     line("Request", `#${request.id}`),
     "",
     "REQUEST",

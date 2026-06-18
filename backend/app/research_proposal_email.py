@@ -5,6 +5,7 @@ from decimal import Decimal
 from html import escape
 from typing import Any
 
+from app.branding import BRAND_NAME
 from app.models import ProposedCruise
 
 
@@ -179,8 +180,8 @@ def build_research_proposal_email_html(
         <td align="center">
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(16,42,67,0.12);">
             <tr>
-              <td style="padding:28px 28px 18px;background:linear-gradient(135deg,#102a43 0%,#334e68 100%);color:#ffffff;">
-                <div style="font-size:12px;letter-spacing:0.12em;text-transform:uppercase;opacity:0.82;">Cruise Travel Now</div>
+              <td style="padding:28px 28px 18px;background:linear-gradient(180deg,#eef2f7 0%,#dce4ed 100%);color:#1e293b;border-bottom:1px solid #c8d3e0;">
+                <div style="font-size:12px;letter-spacing:0.12em;text-transform:uppercase;opacity:0.82;">{escape(BRAND_NAME)}</div>
                 <h1 style="margin:10px 0 0;font-size:28px;line-height:1.25;font-weight:700;">Your cruise options</h1>
                 <p style="margin:10px 0 0;font-size:15px;line-height:1.6;opacity:0.92;">A personalized proposal prepared for you</p>
               </td>

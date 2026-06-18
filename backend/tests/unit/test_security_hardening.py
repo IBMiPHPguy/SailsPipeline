@@ -10,7 +10,7 @@ def test_validate_production_settings_rejects_insecure_defaults():
     settings = Settings(
         app_env="production",
         jwt_secret="change-me-in-production",
-        database_url="mysql+pymysql://cruiseapp:cruisesecret@db:3306/cruisetravelnow",
+        database_url="mysql+pymysql://cruiseapp:cruisesecret@db:3306/sailspipeline",
         allow_public_registration=True,
         cors_origins="*",
         expose_openapi=True,
@@ -24,9 +24,9 @@ def test_validate_production_settings_accepts_secure_configuration():
     settings = Settings(
         app_env="production",
         jwt_secret="x" * 32,
-        database_url="mysql+pymysql://appuser:K7mPq2vL9nR4wX8z@db:3306/cruisetravelnow",
+        database_url="mysql+pymysql://appuser:K7mPq2vL9nR4wX8z@db:3306/sailspipeline",
         allow_public_registration=False,
-        cors_origins="https://cruisetravelnow.example",
+        cors_origins="https://sailspipeline.example",
         expose_openapi=False,
     )
 

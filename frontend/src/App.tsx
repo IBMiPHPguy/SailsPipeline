@@ -11,6 +11,7 @@ import PassengerPickerModal from "./PassengerPickerModal";
 import { toPassengerPayload } from "./PassengerFields";
 import RequestForm, { emptyRequestForm, isReturnAfterDeparture } from "./RequestForm";
 import RequestWorkspace from "./RequestWorkspace";
+import { BRAND_APP_TITLE, BRAND_TAGLINE } from "./branding";
 import type { AppView, DashboardData, PassengerProfile, RequestPassengerInput, TravelRequestInput, User } from "./types";
 import "./App.css";
 
@@ -157,8 +158,8 @@ function App() {
       <section className="hero">
         <div className="hero-top">
           <div>
-            <h1>CruiseTravelNow</h1>
-            <p>Manage cruise travel requests from intake through close.</p>
+            <h1>{BRAND_APP_TITLE}</h1>
+            <p>{BRAND_TAGLINE}</p>
             <p>API status: {health}</p>
           </div>
           <div className="user-panel">

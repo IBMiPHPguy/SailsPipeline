@@ -1,10 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { activateClient, deactivateClient, fetchClients } from "./api";
 import ChickenSwitchModal from "./ChickenSwitchModal";
 import ClientModal from "./ClientModal";
+import DeactivateIcon from "./DeactivateIcon";
+import EditIcon from "./EditIcon";
+import IconTooltip from "./IconTooltip";
 import InactiveClientBadge from "./InactiveClientBadge";
+import ReopenIcon from "./ReopenIcon";
 import type { ClientListItem } from "./types";
+import ViewIcon from "./ViewIcon";
 import { formatDate } from "./utils";
+
+const CLIENTS_PAGE_SIZE = 25;
 
 type PendingDeactivateClient = {
   id: number;
@@ -15,17 +22,33 @@ export default function ClientsPage() {
   const [clients, setClients] = useState<ClientListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [registryCount, setRegistryCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [modalClientId, setModalClientId] = useState<number | null>(null);
   const [modalMode, setModalMode] = useState<"view" | "edit">("view");
   const [pendingDeactivate, setPendingDeactivate] = useState<PendingDeactivateClient | null>(null);
   const [deactivatingId, setDeactivatingId] = useState<number | null>(null);
 
-  async function loadClients() {
+  async function loadClients(activeSearch: string, activePage: number) {
     setLoading(true);
     setError("");
     try {
-      setClients(await fetchClients());
+      const response = await fetchClients({
+        q: activeSearch,
+        page: activePage,
+        pageSize: CLIENTS_PAGE_SIZE,
+      });
+      setClients(response.items);
+      setTotal(response.total);
+      setRegistryCount(response.registry_count);
+      setTotalPages(response.total_pages);
+      if (response.total_pages > 0 && activePage > response.total_pages) {
+        setPage(response.total_pages);
+      }
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Unable to load clients.");
     } finally {
@@ -34,28 +57,17 @@ export default function ClientsPage() {
   }
 
   useEffect(() => {
-    void loadClients();
-  }, []);
+    const timer = window.setTimeout(() => {
+      setSearchQuery(searchInput.trim());
+      setPage(1);
+    }, 300);
 
-  const filteredClients = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) {
-      return clients;
-    }
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
 
-    return clients.filter((client) => {
-      const haystack = [
-        client.first_name,
-        client.last_name,
-        client.email,
-        client.phone,
-        client.date_of_birth ? formatDate(client.date_of_birth) : "",
-      ]
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(query);
-    });
-  }, [clients, searchQuery]);
+  useEffect(() => {
+    void loadClients(searchQuery, page);
+  }, [searchQuery, page]);
 
   function openClient(clientId: number, mode: "view" | "edit") {
     setModalClientId(clientId);
@@ -79,7 +91,7 @@ export default function ClientsPage() {
     try {
       await deactivateClient(pendingDeactivate.id);
       setPendingDeactivate(null);
-      await loadClients();
+      await loadClients(searchQuery, page);
     } catch (deactivateError) {
       setError(deactivateError instanceof Error ? deactivateError.message : "Unable to deactivate client.");
     } finally {
@@ -98,99 +110,171 @@ export default function ClientsPage() {
     setError("");
     try {
       await activateClient(client.id);
-      await loadClients();
+      await loadClients(searchQuery, page);
     } catch (reactivateError) {
       setError(reactivateError instanceof Error ? reactivateError.message : "Unable to reactivate client.");
     }
   }
 
+  const pageStart = total === 0 ? 0 : (page - 1) * CLIENTS_PAGE_SIZE + 1;
+  const pageEnd = total === 0 ? 0 : Math.min(page * CLIENTS_PAGE_SIZE, total);
+  const emptyMessage = searchQuery.trim()
+    ? "No clients match your search."
+    : "No clients yet.";
+
   return (
     <section className="clients-page">
-      <div className="clients-page-header">
-        <div>
-          <h2>Clients</h2>
-          <p className="meta">Manage reusable passenger profiles across requests.</p>
+      <section className="card open-requests-table-card clients-table-card">
+        <header className="open-requests-table-card-header clients-table-card-header">
+          <div className="open-requests-table-card-header-main">
+            <h3>Clients</h3>
+            <span
+              className="open-requests-table-card-count clients-table-card-count"
+              aria-label={`${registryCount} clients`}
+            >
+              {registryCount}
+            </span>
+          </div>
+        </header>
+        <div className="open-requests-table-card-body">
+          <div className="clients-table-toolbar">
+            <label className="clients-search">
+              Search clients
+              <input
+                type="search"
+                value={searchInput}
+                placeholder="Name, email, phone, or date of birth"
+                onChange={(event) => setSearchInput(event.target.value)}
+              />
+            </label>
+          </div>
+
+          {loading ? (
+            <p>Loading clients...</p>
+          ) : clients.length === 0 ? (
+            <p>{emptyMessage}</p>
+          ) : (
+            <>
+              <div className="open-requests-table-wrap">
+                <table className="open-requests-table clients-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Name</th>
+                      <th scope="col">Date of birth</th>
+                      <th scope="col">Phone</th>
+                      <th scope="col">Email</th>
+                      <th scope="col">Requests</th>
+                      <th scope="col">
+                        <span className="sr-only">Actions</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {clients.map((client) => {
+                      const clientName = `${client.first_name} ${client.last_name}`;
+
+                      return (
+                        <tr key={client.id} className={client.is_active ? undefined : "clients-table-row-inactive"}>
+                        <td>
+                          <div className="clients-table-name">
+                            <span>
+                              {client.first_name} {client.last_name}
+                            </span>
+                            {!client.is_active ? <InactiveClientBadge /> : null}
+                          </div>
+                        </td>
+                        <td>{client.date_of_birth ? formatDate(client.date_of_birth) : "—"}</td>
+                        <td>{client.phone ?? "—"}</td>
+                        <td>{client.email ?? "—"}</td>
+                        <td>{client.request_count}</td>
+                        <td className="dashboard-table-actions-cell clients-table-actions-cell">
+                          <div className="dashboard-table-actions">
+                            <IconTooltip label={`View ${clientName}`}>
+                              <button
+                                type="button"
+                                className="icon-button"
+                                aria-label={`View ${clientName}`}
+                                onClick={() => openClient(client.id, "view")}
+                              >
+                                <ViewIcon />
+                              </button>
+                            </IconTooltip>
+                            <IconTooltip label={`Edit ${clientName}`}>
+                              <button
+                                type="button"
+                                className="icon-button"
+                                aria-label={`Edit ${clientName}`}
+                                onClick={() => openClient(client.id, "edit")}
+                              >
+                                <EditIcon />
+                              </button>
+                            </IconTooltip>
+                            {client.is_active ? (
+                              <IconTooltip label={`Deactivate ${clientName}`}>
+                                <button
+                                  type="button"
+                                  className="icon-button icon-button-danger"
+                                  aria-label={`Deactivate ${clientName}`}
+                                  onClick={() => requestDeactivateClient(client)}
+                                >
+                                  <DeactivateIcon />
+                                </button>
+                              </IconTooltip>
+                            ) : (
+                              <IconTooltip label={`Reactivate ${clientName}`}>
+                                <button
+                                  type="button"
+                                  className="icon-button icon-button-reopen"
+                                  aria-label={`Reactivate ${clientName}`}
+                                  onClick={() => void handleReactivateClient(client)}
+                                >
+                                  <ReopenIcon />
+                                </button>
+                              </IconTooltip>
+                            )}
+                          </div>
+                        </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="table-pagination">
+                <p className="table-pagination-summary">
+                  {searchQuery.trim()
+                    ? `Showing ${pageStart}-${pageEnd} of ${total} matching clients`
+                    : `Showing ${pageStart}-${pageEnd} of ${total} clients`}
+                </p>
+                <div className="table-pagination-controls">
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={page <= 1 || loading}
+                    onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
+                  >
+                    Previous
+                  </button>
+                  <span className="table-pagination-status">
+                    Page {totalPages === 0 ? 0 : page} of {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={page >= totalPages || totalPages === 0 || loading}
+                    onClick={() => setPage((currentPage) => currentPage + 1)}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
-        <label className="clients-search">
-          Search clients
-          <input
-            type="search"
-            value={searchQuery}
-            placeholder="Name, email, phone, or date of birth"
-            onChange={(event) => setSearchQuery(event.target.value)}
-          />
-        </label>
-      </div>
+      </section>
 
       {error ? <p className="status error">{error}</p> : null}
-
-      <section className="card clients-table-card">
-        {loading ? (
-          <p>Loading clients...</p>
-        ) : filteredClients.length === 0 ? (
-          <p>{clients.length === 0 ? "No clients yet." : "No clients match your search."}</p>
-        ) : (
-          <div className="clients-table-wrap">
-            <table className="clients-table">
-              <thead>
-                <tr>
-                  <th scope="col">Name</th>
-                  <th scope="col">Date of birth</th>
-                  <th scope="col">Phone</th>
-                  <th scope="col">Email</th>
-                  <th scope="col">Requests</th>
-                  <th scope="col">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredClients.map((client) => (
-                  <tr key={client.id} className={client.is_active ? undefined : "clients-table-row-inactive"}>
-                    <td>
-                      <div className="clients-table-name">
-                        <span>
-                          {client.first_name} {client.last_name}
-                        </span>
-                        {!client.is_active ? <InactiveClientBadge /> : null}
-                      </div>
-                    </td>
-                    <td>{client.date_of_birth ? formatDate(client.date_of_birth) : "—"}</td>
-                    <td>{client.phone ?? "—"}</td>
-                    <td>{client.email ?? "—"}</td>
-                    <td>{client.request_count}</td>
-                    <td>
-                      <div className="clients-table-actions">
-                        <button type="button" className="modal-secondary" onClick={() => openClient(client.id, "view")}>
-                          View
-                        </button>
-                        <button type="button" className="modal-secondary" onClick={() => openClient(client.id, "edit")}>
-                          Edit
-                        </button>
-                        {client.is_active ? (
-                          <button
-                            type="button"
-                            className="modal-secondary danger-button"
-                            onClick={() => requestDeactivateClient(client)}
-                          >
-                            Deactivate
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            className="modal-secondary"
-                            onClick={() => void handleReactivateClient(client)}
-                          >
-                            Reactivate
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
 
       <ClientModal
         open={modalClientId !== null}
@@ -198,8 +282,8 @@ export default function ClientsPage() {
         mode={modalMode}
         onClose={() => setModalClientId(null)}
         onModeChange={setModalMode}
-        onSaved={() => void loadClients()}
-        onDeactivated={() => void loadClients()}
+        onSaved={() => void loadClients(searchQuery, page)}
+        onDeactivated={() => void loadClients(searchQuery, page)}
       />
 
       <ChickenSwitchModal

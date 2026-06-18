@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    database_url: str = "mysql+pymysql://cruiseapp:cruisesecret@db:3306/cruisetravelnow"
+    database_url: str = "mysql+pymysql://cruiseapp:cruisesecret@db:3306/sailspipeline"
     app_env: str = "development"
     jwt_secret: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"

@@ -13,7 +13,7 @@ os.environ.setdefault("CORS_ORIGINS", "http://testserver")
 os.environ.setdefault("EXPOSE_OPENAPI", "true")
 os.environ.setdefault("SEED_ADMIN_USERNAME", "")
 os.environ.setdefault("SEED_ADMIN_PASSWORD", "")
-os.environ.setdefault("ATTACHMENTS_DIR", "/tmp/cruisetravelnow-test-uploads")
+os.environ.setdefault("ATTACHMENTS_DIR", "/tmp/sailspipeline-test-uploads")
 if "DATABASE_URL" not in os.environ:
     os.environ["DATABASE_URL"] = "sqlite://"
 

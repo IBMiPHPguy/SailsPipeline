@@ -19,10 +19,11 @@ from app.passenger_helpers import (
     create_passenger_record,
     deactivate_passenger_record,
     get_passenger_or_none,
-    list_passengers_with_request_counts,
+    search_clients_with_request_counts,
     search_passengers,
 )
 from app.schemas import (
+    ClientsPageRead,
     PassengerListRead,
     PassengerRead,
     PassengerUpdate,
@@ -34,7 +35,7 @@ from app.services.passenger_service import (
     load_request_passenger,
     sync_request_from_primary_passenger,
 )
-from app.services.request_service import get_open_request, touch_request
+from app.services.request_service import closed_requests_total_pages, get_open_request, touch_request
 
 router = APIRouter(prefix="/api/passengers", tags=["passengers"])
 request_passengers_router = APIRouter(prefix="/api/requests", tags=["request-passengers"])
@@ -51,25 +52,41 @@ def search_passenger_registry(
     return search_passengers(db, q, limit=safe_limit)
 
 
-@router.get("", response_model=list[PassengerListRead])
+@router.get("", response_model=ClientsPageRead)
 def list_passenger_registry(
+    q: str = "",
+    page: int = 1,
+    page_size: int = 25,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
-) -> list[PassengerListRead]:
-    rows = list_passengers_with_request_counts(db)
-    return [
-        PassengerListRead(
-            id=passenger.id,
-            first_name=passenger.first_name,
-            last_name=passenger.last_name,
-            email=passenger.email,
-            phone=passenger.phone,
-            date_of_birth=passenger.date_of_birth,
-            is_active=passenger.is_active,
-            request_count=request_count,
-        )
-        for passenger, request_count in rows
-    ]
+) -> ClientsPageRead:
+    normalized_page_size = max(1, min(page_size, 100))
+    rows, total, registry_count = search_clients_with_request_counts(
+        db,
+        query=q,
+        page=page,
+        page_size=normalized_page_size,
+    )
+    return ClientsPageRead(
+        items=[
+            PassengerListRead(
+                id=passenger.id,
+                first_name=passenger.first_name,
+                last_name=passenger.last_name,
+                email=passenger.email,
+                phone=passenger.phone,
+                date_of_birth=passenger.date_of_birth,
+                is_active=passenger.is_active,
+                request_count=request_count,
+            )
+            for passenger, request_count in rows
+        ],
+        total=total,
+        registry_count=registry_count,
+        page=max(1, page),
+        page_size=normalized_page_size,
+        total_pages=closed_requests_total_pages(total, normalized_page_size),
+    )
 
 
 @router.get("/{passenger_id}", response_model=PassengerRead)

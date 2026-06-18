@@ -1,7 +1,34 @@
-from sqlalchemy import func, or_
+from sqlalchemy import String, cast, func, or_
 from sqlalchemy.orm import Session
 
 from app.models import Passenger, RequestPassenger
+
+CLIENTS_PAGE_SIZE_DEFAULT = 25
+CLIENTS_PAGE_SIZE_MAX = 100
+
+
+def _client_search_filters(term: str) -> list:
+    pattern = f"%{term}%"
+    phone_digits = "".join(character for character in term if character.isdigit())
+    filters = [
+        Passenger.first_name.ilike(pattern),
+        Passenger.last_name.ilike(pattern),
+        Passenger.email.ilike(pattern),
+        Passenger.phone.ilike(pattern),
+        func.concat(Passenger.first_name, " ", Passenger.last_name).ilike(pattern),
+        cast(Passenger.date_of_birth, String).ilike(pattern),
+    ]
+    if phone_digits:
+        filters.append(Passenger.phone.ilike(f"%{phone_digits}%"))
+    return filters
+
+
+def _clients_with_request_counts_query(db: Session):
+    return (
+        db.query(Passenger, func.count(RequestPassenger.id))
+        .outerjoin(RequestPassenger, RequestPassenger.passenger_id == Passenger.id)
+        .group_by(Passenger.id)
+    )
 
 
 def create_passenger_record(
@@ -34,12 +61,36 @@ def get_passenger_or_none(db: Session, passenger_id: int) -> Passenger | None:
 
 def list_passengers_with_request_counts(db: Session) -> list[tuple[Passenger, int]]:
     return (
-        db.query(Passenger, func.count(RequestPassenger.id))
-        .outerjoin(RequestPassenger, RequestPassenger.passenger_id == Passenger.id)
-        .group_by(Passenger.id)
+        _clients_with_request_counts_query(db)
         .order_by(Passenger.last_name.asc(), Passenger.first_name.asc(), Passenger.id.asc())
         .all()
     )
+
+
+def search_clients_with_request_counts(
+    db: Session,
+    *,
+    query: str = "",
+    page: int = 1,
+    page_size: int = CLIENTS_PAGE_SIZE_DEFAULT,
+) -> tuple[list[tuple[Passenger, int]], int, int]:
+    page = max(1, page)
+    page_size = max(1, min(page_size, CLIENTS_PAGE_SIZE_MAX))
+
+    registry_count = db.query(Passenger).count()
+    base = _clients_with_request_counts_query(db)
+    term = query.strip()
+    if term:
+        base = base.filter(or_(*_client_search_filters(term)))
+
+    total = base.order_by(None).count()
+    rows = (
+        base.order_by(Passenger.last_name.asc(), Passenger.first_name.asc(), Passenger.id.asc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    return rows, total, registry_count
 
 
 def get_passenger_request_count(db: Session, passenger_id: int) -> int:

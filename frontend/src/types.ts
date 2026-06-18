@@ -58,6 +58,15 @@ export type ClientListItem = {
   request_count: number;
 };
 
+export type ClientsPage = {
+  items: ClientListItem[];
+  total: number;
+  registry_count: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+};
+
 export type ClientDetail = PassengerProfile & {
   address_line_1: string | null;
   address_line_2: string | null;
@@ -390,6 +399,22 @@ export type RequestCommunicationInput = {
   status?: string;
 };
 
+export type ClosedRequestsPage = {
+  items: TravelRequest[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+};
+
+export type OpenRequestsPage = {
+  items: DashboardOpenRequest[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+};
+
 export type TravelRequestDetail = TravelRequest & {
   last_worked_at: string;
   last_worked_by: UserAudit;
@@ -426,7 +451,6 @@ export type DashboardData = {
   purchased_closed_count: number;
   other_closed_count: number;
   successful_sales_close_rate: number | null;
-  open_requests: DashboardOpenRequest[];
 };
 
 export type TravelRequestInput = {

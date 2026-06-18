@@ -46,6 +46,7 @@ def test_build_research_proposal_email_html_includes_intro_and_cruise_details():
     assert "Let me know which option you prefer." in html
     assert "Royal Caribbean" in html
     assert "Day 1: Miami" in html
+    assert "SailsPipeline" in html
     assert "Gratuities / tips included" in html
 
 

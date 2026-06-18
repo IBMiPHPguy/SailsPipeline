@@ -14,8 +14,8 @@ def get_dashboard(db: Session) -> DashboardResponse:
     )
 
     dashboard_items = [build_dashboard_open_request(request) for request in open_requests]
-    dashboard_items.sort(key=lambda item: item.last_worked_at)
     stale_count = sum(1 for item in dashboard_items if item.is_stale)
+    open_count = len(dashboard_items)
     closed_requests = db.query(TravelRequest).filter(TravelRequest.status == REQUEST_STATUS_CLOSED)
     closed_count = closed_requests.count()
     purchased_closed_count = closed_requests.filter(
@@ -27,11 +27,10 @@ def get_dashboard(db: Session) -> DashboardResponse:
     )
 
     return DashboardResponse(
-        open_count=len(dashboard_items),
+        open_count=open_count,
         stale_count=stale_count,
         closed_count=closed_count,
         purchased_closed_count=purchased_closed_count,
         other_closed_count=other_closed_count,
         successful_sales_close_rate=successful_sales_close_rate,
-        open_requests=dashboard_items,
     )

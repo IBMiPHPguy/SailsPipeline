@@ -1,15 +1,30 @@
-const TOKEN_KEY = "cruisetravelnow_token";
+const TOKEN_KEY = "sailspipeline_token";
+const LEGACY_TOKEN_KEY = "cruisetravelnow_token";
 
 export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (token) {
+    return token;
+  }
+
+  const legacy = localStorage.getItem(LEGACY_TOKEN_KEY);
+  if (legacy) {
+    localStorage.setItem(TOKEN_KEY, legacy);
+    localStorage.removeItem(LEGACY_TOKEN_KEY);
+    return legacy;
+  }
+
+  return null;
 }
 
 export function setToken(token: string): void {
   localStorage.setItem(TOKEN_KEY, token);
+  localStorage.removeItem(LEGACY_TOKEN_KEY);
 }
 
 export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(LEGACY_TOKEN_KEY);
 }
 
 export function validatePassword(password: string): string | null {

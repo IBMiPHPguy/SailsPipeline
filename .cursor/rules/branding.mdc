@@ -1,0 +1,14 @@
+---
+description: SailsPipeline product naming and UI branding
+globs:
+  - frontend/**
+  - backend/**
+alwaysApply: true
+---
+
+# Branding Guidelines
+
+- The official name of the application is **SailsPipeline**.
+- Always capitalize the **S** and the **P** (PascalCase) when referencing the software in UI components, headers, and automated client/agent emails.
+- Ensure the login screen, browser tab title, and dashboard headers reflect **SailsPipeline CRM**.
+- Use shared constants: `frontend/src/branding.ts` and `backend/app/branding.py`.

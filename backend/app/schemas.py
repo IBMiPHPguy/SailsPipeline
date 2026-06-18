@@ -268,6 +268,15 @@ class PassengerListRead(BaseModel):
     request_count: int = Field(ge=0)
 
 
+class ClientsPageRead(BaseModel):
+    items: list[PassengerListRead]
+    total: int = Field(description="Total clients matching the search query.")
+    registry_count: int = Field(description="Total clients in the registry.")
+    page: int = Field(description="Current one-based page number.")
+    page_size: int = Field(description="Maximum number of rows returned per page.")
+    total_pages: int = Field(description="Total number of pages available for the current query.")
+
+
 class PassengerUpdate(BaseModel):
     first_name: str | None = Field(default=None, min_length=1, max_length=80)
     last_name: str | None = Field(default=None, min_length=1, max_length=80)
@@ -840,6 +849,14 @@ class TravelRequestRead(TravelRequestBase):
         return DestinationDetails.model_validate(value)
 
 
+class ClosedRequestsPageRead(BaseModel):
+    items: list[TravelRequestRead]
+    total: int = Field(description="Total closed requests matching the search query.")
+    page: int = Field(description="Current one-based page number.")
+    page_size: int = Field(description="Maximum number of rows returned per page.")
+    total_pages: int = Field(description="Total number of pages available for the current query.")
+
+
 class TravelRequestDetailRead(TravelRequestRead):
     last_worked_at: datetime
     last_worked_by: UserAudit
@@ -1070,6 +1087,14 @@ class DashboardOpenRequest(TravelRequestRead):
     last_worked_by: UserAudit
 
 
+class OpenRequestsPageRead(BaseModel):
+    items: list[DashboardOpenRequest]
+    total: int = Field(description="Total open requests matching the search query.")
+    page: int = Field(description="Current one-based page number.")
+    page_size: int = Field(description="Maximum number of rows returned per page.")
+    total_pages: int = Field(description="Total number of pages available for the current query.")
+
+
 class DashboardResponse(BaseModel):
     open_count: int
     stale_count: int = Field(description="Open requests whose last_worked_at is older than the stale threshold.")
@@ -1082,4 +1107,3 @@ class DashboardResponse(BaseModel):
         default=None,
         description="Purchased closed requests divided by all closed requests, as a percentage.",
     )
-    open_requests: list[DashboardOpenRequest]

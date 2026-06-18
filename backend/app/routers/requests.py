@@ -30,6 +30,8 @@ from app.schemas import (
     RequestNoteRead,
     RequestNoteUpdate,
     ResearchDocumentRead,
+    ClosedRequestsPageRead,
+    OpenRequestsPageRead,
     TravelRequestCreate,
     TravelRequestDetailRead,
     TravelRequestRead,
@@ -55,7 +57,9 @@ from app.services.request_service import (
     create_request,
     get_request_change_history,
     get_request_detail,
-    list_closed_requests,
+    closed_requests_total_pages,
+    search_closed_requests,
+    search_open_requests,
     list_requests,
     reopen_request,
     update_request,
@@ -72,12 +76,42 @@ def list_requests_route(
     return list_requests(db)
 
 
-@router.get("/closed", response_model=list[TravelRequestRead])
-def list_closed_requests_route(
+@router.get("/open", response_model=OpenRequestsPageRead)
+def list_open_requests_route(
+    q: str = "",
+    page: int = 1,
+    page_size: int = 25,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
-) -> list[TravelRequest]:
-    return list_closed_requests(db)
+) -> OpenRequestsPageRead:
+    normalized_page_size = max(1, min(page_size, 100))
+    items, total = search_open_requests(db, query=q, page=page, page_size=normalized_page_size)
+    return OpenRequestsPageRead(
+        items=items,
+        total=total,
+        page=max(1, page),
+        page_size=normalized_page_size,
+        total_pages=closed_requests_total_pages(total, normalized_page_size),
+    )
+
+
+@router.get("/closed", response_model=ClosedRequestsPageRead)
+def list_closed_requests_route(
+    q: str = "",
+    page: int = 1,
+    page_size: int = 25,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> ClosedRequestsPageRead:
+    normalized_page_size = max(1, min(page_size, 100))
+    items, total = search_closed_requests(db, query=q, page=page, page_size=normalized_page_size)
+    return ClosedRequestsPageRead(
+        items=items,
+        total=total,
+        page=max(1, page),
+        page_size=normalized_page_size,
+        total_pages=closed_requests_total_pages(total, normalized_page_size),
+    )
 
 
 @router.post("/{request_id}/reopen", response_model=TravelRequestRead)

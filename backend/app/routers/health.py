@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.branding import SERVICE_NAME
 from app.database import get_db
 
 router = APIRouter(tags=["health"])
@@ -10,4 +11,4 @@ router = APIRouter(tags=["health"])
 @router.get("/api/health")
 def health(db: Session = Depends(get_db)) -> dict[str, str]:
     db.execute(text("SELECT 1"))
-    return {"status": "ok", "service": "cruisetravelnow-api"}
+    return {"status": "ok", "service": SERVICE_NAME}

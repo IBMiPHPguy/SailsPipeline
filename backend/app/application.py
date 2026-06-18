@@ -7,6 +7,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from app.attachment_storage import migrate_legacy_attachment_content
+from app.branding import API_TITLE
 from app.config import settings
 from app.database import Base, SessionLocal, engine
 from app.rate_limit import limiter
@@ -55,7 +56,7 @@ def create_app() -> FastAPI:
     validate_production_settings(settings)
 
     application = FastAPI(
-        title="CruiseTravelNow API",
+        title=API_TITLE,
         description="Workflow API for new cruise travel requests.",
         version="0.3.0",
         lifespan=lifespan,
