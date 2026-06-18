@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { fetchCommunication, updateCommunication } from "./api";
+import { deleteCommunication, fetchCommunication, updateCommunication } from "./api";
+import ChickenSwitchModal from "./ChickenSwitchModal";
 import CommunicationModal from "./CommunicationModal";
+import { COMMUNICATION_STATUS_DRAFT } from "./formOptions";
 import type {
   RequestCommunication,
   RequestCommunicationInput,
@@ -24,6 +26,11 @@ type CommunicationsSectionProps = {
   embedded?: boolean;
 };
 
+type PendingDeleteCommunication = {
+  id: number;
+  subject: string;
+};
+
 export default function CommunicationsSection({
   requestId,
   communications,
@@ -37,6 +44,8 @@ export default function CommunicationsSection({
   const [editingCommunication, setEditingCommunication] = useState<RequestCommunication | null>(null);
   const [saving, setSaving] = useState(false);
   const [loadingCommunication, setLoadingCommunication] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<PendingDeleteCommunication | null>(null);
 
   const activeWorkflow = getActiveWorkflow(workflows);
 
@@ -74,6 +83,36 @@ export default function CommunicationsSection({
     }
   }
 
+  function requestDelete(communication: PendingDeleteCommunication) {
+    if (disabled) {
+      return;
+    }
+    onError("");
+    setPendingDelete(communication);
+  }
+
+  async function confirmDelete() {
+    if (!pendingDelete) {
+      return;
+    }
+
+    setDeletingId(pendingDelete.id);
+    onError("");
+    try {
+      await deleteCommunication(requestId, pendingDelete.id);
+      if (editingCommunication?.id === pendingDelete.id) {
+        setModalOpen(false);
+        setEditingCommunication(null);
+      }
+      setPendingDelete(null);
+      await onChanged();
+    } catch (deleteError) {
+      onError(deleteError instanceof Error ? deleteError.message : "Unable to delete communication.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   const body =
     communications.length === 0 ? (
       <p className="meta communications-empty">No communications saved yet.</p>
@@ -86,6 +125,7 @@ export default function CommunicationsSection({
                 <th scope="col">Type</th>
                 <th scope="col">Status</th>
                 <th scope="col">Updated</th>
+                {!disabled ? <th scope="col">Actions</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -109,6 +149,24 @@ export default function CommunicationsSection({
                   <td className="meta">
                     {communication.updated_by.username} · {formatTimestamp(communication.updated_at)}
                   </td>
+                  {!disabled ? (
+                    <td>
+                      {communication.status === COMMUNICATION_STATUS_DRAFT ? (
+                        <button
+                          type="button"
+                          className="danger-button communications-delete-button"
+                          disabled={deletingId === communication.id || saving || loadingCommunication}
+                          onClick={() =>
+                            requestDelete({ id: communication.id, subject: communication.subject })
+                          }
+                        >
+                          {deletingId === communication.id ? "Deleting..." : "Delete"}
+                        </button>
+                      ) : (
+                        <span className="meta">—</span>
+                      )}
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>
@@ -140,6 +198,27 @@ export default function CommunicationsSection({
           setEditingCommunication(null);
         }}
         onSave={handleSave}
+        onDelete={
+          editingCommunication?.status === COMMUNICATION_STATUS_DRAFT
+            ? () =>
+                requestDelete({
+                  id: editingCommunication.id,
+                  subject: editingCommunication.subject,
+                })
+            : undefined
+        }
+      />
+
+      <ChickenSwitchModal
+        open={pendingDelete !== null}
+        title="Delete draft communication?"
+        description="This draft will be permanently removed from the request."
+        itemName={pendingDelete?.subject}
+        switchLabel="Yes, delete this draft communication"
+        confirmLabel="Delete communication"
+        confirming={pendingDelete !== null && deletingId === pendingDelete.id}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => void confirmDelete()}
       />
     </>
   );

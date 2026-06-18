@@ -68,7 +68,7 @@ def _normalize_includes(raw: Any) -> dict[str, Any]:
             name = item.get("name")
             base[key]["name"] = str(name).strip() if name else None
 
-    for key in ("excursion_credit", "onboard_credit"):
+    for key in ("excursion_credit", "onboard_credit", "gift_obc"):
         item = raw.get(key)
         if isinstance(item, dict):
             base[key]["included"] = bool(item.get("included", False))
@@ -107,11 +107,15 @@ def _normalize_cruise_payload(
     room_number = str(raw.get("room_number") or "TBD").strip() or "TBD"
     passengers_in_room = int(raw.get("passengers_in_room") or request_context.get("passengers") or 2)
 
+    preference = request_context.get("cruise_line_preference")
+    if isinstance(preference, list):
+        cruise_line_default = preference[0] if preference else "TBD"
+    else:
+        cruise_line_default = str(preference or "TBD")
+
     return {
         "departure_date": departure_date,
-        "cruise_line": str(
-            raw.get("cruise_line") or request_context.get("cruise_line_preference") or "TBD"
-        ).strip()[:120],
+        "cruise_line": str(raw.get("cruise_line") or cruise_line_default).strip()[:120],
         "ship": str(raw.get("ship") or "TBD").strip()[:120],
         "number_of_nights": max(1, int(raw.get("number_of_nights") or 7)),
         "itinerary_name": str(raw.get("itinerary_name") or raw.get("itinerary") or "TBD").strip()[:160],
@@ -158,7 +162,8 @@ Return JSON only, with this exact shape:
         "tips": false,
         "excursion": false,
         "excursion_credit": {{"included": false, "amount": null}},
-        "onboard_credit": {{"included": false, "amount": null}}
+        "onboard_credit": {{"included": false, "amount": null}},
+        "gift_obc": {{"included": false, "amount": null}}
       }}
     }}
   ]
@@ -255,21 +260,17 @@ Proposed cruise options to include (present every option clearly):
 Return JSON only with this exact shape:
 {{
   "email_subject": "string",
-  "body": "string"
+  "intro": "string",
+  "closing": "string"
 }}
 
-Rules for the email:
+Rules:
 - email_subject is the client-facing email subject line (concise and specific to the proposal).
-- Write to the client by first name when available in client_name.
-- Use a warm, professional travel-advisor tone.
-- Format the body as plain text suitable for email (no HTML or markdown).
-- Open with a brief personalized greeting and summary of what you researched.
-- Present each cruise option as a clearly labeled section (Option 1, Option 2, etc.).
-- For each option include: cruise line, ship, departure date, nights, itinerary, cabin category, passengers in room, total cost, deposit amount and due date, final payment due date, and a concise inclusions summary.
-- Use blank lines between sections for readability.
-- Include a short closing that invites the client to reply with questions or their preferred option.
-- Use USD amounts formatted like $1,234.56 in the body text.
-- Do not invent options or prices beyond what is provided.
+- intro is 1-2 warm, professional paragraphs greeting the client by first name when available in client_name, summarizing the research, and introducing the options below. Plain text only.
+- closing is 1 short paragraph inviting questions and a reply with their preferred option. Plain text only.
+- Do not write cruise option details, pricing, or itinerary content in intro or closing. Those appear in the formatted email layout separately.
+- Do not include HTML or markdown in intro or closing.
+- Do not invent cruise options beyond what is provided.
 - Do not include internal ids or passenger ids.
 """
 
@@ -280,7 +281,7 @@ def generate_research_communication_from_proposals(
     model_name: str,
     request_context: dict[str, Any],
     proposed_cruises: list[dict[str, Any]],
-) -> tuple[str, str, str]:
+) -> tuple[str, str, str, str]:
     if not api_key.strip():
         raise GeminiConfigurationError("Gemini API key is not configured.")
     if not proposed_cruises:
@@ -311,10 +312,14 @@ def generate_research_communication_from_proposals(
         raise GeminiParseError("Gemini returned invalid JSON.") from exc
 
     email_subject = str(payload.get("email_subject") or payload.get("subject") or "").strip()
-    body = str(payload.get("body") or "").strip()
+    intro = str(payload.get("intro") or payload.get("greeting") or "").strip()
+    closing = str(payload.get("closing") or payload.get("sign_off") or "").strip()
+
     if not email_subject:
         raise GeminiParseError("Gemini returned an empty email subject.")
-    if not body:
-        raise GeminiParseError("Gemini returned an empty email body.")
+    if not intro:
+        raise GeminiParseError("Gemini returned an empty intro.")
+    if not closing:
+        raise GeminiParseError("Gemini returned an empty closing.")
 
-    return email_subject, body, model_name
+    return email_subject, intro, closing, model_name

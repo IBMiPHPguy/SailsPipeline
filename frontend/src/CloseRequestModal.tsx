@@ -4,10 +4,13 @@ import { PRIMARY_CLOSE_REASON } from "./formOptions";
 import RequestSummary from "./RequestSummary";
 import type { TravelRequest } from "./types";
 
+type CloseRequestModalMode = "close" | "complete_enter_trip_crm";
+
 type CloseRequestModalProps = {
   open: boolean;
   request: TravelRequest;
   closing: boolean;
+  mode?: CloseRequestModalMode;
   onCancel: () => void;
   onConfirm: (closeReason: string) => void;
 };
@@ -16,6 +19,7 @@ export default function CloseRequestModal({
   open,
   request,
   closing,
+  mode = "close",
   onCancel,
   onConfirm,
 }: CloseRequestModalProps) {
@@ -33,6 +37,20 @@ export default function CloseRequestModal({
     return null;
   }
 
+  const isCompleteWorkflow = mode === "complete_enter_trip_crm";
+  const selectTitle = isCompleteWorkflow ? "Complete Enter Trip in CRM" : "Close request";
+  const confirmTitle = isCompleteWorkflow ? "Confirm completion" : "Confirm close";
+  const selectIntro = isCompleteWorkflow
+    ? "Select a close reason for this request before completing the workflow."
+    : "Select a close reason for this request.";
+  const confirmIntro = isCompleteWorkflow
+    ? "Complete the workflow and close this request with reason:"
+    : "Close this request with reason:";
+  const confirmHint = isCompleteWorkflow
+    ? "The request will be closed and the workflow marked complete."
+    : "This action cannot be undone from the request form.";
+  const confirmButtonLabel = isCompleteWorkflow ? "Complete workflow" : "Confirm close";
+
   function handleContinue() {
     if (!closeReason) {
       return;
@@ -43,14 +61,14 @@ export default function CloseRequestModal({
   return (
     <div className="modal-backdrop" role="presentation" onClick={onCancel}>
       <div
-        className="modal-card"
+        className="modal-card close-request-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="close-request-title"
         onClick={(event) => event.stopPropagation()}
       >
         <header className="modal-card-header">
-          <h3 id="close-request-title">{step === "select" ? "Close request" : "Confirm close"}</h3>
+          <h3 id="close-request-title">{step === "select" ? selectTitle : confirmTitle}</h3>
         </header>
 
         <div className="modal-card-body">
@@ -58,7 +76,7 @@ export default function CloseRequestModal({
 
           {step === "select" ? (
             <>
-              <p>Select a close reason for this request.</p>
+              <p>{selectIntro}</p>
               <CloseReasonPicker value={closeReason} onChange={setCloseReason} />
               <div className="modal-actions">
                 <button type="button" className="secondary-button modal-secondary" onClick={onCancel}>
@@ -76,7 +94,7 @@ export default function CloseRequestModal({
             </>
           ) : (
             <>
-              <p>Close this request with reason:</p>
+              <p>{confirmIntro}</p>
               <p
                 className={
                   closeReason === PRIMARY_CLOSE_REASON
@@ -86,7 +104,7 @@ export default function CloseRequestModal({
               >
                 {closeReason}
               </p>
-              <p className="field-hint">This action cannot be undone from the request form.</p>
+              <p className="field-hint">{confirmHint}</p>
               <div className="modal-actions">
                 <button
                   type="button"
@@ -98,11 +116,11 @@ export default function CloseRequestModal({
                 </button>
                 <button
                   type="button"
-                  className="danger-button"
+                  className={isCompleteWorkflow ? undefined : "danger-button"}
                   disabled={closing}
                   onClick={() => onConfirm(closeReason)}
                 >
-                  {closing ? "Closing..." : "Confirm close"}
+                  {closing ? (isCompleteWorkflow ? "Completing..." : "Closing...") : confirmButtonLabel}
                 </button>
               </div>
             </>

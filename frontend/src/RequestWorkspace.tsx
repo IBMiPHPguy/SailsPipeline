@@ -5,12 +5,15 @@ import RequestHistorySection from "./RequestHistorySection";
 import RequestNotesResearchSection from "./RequestNotesResearchSection";
 import RequestProposalsSection from "./RequestProposalsSection";
 import CloseRequestModal from "./CloseRequestModal";
+import { formatCruiseLines } from "./CruiseLineMultiSelect";
 import PassengersSection from "./PassengersSection";
 import RequestForm, { emptyRequestForm, isReturnAfterDeparture } from "./RequestForm";
 import WorkflowsSection from "./WorkflowsSection";
-import { useClientContentFullWidth } from "./useClientContentFullWidth";import { REQUEST_STATUS_CLOSED } from "./formOptions";
+import { useClientContentFullWidth } from "./useClientContentFullWidth";
+import { REQUEST_STATUS_CLOSED, WORKFLOW_TYPE_ENTER_TRIP_CRM } from "./formOptions";
 import type { TravelRequestDetail, TravelRequestInput } from "./types";
-import { formatDestinationSummary, formatTimestamp } from "./utils";
+import { formatDestinationSummary, formatDate, formatTimestamp } from "./utils";
+import { getActiveWorkflow } from "./workflowForm";
 
 type RequestWorkspaceProps = {
   requestId: number;
@@ -24,15 +27,13 @@ function requestToForm(request: TravelRequestDetail): TravelRequestInput {
     last_name: request.last_name,
     email: request.email,
     phone: request.phone,
-    state_of_residency: request.state_of_residency,
-    cruise_line: request.cruise_line,
-    excluded_cruise_line: request.excluded_cruise_line ?? "",
+    cruise_lines: request.cruise_lines ?? [],
+    excluded_cruise_lines: request.excluded_cruise_lines ?? [],
     destination: request.destination,
     destination_details: request.destination_details ?? {},
     departure_date: request.departure_date,
     return_date: request.return_date,
     cabin_types: request.cabin_types,
-    qualifiers: request.qualifiers,
     passengers: request.passengers,
     cabins_needed: request.cabins_needed ?? 1,
   };
@@ -46,7 +47,7 @@ function buildSummaryRequest(
     ...request,
     first_name: form.first_name,
     last_name: form.last_name,
-    cruise_line: form.cruise_line,
+    cruise_lines: form.cruise_lines,
     destination: form.destination,
     destination_details: ["Caribbean", "Alaska", "Asia", "Europe"].includes(form.destination)
       ? form.destination_details ?? null
@@ -80,6 +81,8 @@ export default function RequestWorkspace({ requestId, onBack, onClosed }: Reques
   );
 
   const isClosed = request?.status === REQUEST_STATUS_CLOSED;
+  const activeWorkflow = request ? getActiveWorkflow(request.request_workflows) : null;
+  const enterTripInCrmActive = activeWorkflow?.workflow_type === WORKFLOW_TYPE_ENTER_TRIP_CRM;
 
   async function loadRequest(options?: { silent?: boolean }) {
     const silent = options?.silent ?? false;
@@ -114,7 +117,7 @@ export default function RequestWorkspace({ requestId, onBack, onClosed }: Reques
   } {
     return {
       ...form,
-      excluded_cruise_line: form.excluded_cruise_line?.trim() || undefined,
+      excluded_cruise_lines: form.excluded_cruise_lines ?? [],
       destination_details: ["Caribbean", "Alaska", "Asia", "Europe"].includes(form.destination)
         ? form.destination_details
         : null,
@@ -134,6 +137,12 @@ export default function RequestWorkspace({ requestId, onBack, onClosed }: Reques
 
     if (form.cabin_types.length === 0) {
       setError("Select at least one cabin type.");
+      setSubmitting(false);
+      return;
+    }
+
+    if (form.cruise_lines.length === 0) {
+      setError("Select at least one preferred cruise line.");
       setSubmitting(false);
       return;
     }
@@ -253,13 +262,13 @@ export default function RequestWorkspace({ requestId, onBack, onClosed }: Reques
             <dd>{formatDestinationSummary(buildSummaryRequest(request, form))}</dd>
           </div>
           <div className="request-summary-detail">
-            <dt>Cruise line</dt>
-            <dd>{form.cruise_line}</dd>
+            <dt>Cruise lines</dt>
+            <dd>{formatCruiseLines(form.cruise_lines)}</dd>
           </div>
           <div className="request-summary-detail">
             <dt>Travel dates</dt>
             <dd>
-              {form.departure_date} to {form.return_date}
+              {formatDate(form.departure_date)} to {formatDate(form.return_date)}
             </dd>
           </div>
           <div className="request-summary-detail">
@@ -311,12 +320,15 @@ export default function RequestWorkspace({ requestId, onBack, onClosed }: Reques
             />
             <RequestProposalsSection
               requestId={requestId}
+              cabinsNeeded={request.cabins_needed ?? 1}
+              cabinHoldReservationIds={request.cabin_hold_reservation_ids ?? []}
               cruises={request.proposed_cruises}
               quotes={request.quoted_insurance}
               passengers={request.request_passengers}
               disabled={isClosed}
               onChanged={refreshRequest}
               onError={setError}
+              allowAcceptProposedCruise={enterTripInCrmActive && !isClosed}
             />
           </div>
           <div className="workspace-client-content" ref={clientContentRef}>
@@ -386,7 +398,7 @@ export default function RequestWorkspace({ requestId, onBack, onClosed }: Reques
           ...request,
           first_name: form.first_name,
           last_name: form.last_name,
-          cruise_line: form.cruise_line,
+          cruise_lines: form.cruise_lines,
           destination: form.destination,
           destination_details: form.destination_details ?? null,
           departure_date: form.departure_date,

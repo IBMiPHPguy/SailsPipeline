@@ -10,17 +10,89 @@ from app.constants import (
     CABIN_TYPES,
     CARIBBEAN_REGIONS,
     CLOSE_REASONS,
+    CRUISE_LINES,
     DESTINATIONS,
     EUROPE_REGIONS,
+    LEGACY_CRUISE_LINE_ALIASES,
     PROPOSED_CRUISE_STATUSES,
     QUALIFIERS,
     QUOTED_INSURANCE_STATUSES,
     REQUEST_STATUS_CLOSED,
     REQUEST_STATUS_OPEN,
     REQUEST_STATUSES,
-    RESIDENCY_REGIONS,
 )
 from app.security import validate_password
+
+
+def validate_qualifier_values(value: list[str]) -> list[str]:
+    invalid = [item for item in value if item not in QUALIFIERS]
+    if invalid:
+        raise ValueError("Invalid qualifier selected.")
+    return value
+
+
+def normalize_cruise_line_value(value: str) -> str:
+    stripped = value.strip()
+    if not stripped:
+        return stripped
+    if stripped in CRUISE_LINES:
+        return stripped
+
+    lowered = stripped.lower()
+    for line in CRUISE_LINES:
+        if line.lower() == lowered:
+            return line
+
+    legacy = LEGACY_CRUISE_LINE_ALIASES.get(stripped)
+    if legacy is not None:
+        return legacy
+
+    prefix_matches = [line for line in CRUISE_LINES if line.lower().startswith(lowered)]
+    if len(prefix_matches) == 1:
+        return prefix_matches[0]
+
+    contains_matches = [line for line in CRUISE_LINES if lowered in line.lower()]
+    if len(contains_matches) == 1:
+        return contains_matches[0]
+
+    return stripped
+
+
+def normalize_cruise_line_list(values: list[str] | str | None) -> list[str]:
+    if values is None:
+        return []
+    if isinstance(values, str):
+        values = [values]
+
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        if not isinstance(value, str):
+            continue
+        line = normalize_cruise_line_value(value)
+        if line and line not in seen:
+            seen.add(line)
+            normalized.append(line)
+    return normalized
+
+
+def validate_cruise_line_values(value: list[str], *, require_at_least_one: bool = False) -> list[str]:
+    normalized = normalize_cruise_line_list(value)
+    if require_at_least_one and not normalized:
+        raise ValueError("Select at least one cruise line.")
+    invalid = [item for item in normalized if item not in CRUISE_LINES]
+    if invalid:
+        raise ValueError("Invalid cruise line selected.")
+    return normalized
+
+
+def validate_single_cruise_line_field(value: str) -> str:
+    normalized = normalize_cruise_line_value(value)
+    if not normalized:
+        raise ValueError("Select a cruise line.")
+    if normalized not in CRUISE_LINES:
+        raise ValueError("Invalid cruise line selected.")
+    return normalized
 
 
 class DestinationDetails(BaseModel):
@@ -73,9 +145,8 @@ class TravelRequestBase(BaseModel):
     last_name: str = Field(min_length=1, max_length=80)
     email: EmailStr
     phone: str = Field(min_length=7, max_length=30)
-    state_of_residency: str = Field(min_length=2, max_length=50)
-    cruise_line: str = Field(min_length=1, max_length=120)
-    excluded_cruise_line: str | None = Field(default=None, max_length=120)
+    cruise_lines: list[str] = Field(min_length=1)
+    excluded_cruise_lines: list[str] = Field(default_factory=list)
     destination: str = Field(min_length=1, max_length=120)
     destination_details: DestinationDetails | None = None
     departure_date: date
@@ -98,13 +169,6 @@ class TravelRequestBase(BaseModel):
             raise ValueError("Invalid destination selected.")
         return value
 
-    @field_validator("state_of_residency")
-    @classmethod
-    def validate_state_of_residency(cls, value: str) -> str:
-        if value not in RESIDENCY_REGIONS:
-            raise ValueError("Invalid state or province selected.")
-        return value
-
     @field_validator("cabin_types")
     @classmethod
     def validate_cabin_types(cls, value: list[str]) -> list[str]:
@@ -115,13 +179,20 @@ class TravelRequestBase(BaseModel):
             raise ValueError("Invalid cabin type selected.")
         return value
 
+    @field_validator("cruise_lines")
+    @classmethod
+    def validate_cruise_lines(cls, value: list[str]) -> list[str]:
+        return validate_cruise_line_values(value, require_at_least_one=True)
+
+    @field_validator("excluded_cruise_lines")
+    @classmethod
+    def validate_excluded_cruise_lines(cls, value: list[str]) -> list[str]:
+        return validate_cruise_line_values(value)
+
     @field_validator("qualifiers")
     @classmethod
     def validate_qualifiers(cls, value: list[str]) -> list[str]:
-        invalid = [item for item in value if item not in QUALIFIERS]
-        if invalid:
-            raise ValueError("Invalid qualifier selected.")
-        return value
+        return validate_qualifier_values(value)
 
     @model_validator(mode="after")
     def validate_destination_details(self) -> "TravelRequestBase":
@@ -172,19 +243,70 @@ class PassengerRead(BaseModel):
     id: int
     first_name: str
     last_name: str
-    email: EmailStr
-    phone: str
+    email: EmailStr | None = None
+    phone: str | None = None
     date_of_birth: date | None = None
+    address_line_1: str | None = None
+    address_line_2: str | None = None
+    city: str | None = None
+    state_or_province: str | None = None
+    postal_code: str | None = None
+    country: str | None = None
+    is_active: bool = True
     created_at: datetime
     updated_at: datetime
+
+
+class PassengerListRead(BaseModel):
+    id: int
+    first_name: str
+    last_name: str
+    email: EmailStr | None = None
+    phone: str | None = None
+    date_of_birth: date | None = None
+    is_active: bool
+    request_count: int = Field(ge=0)
+
+
+class PassengerUpdate(BaseModel):
+    first_name: str | None = Field(default=None, min_length=1, max_length=80)
+    last_name: str | None = Field(default=None, min_length=1, max_length=80)
+    email: EmailStr | None = None
+    phone: str | None = Field(default=None, max_length=30)
+    date_of_birth: date | None = None
+    address_line_1: str | None = Field(default=None, max_length=120)
+    address_line_2: str | None = Field(default=None, max_length=120)
+    city: str | None = Field(default=None, max_length=80)
+    state_or_province: str | None = Field(default=None, max_length=50)
+    postal_code: str | None = Field(default=None, max_length=20)
+    country: str | None = Field(default=None, max_length=80)
+
+    @field_validator("email", "phone", mode="before")
+    @classmethod
+    def normalize_optional_contact(cls, value: Any) -> Any:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
 
 class RequestPassengerBase(BaseModel):
     first_name: str = Field(min_length=1, max_length=80)
     last_name: str = Field(min_length=1, max_length=80)
-    email: EmailStr
-    phone: str = Field(min_length=7, max_length=30)
+    email: EmailStr | None = None
+    phone: str | None = Field(default=None, max_length=30)
     date_of_birth: date | None = None
+    address_line_1: str | None = Field(default=None, max_length=120)
+    address_line_2: str | None = Field(default=None, max_length=120)
+    city: str | None = Field(default=None, max_length=80)
+    state_or_province: str | None = Field(default=None, max_length=50)
+    postal_code: str | None = Field(default=None, max_length=20)
+    country: str | None = Field(default=None, max_length=80)
+    qualifiers: list[str] = Field(default_factory=list)
+
+    @field_validator("qualifiers")
+    @classmethod
+    def validate_passenger_qualifiers(cls, value: list[str]) -> list[str]:
+        return validate_qualifier_values(value)
 
 
 class RequestPassengerCreate(BaseModel):
@@ -192,8 +314,21 @@ class RequestPassengerCreate(BaseModel):
     first_name: str | None = Field(default=None, min_length=1, max_length=80)
     last_name: str | None = Field(default=None, min_length=1, max_length=80)
     email: EmailStr | None = None
-    phone: str | None = Field(default=None, min_length=7, max_length=30)
+    phone: str | None = Field(default=None, max_length=30)
     date_of_birth: date | None = None
+    qualifiers: list[str] = Field(default_factory=list)
+
+    @field_validator("email", "phone", mode="before")
+    @classmethod
+    def normalize_optional_contact(cls, value: Any) -> Any:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @field_validator("qualifiers")
+    @classmethod
+    def validate_create_qualifiers(cls, value: list[str]) -> list[str]:
+        return validate_qualifier_values(value)
 
     @model_validator(mode="after")
     def validate_create_mode(self) -> "RequestPassengerCreate":
@@ -214,13 +349,11 @@ class RequestPassengerCreate(BaseModel):
             for name, value in (
                 ("first_name", self.first_name),
                 ("last_name", self.last_name),
-                ("email", self.email),
-                ("phone", self.phone),
             )
             if value is None or (isinstance(value, str) and not value.strip())
         ]
         if missing:
-            raise ValueError("New passengers require first name, last name, email, and phone.")
+            raise ValueError("New passengers require first name and last name.")
         return self
 
 
@@ -228,8 +361,29 @@ class RequestPassengerUpdate(BaseModel):
     first_name: str | None = Field(default=None, min_length=1, max_length=80)
     last_name: str | None = Field(default=None, min_length=1, max_length=80)
     email: EmailStr | None = None
-    phone: str | None = Field(default=None, min_length=7, max_length=30)
+    phone: str | None = Field(default=None, max_length=30)
     date_of_birth: date | None = None
+    address_line_1: str | None = Field(default=None, max_length=120)
+    address_line_2: str | None = Field(default=None, max_length=120)
+    city: str | None = Field(default=None, max_length=80)
+    state_or_province: str | None = Field(default=None, max_length=50)
+    postal_code: str | None = Field(default=None, max_length=20)
+    country: str | None = Field(default=None, max_length=80)
+    qualifiers: list[str] | None = None
+
+    @field_validator("email", "phone", mode="before")
+    @classmethod
+    def normalize_optional_contact(cls, value: Any) -> Any:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
+
+    @field_validator("qualifiers")
+    @classmethod
+    def validate_update_qualifiers(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return value
+        return validate_qualifier_values(value)
 
 
 class RequestPassengerRead(RequestPassengerBase):
@@ -238,6 +392,7 @@ class RequestPassengerRead(RequestPassengerBase):
     id: int
     passenger_id: int
     is_primary: bool
+    passenger_is_active: bool
     created_at: datetime
     updated_at: datetime
 
@@ -246,20 +401,48 @@ class TravelRequestUpdate(BaseModel):
     first_name: str | None = Field(default=None, min_length=1, max_length=80)
     last_name: str | None = Field(default=None, min_length=1, max_length=80)
     email: EmailStr | None = None
-    phone: str | None = Field(default=None, min_length=7, max_length=30)
-    state_of_residency: str | None = Field(default=None, min_length=2, max_length=50)
-    cruise_line: str | None = Field(default=None, min_length=1, max_length=120)
-    excluded_cruise_line: str | None = Field(default=None, max_length=120)
+    phone: str | None = Field(default=None, max_length=30)
+    cruise_lines: list[str] | None = None
+    excluded_cruise_lines: list[str] | None = None
     destination: str | None = Field(default=None, min_length=1, max_length=120)
     destination_details: DestinationDetails | None = None
     departure_date: date | None = None
     return_date: date | None = None
     cabin_types: list[str] | None = None
-    qualifiers: list[str] | None = None
     passengers: int | None = Field(default=None, ge=1, le=20)
     cabins_needed: int | None = Field(default=None, ge=1, le=10)
+    cabin_hold_reservation_ids: list[list[str]] | None = None
     status: str | None = Field(default=None, min_length=1, max_length=40)
     close_reason: str | None = Field(default=None, max_length=120)
+
+    @field_validator("cabin_hold_reservation_ids", mode="before")
+    @classmethod
+    def normalize_cabin_hold_reservation_ids(cls, value: Any) -> list[list[str]] | None:
+        if value is None:
+            return None
+        if not isinstance(value, list):
+            raise ValueError("Invalid cabin hold reservation IDs.")
+        normalized: list[list[str]] = []
+        for cabin_entry in value:
+            if not isinstance(cabin_entry, list):
+                raise ValueError("Invalid cabin hold reservation IDs.")
+            ids = [str(item).strip() for item in cabin_entry if str(item).strip()]
+            normalized.append(ids)
+        return normalized
+
+    @field_validator("cruise_lines")
+    @classmethod
+    def validate_update_cruise_lines(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        return validate_cruise_line_values(value, require_at_least_one=True)
+
+    @field_validator("excluded_cruise_lines")
+    @classmethod
+    def validate_update_excluded_cruise_lines(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        return validate_cruise_line_values(value)
 
     @model_validator(mode="after")
     def validate_close(self) -> "TravelRequestUpdate":
@@ -375,6 +558,22 @@ class ProposedCruiseIncludes(BaseModel):
     excursion: bool = False
     excursion_credit: CreditInclude = Field(default_factory=CreditInclude)
     onboard_credit: CreditInclude = Field(default_factory=CreditInclude)
+    gift_obc: CreditInclude = Field(default_factory=CreditInclude)
+
+
+class CabinPricingEntry(BaseModel):
+    deposit_amount: Decimal = Field(ge=0)
+    cost: Decimal = Field(ge=0)
+
+
+class ProposedCruiseRoom(BaseModel):
+    room_category: str = Field(min_length=1, max_length=120)
+    room_number: str = Field(min_length=1, max_length=40)
+    passengers_in_room: int = Field(ge=1, le=20)
+    deposit_amount: Decimal = Field(ge=0)
+    commission: Decimal = Field(default=Decimal("0"), ge=0)
+    cost: Decimal = Field(ge=0)
+    includes: ProposedCruiseIncludes = Field(default_factory=ProposedCruiseIncludes)
 
 
 class ProposedCruiseBase(BaseModel):
@@ -383,6 +582,7 @@ class ProposedCruiseBase(BaseModel):
     ship: str = Field(min_length=1, max_length=120)
     number_of_nights: int = Field(ge=1, le=365)
     itinerary_name: str = Field(min_length=1, max_length=160)
+    itinerary_details: str | None = Field(default=None, max_length=8000)
     room_category: str = Field(min_length=1, max_length=120)
     room_number: str = Field(min_length=1, max_length=40)
     passengers_in_room: int = Field(ge=1, le=20)
@@ -391,15 +591,49 @@ class ProposedCruiseBase(BaseModel):
     final_payment_due_date: date
     cost: Decimal = Field(ge=0)
     includes: ProposedCruiseIncludes = Field(default_factory=ProposedCruiseIncludes)
+    room_passenger_ids: list[list[int]] = Field(default_factory=list)
     passenger_ids: list[int] = Field(default_factory=list)
+    cabin_rooms: list[ProposedCruiseRoom] = Field(default_factory=list)
+
+    @field_validator("cruise_line")
+    @classmethod
+    def validate_cruise_line(cls, value: str) -> str:
+        return validate_single_cruise_line_field(value)
+
+    @field_validator("itinerary_details", mode="before")
+    @classmethod
+    def normalize_itinerary_details(cls, value: Any) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            stripped = value.strip()
+            return stripped or None
+        return str(value).strip() or None
 
     @model_validator(mode="after")
     def validate_dates(self) -> "ProposedCruiseBase":
         if self.final_payment_due_date < self.deposit_due_date:
             raise ValueError("Final payment due date must be on or after the deposit due date.")
-        if len(self.passenger_ids) != len(set(self.passenger_ids)):
-            raise ValueError("Each passenger can only be selected once.")
-        if self.passengers_in_room < len(self.passenger_ids):
+
+        flat_passenger_ids = [
+            passenger_id
+            for room in self.room_passenger_ids
+            for passenger_id in room
+        ] if self.room_passenger_ids else self.passenger_ids
+
+        if len(flat_passenger_ids) != len(set(flat_passenger_ids)):
+            raise ValueError("Each passenger can only be assigned to one room.")
+
+        per_room_limits = (
+            [room.passengers_in_room for room in self.cabin_rooms]
+            if self.cabin_rooms
+            else [self.passengers_in_room]
+        )
+        for cabin_index, room in enumerate(self.room_passenger_ids):
+            limit = per_room_limits[cabin_index] if cabin_index < len(per_room_limits) else self.passengers_in_room
+            if len(room) > limit:
+                raise ValueError(f"Room {cabin_index + 1} exceeds the passengers-in-room limit.")
+        if self.passengers_in_room < len(flat_passenger_ids) and not self.room_passenger_ids and not self.cabin_rooms:
             raise ValueError("Passengers in room must be at least the number of attached passengers.")
         return self
 
@@ -429,6 +663,7 @@ class ProposedCruiseUpdate(BaseModel):
     ship: str | None = Field(default=None, min_length=1, max_length=120)
     number_of_nights: int | None = Field(default=None, ge=1, le=365)
     itinerary_name: str | None = Field(default=None, min_length=1, max_length=160)
+    itinerary_details: str | None = Field(default=None, max_length=8000)
     room_category: str | None = Field(default=None, min_length=1, max_length=120)
     room_number: str | None = Field(default=None, min_length=1, max_length=40)
     passengers_in_room: int | None = Field(default=None, ge=1, le=20)
@@ -437,8 +672,28 @@ class ProposedCruiseUpdate(BaseModel):
     final_payment_due_date: date | None = None
     cost: Decimal | None = Field(default=None, ge=0)
     includes: ProposedCruiseIncludes | None = None
+    room_passenger_ids: list[list[int]] | None = None
     passenger_ids: list[int] | None = None
     status: str | None = Field(default=None, min_length=1, max_length=40)
+    cabin_pricing: list[CabinPricingEntry] | None = None
+    cabin_rooms: list[ProposedCruiseRoom] | None = None
+
+    @field_validator("cruise_line")
+    @classmethod
+    def validate_update_cruise_line(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return validate_single_cruise_line_field(value)
+
+    @field_validator("itinerary_details", mode="before")
+    @classmethod
+    def normalize_update_itinerary_details(cls, value: Any) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            stripped = value.strip()
+            return stripped or None
+        return str(value).strip() or None
 
     @field_validator("status")
     @classmethod
@@ -457,6 +712,7 @@ class ProposedCruiseRead(BaseModel):
     ship: str
     number_of_nights: int
     itinerary_name: str
+    itinerary_details: str | None = None
     room_category: str
     room_number: str
     passengers_in_room: int
@@ -464,9 +720,12 @@ class ProposedCruiseRead(BaseModel):
     deposit_due_date: date
     final_payment_due_date: date
     cost: Decimal
+    cabin_pricing: list[CabinPricingEntry] = Field(default_factory=list)
+    cabin_rooms: list[ProposedCruiseRoom] = Field(default_factory=list)
     includes: ProposedCruiseIncludes
     status: str
     passengers: list[RequestPassengerRead] = Field(default_factory=list)
+    room_passengers: list[list[RequestPassengerRead]] = Field(default_factory=list)
     created_by: UserAudit
     updated_by: UserAudit
     created_at: datetime
@@ -478,6 +737,24 @@ class ProposedCruiseRead(BaseModel):
         if isinstance(value, ProposedCruiseIncludes):
             return value
         return ProposedCruiseIncludes.model_validate(value or {})
+
+    @field_validator("cabin_pricing", mode="before")
+    @classmethod
+    def normalize_cabin_pricing(cls, value: Any) -> list[CabinPricingEntry]:
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            return []
+        return [CabinPricingEntry.model_validate(item) for item in value]
+
+    @field_validator("cabin_rooms", mode="before")
+    @classmethod
+    def normalize_cabin_rooms(cls, value: Any) -> list[ProposedCruiseRoom]:
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            return []
+        return [ProposedCruiseRoom.model_validate(item) for item in value]
 
 
 class BulkProposedCruiseCreateResponse(BaseModel):
@@ -532,10 +809,26 @@ class TravelRequestRead(TravelRequestBase):
     id: int
     status: str
     close_reason: str | None = None
+    cabin_hold_reservation_ids: list[list[str]] = Field(default_factory=list)
     created_by: UserAudit
     updated_by: UserAudit
     created_at: datetime
     updated_at: datetime
+
+    @field_validator("cabin_hold_reservation_ids", mode="before")
+    @classmethod
+    def default_cabin_hold_reservation_ids(cls, value: Any) -> list[list[str]]:
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            return []
+        normalized: list[list[str]] = []
+        for cabin_entry in value:
+            if not isinstance(cabin_entry, list):
+                continue
+            ids = [str(item).strip() for item in cabin_entry if str(item).strip()]
+            normalized.append(ids)
+        return normalized
 
     @field_validator("destination_details", mode="before")
     @classmethod
@@ -615,6 +908,7 @@ class RequestWorkflowCreate(BaseModel):
 
 class RequestWorkflowUpdate(BaseModel):
     status: str | None = Field(default=None, min_length=1, max_length=40)
+    close_reason: str | None = Field(default=None, max_length=120)
 
     @field_validator("status")
     @classmethod
@@ -623,6 +917,13 @@ class RequestWorkflowUpdate(BaseModel):
 
         if value is not None and value not in WORKFLOW_STATUSES:
             raise ValueError("Invalid workflow status selected.")
+        return value
+
+    @field_validator("close_reason")
+    @classmethod
+    def validate_close_reason(cls, value: str | None) -> str | None:
+        if value is not None and value not in CLOSE_REASONS:
+            raise ValueError("Invalid close reason selected.")
         return value
 
 
@@ -773,4 +1074,12 @@ class DashboardResponse(BaseModel):
     open_count: int
     stale_count: int = Field(description="Open requests whose last_worked_at is older than the stale threshold.")
     closed_count: int = Field(description="Requests that have been closed.")
+    purchased_closed_count: int = Field(
+        description="Closed requests with close reason Purchased - Trip Created."
+    )
+    other_closed_count: int = Field(description="Closed requests with any other close reason.")
+    successful_sales_close_rate: float | None = Field(
+        default=None,
+        description="Purchased closed requests divided by all closed requests, as a percentage.",
+    )
     open_requests: list[DashboardOpenRequest]

@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { fetchWorkflowTemplates, startWorkflow, updateTask, updateWorkflow, uploadResearchDocument } from "./api";
+import CloseRequestModal from "./CloseRequestModal";
 import WorkflowTaskModal from "./WorkflowTaskModal";
 import type { RequestTask, RequestWorkflow, TravelRequestDetail, TravelRequestInput, WorkflowTemplate } from "./types";
 import { formatTimestamp } from "./utils";
@@ -10,6 +11,7 @@ import {
   WORKFLOW_STATUS_ACTIVE,
   WORKFLOW_STATUS_CANCELLED,
   WORKFLOW_STATUS_COMPLETED,
+  WORKFLOW_TYPE_ENTER_TRIP_CRM,
 } from "./formOptions";
 import {
   countOpenTasks,
@@ -65,6 +67,7 @@ export default function WorkflowsSection({
   const [uploadSuccessMessage, setUploadSuccessMessage] = useState<string | null>(null);
   const [activeTask, setActiveTask] = useState<RequestTask | null>(null);
   const [activeTab, setActiveTab] = useState<WorkflowTab>("active");
+  const [completeWorkflowModalOpen, setCompleteWorkflowModalOpen] = useState(false);
 
   const activeWorkflow = getActiveWorkflow(workflows);
   const pastWorkflows = workflows
@@ -119,18 +122,44 @@ export default function WorkflowsSection({
     }
   }
 
-  async function handleWorkflowStatus(workflowId: number, status: string) {
+  async function handleWorkflowStatus(workflowId: number, status: string, closeReason?: string) {
     setUpdatingWorkflowId(workflowId);
     onError("");
     try {
-      await updateWorkflow(requestId, workflowId, status);
+      await updateWorkflow(
+        requestId,
+        workflowId,
+        closeReason ? { status, close_reason: closeReason } : { status },
+      );
       setActiveTask(null);
+      setCompleteWorkflowModalOpen(false);
       await onChanged();
     } catch (updateError) {
       onError(updateError instanceof Error ? updateError.message : "Unable to update workflow.");
     } finally {
       setUpdatingWorkflowId(null);
     }
+  }
+
+  function handleCompleteWorkflowClick() {
+    if (!activeWorkflow || disabled) {
+      return;
+    }
+
+    if (activeWorkflow.workflow_type === WORKFLOW_TYPE_ENTER_TRIP_CRM) {
+      setCompleteWorkflowModalOpen(true);
+      return;
+    }
+
+    void handleWorkflowStatus(activeWorkflow.id, WORKFLOW_STATUS_COMPLETED);
+  }
+
+  async function handleConfirmCompleteEnterTripCrm(closeReason: string) {
+    if (!activeWorkflow) {
+      return;
+    }
+
+    await handleWorkflowStatus(activeWorkflow.id, WORKFLOW_STATUS_COMPLETED, closeReason);
   }
 
   async function handleTaskStatus(taskId: number, status: string) {
@@ -305,7 +334,7 @@ export default function WorkflowsSection({
                       <button
                         type="button"
                         disabled={updatingWorkflowId === activeWorkflow.id}
-                        onClick={() => handleWorkflowStatus(activeWorkflow.id, WORKFLOW_STATUS_COMPLETED)}
+                        onClick={handleCompleteWorkflowClick}
                       >
                         {updatingWorkflowId === activeWorkflow.id ? "Updating..." : "Complete workflow"}
                       </button>
@@ -389,6 +418,15 @@ export default function WorkflowsSection({
           )}
         </div>
       </section>
+
+      <CloseRequestModal
+        open={completeWorkflowModalOpen}
+        request={request}
+        closing={updatingWorkflowId !== null}
+        mode="complete_enter_trip_crm"
+        onCancel={() => setCompleteWorkflowModalOpen(false)}
+        onConfirm={(closeReason) => void handleConfirmCompleteEnterTripCrm(closeReason)}
+      />
 
       <WorkflowTaskModal
         open={activeTask !== null}

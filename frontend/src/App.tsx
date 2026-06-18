@@ -4,6 +4,8 @@ import { fetchCurrentUser, logout } from "./authApi";
 import { getToken } from "./authStorage";
 import Dashboard from "./Dashboard";
 import ClosedRequestsPage from "./ClosedRequestsPage";
+import ClientsPage from "./ClientsPage";
+import AppSidebar, { activeNavItemForView } from "./AppSidebar";
 import Login from "./Login";
 import PassengerPickerModal from "./PassengerPickerModal";
 import { toPassengerPayload } from "./PassengerFields";
@@ -99,6 +101,12 @@ function App() {
       return;
     }
 
+    if (form.cruise_lines.length === 0) {
+      setError("Select at least one preferred cruise line.");
+      setSubmitting(false);
+      return;
+    }
+
     if (!isReturnAfterDeparture(form.departure_date, form.return_date)) {
       setError("Return date must be after the departure date.");
       setSubmitting(false);
@@ -107,7 +115,7 @@ function App() {
 
     const payload: TravelRequestInput = {
       ...form,
-      excluded_cruise_line: form.excluded_cruise_line?.trim() || undefined,
+      excluded_cruise_lines: form.excluded_cruise_lines ?? [],
       destination_details: ["Caribbean", "Alaska", "Asia", "Europe"].includes(form.destination)
         ? form.destination_details
         : null,
@@ -142,8 +150,10 @@ function App() {
     return <Login onAuthenticated={handleAuthenticated} />;
   }
 
+  const hideSidebar = view.type === "new" || view.type === "edit";
+
   return (
-    <main className={`page${view.type === "edit" || view.type === "new" ? " page-workspace" : ""}`}>
+    <main className={`page${hideSidebar ? " page-workspace" : ""}`}>
       <section className="hero">
         <div className="hero-top">
           <div>
@@ -160,6 +170,24 @@ function App() {
         </div>
       </section>
 
+      <div className={`app-layout${hideSidebar ? " app-layout-no-sidebar" : ""}`}>
+        {!hideSidebar ? (
+          <AppSidebar
+            activeItem={activeNavItemForView(view.type)}
+            onNavigate={(item) => {
+              setMessage("");
+              setError("");
+              if (item === "dashboard") {
+                setView({ type: "dashboard" });
+                loadDashboard().catch(() => undefined);
+                return;
+              }
+              setView({ type: "clients" });
+            }}
+          />
+        ) : null}
+
+        <div className="app-main">
       {view.type === "dashboard" ? (
         dashboardLoading && !dashboard ? (
           <section className="card">
@@ -192,13 +220,11 @@ function App() {
         )
       ) : null}
 
+      {view.type === "clients" ? <ClientsPage /> : null}
+
       {view.type === "closed" ? (
         <ClosedRequestsPage
           closedCount={dashboard?.closed_count ?? 0}
-          onBack={() => {
-            setView({ type: "dashboard" });
-            loadDashboard().catch(() => undefined);
-          }}
           onOpenRequest={(requestId) => {
             setMessage("");
             setError("");
@@ -254,8 +280,10 @@ function App() {
             open={clientPickerOpen}
             title="Find existing client"
             saving={false}
+            showQualifiers
+            newSectionHeading="New client"
             onClose={() => setClientPickerOpen(false)}
-            onAttachExisting={async (passenger: PassengerProfile) => {
+            onAttachExisting={async (passenger: PassengerProfile, qualifiers: string[]) => {
               setForm({
                 ...form,
                 first_name: passenger.first_name,
@@ -264,6 +292,7 @@ function App() {
                 phone: passenger.phone,
                 primary_passenger_id: passenger.id,
                 first_passenger_date_of_birth: passenger.date_of_birth ?? "",
+                qualifiers,
               });
               setClientPickerOpen(false);
             }}
@@ -277,6 +306,7 @@ function App() {
                 phone: normalized.phone ?? "",
                 first_passenger_date_of_birth: normalized.date_of_birth ?? "",
                 primary_passenger_id: undefined,
+                qualifiers: normalized.qualifiers ?? [],
               });
               setClientPickerOpen(false);
             }}
@@ -299,6 +329,8 @@ function App() {
           }}
         />
       ) : null}
+        </div>
+      </div>
     </main>
   );
 }

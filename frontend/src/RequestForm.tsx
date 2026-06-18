@@ -1,13 +1,8 @@
 import { FormEvent } from "react";
+import CruiseLineMultiSelect from "./CruiseLineMultiSelect";
 import DestinationFields from "./DestinationFields";
 import TravelDatesField, { isReturnAfterDeparture } from "./TravelDatesField";
-import {
-  CABIN_TYPES,
-  CANADIAN_PROVINCES,
-  DESTINATIONS,
-  QUALIFIERS,
-  US_STATES,
-} from "./formOptions";
+import { CABIN_TYPES, DESTINATIONS } from "./formOptions";
 import type { DestinationDetailField, TravelRequestInput } from "./types";
 
 type RequestFormProps = {
@@ -149,56 +144,22 @@ export default function RequestForm({
         </label>
       ) : null}
 
-      <label>
-        State / province of residency
-        <select
-          required
-          disabled={disabled}
-          value={form.state_of_residency}
-          onChange={(event) => setForm({ ...form, state_of_residency: event.target.value })}
-        >
-          <option value="" disabled>
-            Select a state or province
-          </option>
-          <optgroup label="United States">
-            {US_STATES.map((state) => (
-              <option key={state} value={state}>
-                {state}
-              </option>
-            ))}
-          </optgroup>
-          <optgroup label="Canada">
-            {CANADIAN_PROVINCES.map((province) => (
-              <option key={province} value={province}>
-                {province}
-              </option>
-            ))}
-          </optgroup>
-        </select>
-      </label>
+      <CruiseLineMultiSelect
+        label="Preferred cruise lines"
+        hint="Search and select every cruise line the client is open to sailing."
+        value={form.cruise_lines}
+        onChange={(cruise_lines) => setForm({ ...form, cruise_lines })}
+        disabled={disabled}
+      />
 
-      <label>
-        Preferred cruise line
-        <input
-          required
-          disabled={disabled}
-          value={form.cruise_line}
-          onChange={(event) => setForm({ ...form, cruise_line: event.target.value })}
-        />
-      </label>
-
-      <label>
-        Cruise lines to avoid
-        <span className="field-hint">
-          Enter any cruise line the client absolutely does not want to sail.
-        </span>
-        <input
-          disabled={disabled}
-          value={form.excluded_cruise_line ?? ""}
-          onChange={(event) => setForm({ ...form, excluded_cruise_line: event.target.value })}
-          placeholder="e.g. Brand the client will not consider"
-        />
-      </label>
+      <CruiseLineMultiSelect
+        label="Cruise lines to avoid"
+        hint="Search and select any cruise line the client absolutely does not want to sail."
+        value={form.excluded_cruise_lines ?? []}
+        onChange={(excluded_cruise_lines) => setForm({ ...form, excluded_cruise_lines })}
+        disabled={disabled}
+        placeholder="Search lines to avoid..."
+      />
 
       <label>
         Destination
@@ -256,28 +217,6 @@ export default function RequestForm({
         </div>
       </div>
 
-      <div>
-        <span className="field-label">Qualifying discounts</span>
-        <div className="checkbox-group">
-          {QUALIFIERS.map((qualifier) => (
-            <label className="checkbox-inline" key={qualifier}>
-              <input
-                type="checkbox"
-                disabled={disabled}
-                checked={form.qualifiers.includes(qualifier)}
-                onChange={() =>
-                  setForm({
-                    ...form,
-                    qualifiers: toggleListItem(form.qualifiers, qualifier),
-                  })
-                }
-              />
-              {qualifier}
-            </label>
-          ))}
-        </div>
-      </div>
-
       <div className="field-row">
         <label>
           Passengers
@@ -330,15 +269,13 @@ export const emptyRequestForm: TravelRequestInput = {
   last_name: "",
   email: "",
   phone: "",
-  state_of_residency: "",
-  cruise_line: "",
-  excluded_cruise_line: "",
+  cruise_lines: [],
+  excluded_cruise_lines: [],
   destination: "",
   destination_details: {},
   departure_date: "",
   return_date: "",
   cabin_types: [],
-  qualifiers: [],
   passengers: 2,
   cabins_needed: 1,
   first_passenger_date_of_birth: "",

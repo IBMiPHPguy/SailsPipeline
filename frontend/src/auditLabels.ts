@@ -1,11 +1,12 @@
+import { formatDate } from "./utils";
+
 const FIELD_LABELS: Record<string, string> = {
   first_name: "First name",
   last_name: "Last name",
   email: "Email",
   phone: "Phone",
-  state_of_residency: "State / province",
-  cruise_line: "Cruise line",
-  excluded_cruise_line: "Cruise lines to avoid",
+  cruise_lines: "Preferred cruise lines",
+  excluded_cruise_lines: "Cruise lines to avoid",
   destination: "Destination",
   destination_details: "Destination details",
   departure_date: "Departure date",
@@ -14,9 +15,16 @@ const FIELD_LABELS: Record<string, string> = {
   qualifiers: "Qualifiers",
   passengers: "Passenger count",
   cabins_needed: "Cabins needed",
+  cabin_hold_reservation_ids: "Cabin hold reservation IDs",
   status: "Status",
   close_reason: "Close reason",
   date_of_birth: "Date of birth",
+  address_line_1: "Address line 1",
+  address_line_2: "Address line 2",
+  city: "City",
+  state_or_province: "State / province",
+  postal_code: "Postal code",
+  country: "Country",
   passenger_removed: "Passenger removed",
 };
 
@@ -46,6 +54,10 @@ export function formatAuditValue(value: string | null): string {
     }
   } catch {
     // Keep plain text values as-is.
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return formatDate(value);
   }
 
   return value;

@@ -5,7 +5,8 @@ import {
   COMMUNICATION_TYPE_RESEARCH_PROPOSAL,
 } from "./formOptions";
 import type { RequestCommunication, RequestCommunicationSummary } from "./types";
-import { copyTextToClipboard } from "./utils";
+import ResearchCommunicationBodyPreview from "./ResearchCommunicationBodyPreview";
+import { copyCommunicationBodyToClipboard, copyTextToClipboard } from "./utils";
 import { communicationStatusClass } from "./workflowForm";
 
 type SendResearchCommunicationTaskPanelProps = {
@@ -90,6 +91,19 @@ export default function SendResearchCommunicationTaskPanel({
     typeof selectedCommunicationId === "number"
       ? proposalCommunications.find((communication) => communication.id === selectedCommunicationId) ?? null
       : null;
+
+  async function handleCopyBody() {
+    if (!loadedCommunication) {
+      return;
+    }
+
+    try {
+      await copyCommunicationBodyToClipboard(loadedCommunication.body);
+      setCopyMessage("Message body copied to clipboard.");
+    } catch {
+      onError("Unable to copy message body.");
+    }
+  }
 
   async function handleCopy(label: string, value: string) {
     try {
@@ -183,18 +197,16 @@ export default function SendResearchCommunicationTaskPanel({
           </div>
 
           <div className="send-research-communication-field">
-            <label htmlFor="send-research-body">Message body</label>
+            <label htmlFor="send-research-body">Message preview</label>
             <div className="send-research-communication-copy-row send-research-communication-copy-row--stacked">
-              <pre id="send-research-body" className="draft-research-communication-body">
-                {loadedCommunication.body}
-              </pre>
+              <ResearchCommunicationBodyPreview body={loadedCommunication.body} id="send-research-body" />
               <button
                 type="button"
                 className="modal-secondary"
                 disabled={disabled}
-                onClick={() => void handleCopy("Message body", loadedCommunication.body)}
+                onClick={() => void handleCopyBody()}
               >
-                Copy body
+                Copy formatted body
               </button>
             </div>
           </div>

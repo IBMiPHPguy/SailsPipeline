@@ -1,4 +1,17 @@
+import {
+  emptyCabinRooms,
+  normalizeCabinRooms,
+  proposedCruiseToCabinRooms,
+  sanitizeCabinRoomsForPayload,
+  syncLegacyFieldsFromCabinRooms,
+} from "./cabinRooms";
+import { normalizeCruiseLineValue } from "./formOptions";
 import type { ProposedCruise, ProposedCruiseIncludes, ProposedCruiseInput } from "./types";
+import {
+  flattenRoomPassengerIds,
+  normalizeRoomPassengerIds,
+  proposedCruiseToRoomPassengerIds,
+} from "./proposedCruiseRooms";
 
 export function emptyProposedCruiseIncludes(): ProposedCruiseIncludes {
   return {
@@ -8,6 +21,7 @@ export function emptyProposedCruiseIncludes(): ProposedCruiseIncludes {
     excursion: false,
     excursion_credit: { included: false, amount: null },
     onboard_credit: { included: false, amount: null },
+    gift_obc: { included: false, amount: null },
   };
 }
 
@@ -17,6 +31,7 @@ export const emptyProposedCruiseForm: ProposedCruiseInput = {
   ship: "",
   number_of_nights: 7,
   itinerary_name: "",
+  itinerary_details: "",
   room_category: "",
   room_number: "",
   passengers_in_room: 2,
@@ -25,81 +40,76 @@ export const emptyProposedCruiseForm: ProposedCruiseInput = {
   final_payment_due_date: "",
   cost: 0,
   includes: emptyProposedCruiseIncludes(),
+  room_passenger_ids: [[]],
   passenger_ids: [],
+  cabin_rooms: emptyCabinRooms(1),
 };
 
-export function proposedCruiseToForm(cruise: ProposedCruise): ProposedCruiseInput {
+export function proposedCruiseToForm(cruise: ProposedCruise, cabinsNeeded = 1): ProposedCruiseInput {
+  const roomPassengerIds = proposedCruiseToRoomPassengerIds(cruise, cabinsNeeded);
+  const cabinRooms = proposedCruiseToCabinRooms(cruise, cabinsNeeded);
+  const legacy = syncLegacyFieldsFromCabinRooms(cabinRooms);
+
   return {
     departure_date: cruise.departure_date,
-    cruise_line: cruise.cruise_line,
+    cruise_line: normalizeCruiseLineValue(cruise.cruise_line),
     ship: cruise.ship,
     number_of_nights: cruise.number_of_nights,
     itinerary_name: cruise.itinerary_name,
-    room_category: cruise.room_category,
-    room_number: cruise.room_number,
-    passengers_in_room: cruise.passengers_in_room,
-    deposit_amount: cruise.deposit_amount,
+    itinerary_details: cruise.itinerary_details ?? "",
+    room_category: legacy.room_category,
+    room_number: legacy.room_number,
+    passengers_in_room: legacy.passengers_in_room,
+    deposit_amount: legacy.deposit_amount,
     deposit_due_date: cruise.deposit_due_date,
     final_payment_due_date: cruise.final_payment_due_date,
-    cost: cruise.cost,
-    includes: {
-      drink_package: {
-        included: cruise.includes.drink_package.included,
-        name: cruise.includes.drink_package.name ?? "",
-      },
-      wifi: {
-        included: cruise.includes.wifi.included,
-        name: cruise.includes.wifi.name ?? "",
-      },
-      tips: cruise.includes.tips,
-      excursion: cruise.includes.excursion,
-      excursion_credit: {
-        included: cruise.includes.excursion_credit.included,
-        amount: cruise.includes.excursion_credit.amount ?? null,
-      },
-      onboard_credit: {
-        included: cruise.includes.onboard_credit.included,
-        amount: cruise.includes.onboard_credit.amount ?? null,
-      },
-    },
-    passenger_ids: cruise.passengers.map((passenger) => passenger.id),
+    cost: legacy.cost,
+    includes: legacy.includes,
+    room_passenger_ids: roomPassengerIds,
+    passenger_ids: flattenRoomPassengerIds(roomPassengerIds),
+    cabin_pricing: legacy.cabin_pricing,
+    cabin_rooms: cabinRooms,
     status: cruise.status,
   };
 }
 
-export function buildProposedCruisePayload(form: ProposedCruiseInput): ProposedCruiseInput {
+export function buildProposedCruisePayload(form: ProposedCruiseInput, cabinsNeeded = 1): ProposedCruiseInput {
+  const cabinRooms = sanitizeCabinRoomsForPayload(
+    normalizeCabinRooms(form.cabin_rooms, cabinsNeeded, {
+      room_category: form.room_category,
+      room_number: form.room_number,
+      passengers_in_room: form.passengers_in_room,
+      deposit_amount: form.deposit_amount,
+      cost: form.cost,
+      includes: form.includes,
+      cabin_pricing: form.cabin_pricing,
+    }),
+  );
+  const legacy = syncLegacyFieldsFromCabinRooms(cabinRooms);
+  const roomPassengerIds = normalizeRoomPassengerIds(form.room_passenger_ids, cabinsNeeded);
+
   return {
     ...form,
-    includes: {
-      drink_package: {
-        included: form.includes.drink_package.included,
-        name: form.includes.drink_package.included
-          ? form.includes.drink_package.name?.trim() || null
-          : null,
-      },
-      wifi: {
-        included: form.includes.wifi.included,
-        name: form.includes.wifi.included ? form.includes.wifi.name?.trim() || null : null,
-      },
-      tips: form.includes.tips,
-      excursion: form.includes.excursion,
-      excursion_credit: {
-        included: form.includes.excursion_credit.included,
-        amount: form.includes.excursion_credit.included
-          ? form.includes.excursion_credit.amount
-          : null,
-      },
-      onboard_credit: {
-        included: form.includes.onboard_credit.included,
-        amount: form.includes.onboard_credit.included ? form.includes.onboard_credit.amount : null,
-      },
-    },
+    itinerary_details: form.itinerary_details?.trim() || null,
+    room_category: legacy.room_category,
+    room_number: legacy.room_number,
+    passengers_in_room: legacy.passengers_in_room,
+    deposit_amount: legacy.deposit_amount,
+    cost: legacy.cost,
+    includes: legacy.includes,
+    cabin_pricing: legacy.cabin_pricing,
+    cabin_rooms: cabinRooms,
+    room_passenger_ids: roomPassengerIds,
+    passenger_ids: flattenRoomPassengerIds(roomPassengerIds),
   };
 }
 
 export function proposedCruiseStatusClass(status: string): string {
   if (status === "Accepted") {
     return "proposed-cruise-status-accepted";
+  }
+  if (status === "Deposited") {
+    return "proposed-cruise-status-deposited";
   }
   if (status === "Rejected") {
     return "proposed-cruise-status-rejected";
@@ -110,6 +120,9 @@ export function proposedCruiseStatusClass(status: string): string {
 export function proposedCruiseStatusOptionClass(status: string): string {
   if (status === "Accepted") {
     return "status-option-accepted";
+  }
+  if (status === "Deposited") {
+    return "status-option-deposited";
   }
   if (status === "Rejected") {
     return "status-option-declined";

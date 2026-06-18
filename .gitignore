@@ -8,6 +8,9 @@ frontend/dist/
 frontend/tsconfig.tsbuildinfo
 backend/uploads/
 .pytest_cache/
+.coverage
+htmlcov/
+frontend/coverage/
 .mypy_cache/
 *.log
 .DS_Store

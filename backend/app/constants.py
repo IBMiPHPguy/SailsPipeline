@@ -17,6 +17,64 @@ DESTINATIONS = [
 
 CABIN_TYPES = ["Interior", "Ocean View", "Balcony", "Suite"]
 
+CRUISE_LINES = [
+    "AmaWaterways",
+    "American Cruise Lines",
+    "Atlas Ocean Voyages",
+    "Avalon Waterways",
+    "Azamara Cruises",
+    "Carnival Cruise Lines",
+    "Celebrity Cruises",
+    "Costa Cruises",
+    "Crystal Cruises",
+    "Cunard",
+    "Disney Cruise Lines",
+    "Emerald Cruise",
+    "Explora Journeys",
+    "Holland America Line",
+    "Hurtigruten",
+    "Margaritaville at Sea",
+    "MSC Cruises",
+    "National Geographic",
+    "Norwegian Cruise Line",
+    "Oceania Cruises",
+    "Princess Cruises",
+    "Regent Seven Seas",
+    "Ritz Carlton Yacht Collection",
+    "Royal Caribbean International",
+    "Scenic Cruises",
+    "Seabourn",
+    "Seadream Yacht Club",
+    "Silversea Cruises",
+    "Star Clippers",
+    "TAUCK",
+    "Uniworld River Cruise",
+    "Viking Cruises",
+    "Virgin Voyages",
+    "Windstar Cruises",
+]
+
+LEGACY_CRUISE_LINE_ALIASES = {
+    "Celebrity": "Celebrity Cruises",
+    "Carnival": "Carnival Cruise Lines",
+    "Royal Caribbean": "Royal Caribbean International",
+    "Norwegian": "Norwegian Cruise Line",
+    "Princess": "Princess Cruises",
+    "Holland America": "Holland America Line",
+    "Disney": "Disney Cruise Lines",
+    "MSC": "MSC Cruises",
+    "Virgin": "Virgin Voyages",
+    "Windstar": "Windstar Cruises",
+    "Silversea": "Silversea Cruises",
+    "Seabourn": "Seabourn",
+    "Oceania": "Oceania Cruises",
+    "Azamara": "Azamara Cruises",
+    "Costa": "Costa Cruises",
+    "Crystal": "Crystal Cruises",
+    "Viking": "Viking Cruises",
+    "Unknown": "Royal Caribbean International",
+}
+
 QUALIFIERS = ["Military", "Educator", "First Responder", "55+ (Senior)"]
 
 CARIBBEAN_REGIONS = ["Eastern", "Western", "Southern", "South Eastern"]
@@ -131,10 +189,12 @@ STALE_DAYS = 3
 
 PROPOSED_CRUISE_STATUS_PROPOSED = "Proposed"
 PROPOSED_CRUISE_STATUS_ACCEPTED = "Accepted"
+PROPOSED_CRUISE_STATUS_DEPOSITED = "Deposited"
 PROPOSED_CRUISE_STATUS_REJECTED = "Rejected"
 PROPOSED_CRUISE_STATUSES = [
     PROPOSED_CRUISE_STATUS_PROPOSED,
     PROPOSED_CRUISE_STATUS_ACCEPTED,
+    PROPOSED_CRUISE_STATUS_DEPOSITED,
     PROPOSED_CRUISE_STATUS_REJECTED,
 ]
 

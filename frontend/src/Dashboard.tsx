@@ -1,5 +1,14 @@
+import { PRIMARY_CLOSE_REASON } from "./formOptions";
 import type { DashboardData } from "./types";
 import RequestSummary from "./RequestSummary";
+
+function formatSuccessfulSalesCloseRate(rate: number | null): string {
+  if (rate === null) {
+    return "—";
+  }
+
+  return Number.isInteger(rate) ? `${rate}%` : `${rate.toFixed(1)}%`;
+}
 
 type DashboardProps = {
   dashboard: DashboardData;
@@ -30,11 +39,14 @@ export default function Dashboard({
         <article className="stat-card">
           <span className="stat-label">Open requests</span>
           <strong className="stat-value">{dashboard.open_count}</strong>
+          <div className="stat-card-meta" />
         </article>
         <article className="stat-card stat-card-warning">
           <span className="stat-label">Stale requests</span>
           <strong className="stat-value">{dashboard.stale_count}</strong>
-          <span className="stat-hint">No request activity in 3+ days</span>
+          <div className="stat-card-meta">
+            <span className="stat-hint">No request activity in 3+ days</span>
+          </div>
         </article>
         <article
           className="stat-card stat-card-clickable"
@@ -50,7 +62,18 @@ export default function Dashboard({
         >
           <span className="stat-label">Closed requests</span>
           <strong className="stat-value">{dashboard.closed_count}</strong>
-          <span className="stat-hint stat-hint-neutral">View closed requests and reopen if needed</span>
+          <div className="stat-card-meta">
+            <div className="stat-subcounts">
+              <span>
+                {PRIMARY_CLOSE_REASON}: {dashboard.purchased_closed_count}
+              </span>
+              <span>Other close reasons: {dashboard.other_closed_count}</span>
+            </div>
+            <span className="stat-success-rate">
+              Successful Sales Close Rate: {formatSuccessfulSalesCloseRate(dashboard.successful_sales_close_rate)}
+            </span>
+            <span className="stat-hint stat-hint-neutral">View closed requests and reopen if needed</span>
+          </div>
         </article>
       </div>
 

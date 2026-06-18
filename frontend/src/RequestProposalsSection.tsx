@@ -7,22 +7,28 @@ type ProposalsTab = "cruises" | "insurance";
 
 type RequestProposalsSectionProps = {
   requestId: number;
+  cabinsNeeded: number;
+  cabinHoldReservationIds: string[][];
   cruises: ProposedCruise[];
   quotes: QuotedInsurance[];
   passengers: RequestPassenger[];
   disabled: boolean;
   onChanged: () => Promise<void>;
   onError: (message: string) => void;
+  allowAcceptProposedCruise?: boolean;
 };
 
 export default function RequestProposalsSection({
   requestId,
+  cabinsNeeded,
+  cabinHoldReservationIds,
   cruises,
   quotes,
   passengers,
   disabled,
   onChanged,
   onError,
+  allowAcceptProposedCruise = false,
 }: RequestProposalsSectionProps) {
   const [activeTab, setActiveTab] = useState<ProposalsTab>("cruises");
 
@@ -59,11 +65,14 @@ export default function RequestProposalsSection({
             <ProposedCruisesSection
               embedded
               requestId={requestId}
+              cabinsNeeded={cabinsNeeded}
+              cabinHoldReservationIds={cabinHoldReservationIds}
               cruises={cruises}
               passengers={passengers}
               disabled={disabled}
               onChanged={onChanged}
               onError={onError}
+              allowAcceptProposedCruise={allowAcceptProposedCruise}
             />
           </div>
         ) : (

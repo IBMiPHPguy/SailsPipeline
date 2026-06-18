@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { searchPassengers } from "./api";
 import PassengerFields, { emptyPassengerInput, toPassengerPayload } from "./PassengerFields";
+import { formatPassengerContact } from "./passengerDisplay";
 import type { PassengerProfile, RequestPassengerInput } from "./types";
 import { formatDate } from "./utils";
 
@@ -9,8 +10,10 @@ type PassengerPickerModalProps = {
   title: string;
   saving: boolean;
   excludePassengerIds?: number[];
+  showQualifiers?: boolean;
+  newSectionHeading?: string;
   onClose: () => void;
-  onAttachExisting: (passenger: PassengerProfile) => Promise<void>;
+  onAttachExisting: (passenger: PassengerProfile, qualifiers: string[]) => Promise<void>;
   onCreateNew: (payload: RequestPassengerInput) => Promise<void>;
 };
 
@@ -19,6 +22,8 @@ export default function PassengerPickerModal({
   title,
   saving,
   excludePassengerIds = [],
+  showQualifiers = false,
+  newSectionHeading = "New passenger",
   onClose,
   onAttachExisting,
   onCreateNew,
@@ -123,9 +128,7 @@ export default function PassengerPickerModal({
 
   const canCreateNew =
     Boolean(newForm.first_name?.trim()) &&
-    Boolean(newForm.last_name?.trim()) &&
-    Boolean(newForm.email?.trim()) &&
-    Boolean(newForm.phone?.trim());
+    Boolean(newForm.last_name?.trim());
 
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
@@ -159,24 +162,31 @@ export default function PassengerPickerModal({
 
             {showResults ? (
               <ul className={`passenger-search-results${isPending ? " is-pending" : ""}`}>
-                {visibleResults.map((passenger) => (
+                {visibleResults.map((passenger) => {
+              const contact = formatPassengerContact(passenger.email, passenger.phone);
+              return (
                   <li key={passenger.id}>
                     <button
                       type="button"
                       className="passenger-search-result"
                       disabled={saving || isPending}
-                      onClick={() => void onAttachExisting(passenger)}
+                      onClick={() => void onAttachExisting(passenger, newForm.qualifiers ?? [])}
                     >
                       <span className="passenger-search-result-name">
                         {passenger.first_name} {passenger.last_name}
                       </span>
-                      <span className="passenger-search-result-meta meta">
-                        {passenger.email} · {passenger.phone}
-                        {passenger.date_of_birth ? ` · DOB ${formatDate(passenger.date_of_birth)}` : ""}
-                      </span>
+                      {passenger.date_of_birth ? (
+                        <span className="passenger-search-result-meta meta">
+                          {formatDate(passenger.date_of_birth)}
+                        </span>
+                      ) : null}
+                      {contact ? (
+                        <span className="passenger-search-result-meta meta">{contact}</span>
+                      ) : null}
                     </button>
                   </li>
-                ))}
+              );
+            })}
               </ul>
             ) : null}
           </div>
@@ -184,9 +194,14 @@ export default function PassengerPickerModal({
           <div className="passenger-picker-divider" role="separator" aria-hidden="true" />
 
           <div className="passenger-picker-new">
-            <p className="passenger-picker-new-heading">New passenger</p>
+            <p className="passenger-picker-new-heading">{newSectionHeading}</p>
             <p className="field-hint">Enter details below to add someone who is not in the system yet.</p>
-            <PassengerFields value={newForm} onChange={setNewForm} disabled={saving} />
+            <PassengerFields
+              value={newForm}
+              onChange={setNewForm}
+              disabled={saving}
+              showQualifiers={showQualifiers}
+            />
           </div>
         </div>
 

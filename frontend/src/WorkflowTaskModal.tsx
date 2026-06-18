@@ -1,3 +1,9 @@
+import CollectPaymentAndBookingCommunicationTaskPanel from "./CollectPaymentAndBookingCommunicationTaskPanel";
+import CreateCabinHoldsTaskPanel from "./CreateCabinHoldsTaskPanel";
+import CollectPassengerAddressesTaskPanel, {
+  isCollectPassengerAddressesTask,
+} from "./CollectPassengerAddressesTaskPanel";
+import CreateTripInCrmTaskPanel from "./CreateTripInCrmTaskPanel";
 import DraftResearchCommunicationTaskPanel from "./DraftResearchCommunicationTaskPanel";
 import FollowUpResearchTaskPanel from "./FollowUpResearchTaskPanel";
 import ProposedCruisesTaskPanel from "./ProposedCruisesTaskPanel";
@@ -5,14 +11,21 @@ import RecordClientResponseTaskPanel from "./RecordClientResponseTaskPanel";
 import ResearchTaskBriefPanel from "./ResearchTaskBriefPanel";
 import ResearchUploadPanel from "./ResearchUploadPanel";
 import SendResearchCommunicationTaskPanel from "./SendResearchCommunicationTaskPanel";
+import VerifyPassengerDetailsTaskPanel from "./VerifyPassengerDetailsTaskPanel";
 import {
   TASK_KEY_CLIENT_RESPONSE,
+  TASK_KEY_COLLECT_PAYMENT_AND_SEND_BOOKING,
+  TASK_KEY_CREATE_CABIN_HOLDS,
   TASK_KEY_CREATE_PROPOSED_CRUISES,
+  TASK_KEY_CREATE_TRIP_IN_CRM,
   TASK_KEY_DRAFT_RESEARCH_COMMUNICATION,
   TASK_KEY_FOLLOW_UP_RESEARCH,
   TASK_KEY_RESEARCH_CRUISE_OPTIONS,
   TASK_KEY_SEND_RESEARCH_COMMUNICATION,
   TASK_KEY_UPLOAD_RESEARCH_DOCUMENT,
+  TASK_KEY_VERIFY_PASSENGER_DETAILS,
+  PROPOSED_CRUISE_STATUS_ACCEPTED,
+  PROPOSED_CRUISE_STATUS_DEPOSITED,
 } from "./formOptions";
 import type { RequestTask, TravelRequestDetail, TravelRequestInput } from "./types";
 import { formatTimestamp } from "./utils";
@@ -73,7 +86,23 @@ export default function WorkflowTaskModal({
   const isDone = task.status === TASK_STATUS_DONE;
   const workspaceHint = getTaskWorkspaceHint(task.task_key);
   const activeWorkflow = getActiveWorkflow(request.request_workflows);
-  const usesCustomSave = task.task_key === TASK_KEY_CLIENT_RESPONSE && !isDone && !disabled;
+  const acceptedCruise =
+    request.proposed_cruises.find((cruise) => cruise.status === PROPOSED_CRUISE_STATUS_ACCEPTED) ?? null;
+  const bookingCruise =
+    request.proposed_cruises.find(
+      (cruise) =>
+        cruise.status === PROPOSED_CRUISE_STATUS_ACCEPTED ||
+        cruise.status === PROPOSED_CRUISE_STATUS_DEPOSITED,
+    ) ?? null;
+  const usesCustomSave =
+    (task.task_key === TASK_KEY_CLIENT_RESPONSE ||
+      task.task_key === TASK_KEY_VERIFY_PASSENGER_DETAILS ||
+      task.task_key === TASK_KEY_CREATE_CABIN_HOLDS ||
+      task.task_key === TASK_KEY_COLLECT_PAYMENT_AND_SEND_BOOKING ||
+      task.task_key === TASK_KEY_CREATE_TRIP_IN_CRM ||
+      isCollectPassengerAddressesTask(task.task_key)) &&
+    !isDone &&
+    !disabled;
   const displayStatus = activeWorkflow ? getTaskDisplayStatus(task, activeWorkflow) : task.status;
   const displayStatusClass = activeWorkflow ? taskDisplayStatusClass(task, activeWorkflow) : task.status === TASK_STATUS_DONE ? "task-status-done" : "task-status-open";
 
@@ -177,6 +206,76 @@ export default function WorkflowTaskModal({
             />
           ) : null}
 
+          {task.task_key === TASK_KEY_VERIFY_PASSENGER_DETAILS ? (
+            <VerifyPassengerDetailsTaskPanel
+              requestId={request.id}
+              passengers={request.request_passengers}
+              taskId={task.id}
+              disabled={disabled}
+              isDone={isDone}
+              onChanged={onChanged}
+              onError={onError}
+              onSaved={onClose}
+            />
+          ) : null}
+
+          {task.task_key === TASK_KEY_CREATE_CABIN_HOLDS ? (
+            <CreateCabinHoldsTaskPanel
+              requestId={request.id}
+              cabinsNeeded={request.cabins_needed}
+              reservationIds={request.cabin_hold_reservation_ids}
+              bookingCruise={bookingCruise}
+              taskId={task.id}
+              disabled={disabled}
+              isDone={isDone}
+              onChanged={onChanged}
+              onError={onError}
+              onSaved={onClose}
+            />
+          ) : null}
+
+          {task.task_key === TASK_KEY_COLLECT_PAYMENT_AND_SEND_BOOKING ? (
+            <CollectPaymentAndBookingCommunicationTaskPanel
+              requestId={request.id}
+              cabinsNeeded={request.cabins_needed}
+              reservationIds={request.cabin_hold_reservation_ids}
+              acceptedCruise={acceptedCruise}
+              task={task}
+              disabled={disabled}
+              isDone={isDone}
+              onChanged={onChanged}
+              onError={onError}
+              onSaved={onClose}
+            />
+          ) : null}
+
+          {isCollectPassengerAddressesTask(task.task_key) ? (
+            <CollectPassengerAddressesTaskPanel
+              requestId={request.id}
+              passengers={request.request_passengers}
+              taskId={task.id}
+              disabled={disabled}
+              isDone={isDone}
+              onChanged={onChanged}
+              onError={onError}
+              onSaved={onClose}
+            />
+          ) : null}
+
+          {task.task_key === TASK_KEY_CREATE_TRIP_IN_CRM ? (
+            <CreateTripInCrmTaskPanel
+              requestId={request.id}
+              request={request}
+              form={form}
+              task={task}
+              disabled={disabled}
+              isDone={isDone}
+              onChanged={onChanged}
+              onError={onError}
+              onSaved={onClose}
+            />
+          ) : null}
+
           {task.task_key !== TASK_KEY_RESEARCH_CRUISE_OPTIONS &&
           task.task_key !== TASK_KEY_UPLOAD_RESEARCH_DOCUMENT &&
           task.task_key !== TASK_KEY_CREATE_PROPOSED_CRUISES &&
@@ -184,6 +283,11 @@ export default function WorkflowTaskModal({
           task.task_key !== TASK_KEY_SEND_RESEARCH_COMMUNICATION &&
           task.task_key !== TASK_KEY_FOLLOW_UP_RESEARCH &&
           task.task_key !== TASK_KEY_CLIENT_RESPONSE &&
+          task.task_key !== TASK_KEY_VERIFY_PASSENGER_DETAILS &&
+          task.task_key !== TASK_KEY_CREATE_CABIN_HOLDS &&
+          task.task_key !== TASK_KEY_COLLECT_PAYMENT_AND_SEND_BOOKING &&
+          task.task_key !== TASK_KEY_CREATE_TRIP_IN_CRM &&
+          !isCollectPassengerAddressesTask(task.task_key) &&
           workspaceHint ? (
             <TaskGuidance taskKey={task.task_key} />
           ) : null}

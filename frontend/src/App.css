@@ -1,11 +1,178 @@
 .page {
-  max-width: 1100px;
+  width: min(100% - 2rem, 1440px);
+  max-width: none;
   margin: 0 auto;
   padding: 2rem 1rem 3rem;
 }
 
 .page-workspace {
-  max-width: 1320px;
+  width: min(100% - 2rem, 1680px);
+  max-width: none;
+}
+
+.app-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.app-sidebar {
+  position: sticky;
+  top: 1rem;
+}
+
+.app-sidebar-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.app-sidebar-link {
+  width: 100%;
+  text-align: left;
+  background: white;
+  color: #243b53;
+  border: 1px solid #d9e2ec;
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(16, 42, 67, 0.06);
+}
+
+.app-sidebar-link:hover,
+.app-sidebar-link:focus-visible {
+  border-color: #1864ab;
+  outline: none;
+}
+
+.app-sidebar-link.is-active {
+  background: #1864ab;
+  border-color: #1864ab;
+  color: white;
+}
+
+.app-main {
+  min-width: 0;
+}
+
+.app-layout-no-sidebar {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.clients-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.clients-page-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: end;
+  flex-wrap: wrap;
+}
+
+.clients-page-header h2 {
+  margin: 0 0 0.35rem;
+}
+
+.clients-search {
+  min-width: min(100%, 320px);
+}
+
+.clients-table-wrap {
+  overflow-x: auto;
+}
+
+.clients-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.clients-table th,
+.clients-table td {
+  padding: 0.85rem 0.75rem;
+  border-bottom: 1px solid #d9e2ec;
+  text-align: left;
+  vertical-align: top;
+}
+
+.clients-table th {
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #486581;
+}
+
+.clients-table-name {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.clients-table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.clients-table-row-inactive {
+  background: #f8fafc;
+}
+
+.inactive-client-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: #fff4e6;
+  border: 1px solid #ffd8a8;
+  color: #ad6800;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.passenger-item-inactive {
+  border-left: 4px solid #ffd8a8;
+  background: #fffdf8;
+}
+
+.passenger-item-title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.client-modal-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.client-detail-grid {
+  display: grid;
+  gap: 0.85rem 1.25rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+.client-detail-grid dt {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #486581;
+}
+
+.client-detail-grid dd {
+  margin: 0.15rem 0 0;
 }
 
 .hero {
@@ -104,6 +271,14 @@
 }
 
 @media (max-width: 700px) {
+  .client-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .app-sidebar-list {
+    grid-template-columns: 1fr;
+  }
+
   .hero-top {
     flex-direction: column;
   }
@@ -169,6 +344,51 @@
   display: block;
   font-size: 0.82rem;
   color: #627d98;
+  line-height: 1.25;
+  min-height: 1.05rem;
+}
+
+.field-hint--placeholder {
+  visibility: hidden;
+}
+
+.field-stack {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 0.35rem;
+  align-content: start;
+  min-width: 0;
+}
+
+.field-stack-label {
+  display: block;
+  font-size: 0.95rem;
+  line-height: 1.25;
+}
+
+.field-stack input,
+.field-stack select,
+.field-stack textarea {
+  width: 100%;
+  min-height: 2.5rem;
+  box-sizing: border-box;
+}
+
+.field-stack--narrow {
+  max-width: 16rem;
+}
+
+.field-stack-input-spacer {
+  display: block;
+  min-height: 2.5rem;
+}
+
+.field-row--aligned {
+  align-items: start;
+}
+
+.proposed-cruise-form .field-row--aligned > .field-stack {
+  height: 100%;
 }
 
 .checkbox-group {
@@ -238,6 +458,10 @@ button:disabled {
 
 .status.error {
   color: #c92a2a;
+}
+
+.status.warning {
+  color: #b44d00;
 }
 
 .status.success {
@@ -386,8 +610,10 @@ button:disabled {
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
+  grid-template-rows: auto auto 1fr;
+  gap: 0.5rem 1rem;
   margin-bottom: 1.5rem;
+  align-items: start;
 }
 
 .stat-card {
@@ -396,7 +622,17 @@ button:disabled {
   padding: 1.25rem;
   box-shadow: 0 8px 24px rgba(16, 42, 67, 0.08);
   display: grid;
+  grid-template-rows: subgrid;
+  grid-row: span 3;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.stat-card-meta {
+  display: grid;
   gap: 0.35rem;
+  align-content: start;
+  min-height: 0;
 }
 
 .stat-card-warning {
@@ -420,6 +656,19 @@ button:disabled {
 
 .stat-hint-neutral {
   color: #627d98;
+}
+
+.stat-subcounts {
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.88rem;
+  color: #486581;
+}
+
+.stat-success-rate {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #2b8a3e;
 }
 
 .closed-requests-page .dashboard-header {
@@ -466,12 +715,16 @@ button:disabled {
 }
 
 .stat-label {
-  font-size: 0.9rem;
-  color: #486581;
+  font-size: 1.08rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: #243b53;
+  min-height: 2.75rem;
 }
 
 .stat-value {
   font-size: 2rem;
+  line-height: 1;
   color: #102a43;
 }
 
@@ -901,6 +1154,24 @@ button:disabled {
 
 .passenger-edit-form h4 {
   margin: 0;
+}
+
+.passenger-address-line {
+  margin-top: 0.15rem;
+}
+
+.passenger-address-fields {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid #d9e2ec;
+}
+
+.passenger-address-fields-heading {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #243b53;
 }
 
 .passenger-add {
@@ -1428,6 +1699,10 @@ button:disabled {
   padding: 0;
 }
 
+.modal-card-proposed-cruise {
+  width: min(100%, 960px);
+}
+
 .modal-form-layout {
   display: flex;
   flex-direction: column;
@@ -1515,6 +1790,11 @@ button:disabled {
 
 .status-option-accepted {
   color: #2b8a3e;
+  font-weight: 700;
+}
+
+.status-option-deposited {
+  color: #1864ab;
   font-weight: 700;
 }
 
@@ -1675,6 +1955,11 @@ button:disabled {
   color: #2b8a3e;
 }
 
+.proposed-cruise-status-deposited {
+  background: #d0ebff;
+  color: #1864ab;
+}
+
 .proposed-cruise-status-rejected {
   background: #ffe3e3;
   color: #c92a2a;
@@ -1823,12 +2108,16 @@ button:disabled {
   top: calc(100% + 0.35rem);
   left: 0;
   right: 0;
-  z-index: 10;
+  z-index: 20;
   border: 1px solid #bcccdc;
   border-radius: 8px;
   background: white;
   box-shadow: 0 8px 24px rgba(16, 42, 67, 0.12);
-  overflow: hidden;
+  max-height: min(16rem, 45vh);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .close-reason-dropdown-option {
@@ -1859,6 +2148,14 @@ button:disabled {
   border: none;
   border-top: 1px solid #d9e2ec;
   margin: 0;
+}
+
+.close-request-modal {
+  overflow: visible;
+}
+
+.close-request-modal .modal-card-body {
+  overflow: visible;
 }
 
 .link-button {
@@ -2270,6 +2567,37 @@ button:disabled {
   color: #486581;
 }
 
+.communications-delete-button {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.85rem;
+}
+
+.modal-actions-footer .communication-delete-button {
+  margin-right: auto;
+}
+
+.chicken-switch-backdrop {
+  z-index: 1100;
+}
+
+.chicken-switch-control {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid #ffa8a8;
+  border-radius: 8px;
+  background: #fff5f5;
+  color: #102a43;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chicken-switch-control input {
+  margin-top: 0.15rem;
+  flex-shrink: 0;
+}
+
 .communications-subject-link {
   text-align: left;
 }
@@ -2460,6 +2788,21 @@ button:disabled {
   font: inherit;
 }
 
+.research-communication-html-preview {
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #eef2f7;
+}
+
+.research-communication-html-preview iframe {
+  display: block;
+  width: 100%;
+  min-height: 420px;
+  border: 0;
+  background: #ffffff;
+}
+
 .send-research-communication-task-panel,
 .record-client-response-task-panel {
   display: grid;
@@ -2543,6 +2886,18 @@ button:disabled {
 }
 
 @media (max-width: 900px) {
+  .app-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .app-sidebar {
+    position: static;
+  }
+
+  .app-sidebar-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .research-task-brief-grid {
     grid-template-columns: 1fr;
   }
@@ -2566,10 +2921,6 @@ button:disabled {
   .workspace-grid.is-client-expanded .workspace-client-content {
     grid-column: auto;
     grid-row: auto;
-  }
-
-  .page-workspace {
-    max-width: 1100px;
   }
 
   .section-tabs-card--sidebar .section-tab,
@@ -2630,5 +2981,653 @@ button:disabled {
 
   .request-client-content-section .attachment-dropzone-types {
     font-size: 0.68rem;
+  }
+}
+
+.verify-passenger-details-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.verify-passenger-details-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.verify-passenger-details-item {
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  padding: 0.85rem;
+  background: #fff;
+}
+
+.verify-passenger-details-item h4 {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+}
+
+.verify-passenger-details-fields {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.field-optional {
+  margin-left: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #627d98;
+}
+
+.collect-passenger-addresses-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.collect-passenger-addresses-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.collect-passenger-addresses-item {
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  padding: 0.85rem;
+  background: #fff;
+}
+
+.collect-passenger-addresses-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.collect-passenger-addresses-item h4 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.collect-passenger-addresses-required,
+.collect-passenger-addresses-optional {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.collect-passenger-addresses-required {
+  color: #243b53;
+}
+
+.collect-passenger-addresses-optional {
+  color: #627d98;
+}
+
+.collect-passenger-addresses-fields {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.collect-passenger-addresses-copy {
+  margin-top: 0.75rem;
+}
+
+.create-cabin-holds-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.cabin-hold-reservation-fields {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.cabin-hold-reservation-cabin {
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  padding: 0.85rem;
+  background: #fff;
+}
+
+.cabin-hold-reservation-cabin h4 {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+}
+
+.cabin-hold-reservation-id-list-editor {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.cabin-hold-reservation-id-row {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.cabin-hold-reservation-add,
+.cabin-hold-reservation-remove {
+  justify-self: start;
+}
+
+.cabin-hold-reservation-add {
+  margin-top: 0.5rem;
+}
+
+.cabin-hold-reservations-display {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.cabin-hold-reservation-line {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.cabin-hold-reservation-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #627d98;
+}
+
+.cabin-hold-reservation-value,
+.cabin-hold-reservation-id-list {
+  margin: 0;
+  color: #486581;
+  font-size: 0.92rem;
+}
+
+.cabin-hold-reservation-id-list {
+  padding-left: 1.1rem;
+}
+
+.proposed-cruise-cabin-holds {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid #d9e2ec;
+}
+
+.cabin-pricing-fields {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.cabin-pricing-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.cabin-pricing-item {
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  padding: 0.85rem;
+  background: #fff;
+}
+
+.cabin-pricing-item h4 {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+}
+
+.cabin-pricing-totals {
+  margin: 0;
+}
+
+.proposed-cruise-cabin-pricing-display {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.proposed-cruise-cabin-pricing-line {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.proposed-cruise-room-passengers {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.proposed-cruise-room-passenger-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.proposed-cruise-room-passenger-item {
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  background: #fff;
+}
+
+.proposed-cruise-cruise-level {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.proposed-cruise-status-section {
+  display: grid;
+  gap: 0.85rem;
+  max-width: 24rem;
+}
+
+.proposed-cruise-section-divider {
+  height: 1px;
+  margin: 1.1rem 0;
+  background: #d9e2ec;
+}
+
+.proposed-cruise-room-editor {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.proposed-cruise-tab-group {
+  display: grid;
+}
+
+.proposed-cruise-tab-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  border-bottom: 1px solid #bcccdc;
+}
+
+.proposed-cruise-tab-bar--rooms {
+  margin-bottom: 0;
+}
+
+.proposed-cruise-tab-content {
+  border: 1px solid #bcccdc;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.proposed-cruise-tab-bar--sub {
+  border-bottom: 1px solid #d9e2ec;
+  background: #f8fafc;
+  padding: 0 0.35rem;
+}
+
+.proposed-cruise-tab {
+  appearance: none;
+  position: relative;
+  border: 1px solid transparent;
+  border-bottom: none;
+  background: #eef2f6;
+  color: #486581;
+  padding: 0.6rem 1rem;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  margin-bottom: -1px;
+  border-radius: 8px 8px 0 0;
+}
+
+.proposed-cruise-tab:hover {
+  color: #102a43;
+  background: #f8fafc;
+}
+
+.proposed-cruise-tab.is-active {
+  background: #fff;
+  color: #102a43;
+  border-color: #bcccdc;
+  border-bottom: 1px solid #fff;
+  z-index: 1;
+}
+
+.proposed-cruise-tab--sub {
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  margin-bottom: 0;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.86rem;
+}
+
+.proposed-cruise-tab--sub:hover {
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.proposed-cruise-tab--sub.is-active {
+  background: #fff;
+  color: #102a43;
+  border-bottom-color: #2563eb;
+}
+
+.proposed-cruise-tab-panel {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem 1.1rem 1.15rem;
+  background: #fff;
+}
+
+.proposed-cruise-room-reservation-summary {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.proposed-cruise-room-save-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid #d9e2ec;
+}
+
+.proposed-cruise-commission-row {
+  align-items: end;
+}
+
+.proposed-cruise-commission-percent {
+  margin: 0;
+  padding-bottom: 0.55rem;
+  font-weight: 600;
+  color: #243b53;
+}
+
+.cabin-hold-room-passengers {
+  margin: 0 0 0.75rem;
+}
+
+.collect-payment-booking-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.collect-payment-booking-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+}
+
+.collect-payment-booking-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.collect-payment-booking-item {
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  padding: 0.85rem;
+  background: #fff;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.collect-payment-booking-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.collect-payment-booking-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.cruise-line-multi-select {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.cruise-line-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cruise-line-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid #bcccdc;
+  border-radius: 999px;
+  background: #f0f4f8;
+  padding: 0.25rem 0.55rem 0.25rem 0.75rem;
+  font-size: 0.9rem;
+}
+
+.cruise-line-tag-remove {
+  border: none;
+  background: transparent;
+  color: #486581;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0 0.15rem;
+}
+
+.cruise-line-search {
+  position: relative;
+}
+
+.cruise-line-suggestions {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0.35rem 0;
+  list-style: none;
+  border: 1px solid #bcccdc;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(16, 42, 67, 0.12);
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+.cruise-line-suggestions button {
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: #102a43;
+  padding: 0.55rem 0.75rem;
+  font-weight: 400;
+}
+
+.cruise-line-suggestions button:hover,
+.cruise-line-suggestions button:focus-visible {
+  background: #f0f4f8;
+}
+
+.crm-entry-summary {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.crm-entry-summary-intro {
+  margin: 0;
+}
+
+.crm-entry-section {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.crm-entry-section-title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.crm-entry-checklist {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.crm-entry-checklist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  line-height: 1.45;
+}
+
+.crm-entry-checklist-item input {
+  margin-top: 0.2rem;
+}
+
+.crm-entry-grid,
+.crm-entry-detail-grid {
+  display: grid;
+  gap: 0.75rem 1.25rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+.crm-entry-grid dt,
+.crm-entry-detail-grid dt {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #486581;
+}
+
+.crm-entry-grid dd,
+.crm-entry-detail-grid dd {
+  margin: 0.15rem 0 0;
+}
+
+.crm-entry-grid-stack {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.crm-entry-cruise-card,
+.crm-entry-room-card,
+.crm-entry-passenger-card {
+  border: 1px solid #d9e2ec;
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 1rem;
+}
+
+.crm-entry-cruise-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.crm-entry-cruise-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.crm-entry-cruise-header h5 {
+  margin: 0 0 0.25rem;
+}
+
+.crm-entry-status-badge {
+  border-radius: 999px;
+  background: #d3f9d8;
+  color: #2b8a3e;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.25rem 0.65rem;
+  white-space: nowrap;
+}
+
+.crm-entry-room-list,
+.crm-entry-passenger-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.crm-entry-room-card {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.crm-entry-room-card h6,
+.crm-entry-passenger-card h6 {
+  margin: 0;
+}
+
+.crm-entry-subsection {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.crm-entry-subsection-title {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #243b53;
+}
+
+.crm-entry-list {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.crm-entry-empty {
+  margin: 0;
+}
+
+.crm-entry-accept-cruise-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  font-weight: 600;
+}
+
+.accept-proposed-cruise-chooser {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border: 1px solid #bcccdc;
+  border-radius: 10px;
+  background: #f0f4f8;
+}
+
+.accept-proposed-cruise-chooser-title {
+  margin: 0;
+  font-size: 1rem;
+  color: #102a43;
+}
+
+.proposed-cruise-accept-section {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.crm-entry-actions {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.crm-entry-copy-message {
+  margin: 0;
+}
+
+@media (max-width: 700px) {
+  .crm-entry-grid,
+  .crm-entry-detail-grid {
+    grid-template-columns: 1fr;
   }
 }

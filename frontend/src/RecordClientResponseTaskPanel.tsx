@@ -20,6 +20,7 @@ import {
   WORKFLOW_TYPE_RESEARCH,
 } from "./formOptions";
 import type { ProposedCruise, RequestWorkflow } from "./types";
+import { formatDate } from "./utils";
 import { TASK_STATUS_OPEN } from "./workflowForm";
 
 type CruiseDecision = typeof PROPOSED_CRUISE_STATUS_ACCEPTED | typeof PROPOSED_CRUISE_STATUS_REJECTED;
@@ -188,7 +189,7 @@ export default function RecordClientResponseTaskPanel({
         await updateTask(requestId, clientResponseTask.id, { status: TASK_STATUS_DONE });
       }
 
-      await updateWorkflow(requestId, workflow.id, WORKFLOW_STATUS_COMPLETED);
+      await updateWorkflow(requestId, workflow.id, { status: WORKFLOW_STATUS_COMPLETED });
 
       if (allRejected && rejectedOutcome === "close_request") {
         await onCloseRequest(closeReason);
@@ -223,7 +224,7 @@ export default function RecordClientResponseTaskPanel({
                 {cruise.cruise_line} · {cruise.ship}
               </strong>
               <div className="meta">
-                Departs {cruise.departure_date} · {cruise.number_of_nights} nights · {cruise.itinerary_name}
+                Departs {formatDate(cruise.departure_date)} · {cruise.number_of_nights} nights · {cruise.itinerary_name}
               </div>
               <div className="meta">
                 {cruise.room_category} · Cost {formatMoney(Number(cruise.cost))}

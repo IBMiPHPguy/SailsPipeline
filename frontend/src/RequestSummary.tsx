@@ -1,5 +1,6 @@
+import { formatCruiseLines } from "./CruiseLineMultiSelect";
 import type { DashboardNextOpenTask, TravelRequest, UserAudit } from "./types";
-import { formatDestinationSummary, formatTimestamp } from "./utils";
+import { formatDestinationSummary, formatDate, formatTimestamp } from "./utils";
 
 type RequestSummaryProps = {
   request: TravelRequest;
@@ -22,7 +23,7 @@ export default function RequestSummary({
         {request.first_name} {request.last_name} · {formatDestinationSummary(request)}
       </strong>
       <div className="meta">
-        {request.cruise_line} · {request.departure_date} to {request.return_date}
+        {formatCruiseLines(request.cruise_lines)} · {formatDate(request.departure_date)} to {formatDate(request.return_date)}
       </div>
       {nextOpenTask !== undefined ? (
         nextOpenTask ? (

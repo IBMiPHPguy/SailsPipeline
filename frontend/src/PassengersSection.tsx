@@ -2,7 +2,11 @@ import { useState } from "react";
 import { addPassenger, deletePassenger, updatePassenger } from "./api";
 import PassengerFields, { emptyPassengerInput, toPassengerPayload } from "./PassengerFields";
 import PassengerPickerModal from "./PassengerPickerModal";
+import { formatPassengerAddressLine, passengerAddressToInput } from "./passengerAddress";
+import InactiveClientBadge from "./InactiveClientBadge";
+import { formatPassengerContact, isInactiveClient } from "./passengerDisplay";
 import type { PassengerProfile, RequestPassenger, RequestPassengerInput } from "./types";
+import { formatDate } from "./utils";
 
 type PassengersSectionProps = {
   requestId: number;
@@ -57,6 +61,8 @@ export default function PassengersSection({
       email: passenger.email,
       phone: passenger.phone,
       date_of_birth: passenger.date_of_birth ?? "",
+      qualifiers: passenger.qualifiers ?? [],
+      ...passengerAddressToInput(passenger),
     });
   }
 
@@ -93,11 +99,11 @@ export default function PassengersSection({
     }
   }
 
-  async function handleAttachExisting(passenger: PassengerProfile) {
+  async function handleAttachExisting(passenger: PassengerProfile, qualifiers: string[]) {
     setSaving(true);
     onError("");
     try {
-      await addPassenger(requestId, { passenger_id: passenger.id });
+      await addPassenger(requestId, { passenger_id: passenger.id, qualifiers });
       setPickerOpen(false);
       await onChanged();
     } catch (attachError) {
@@ -129,11 +135,24 @@ export default function PassengersSection({
         </header>
         <div className="section-card-body">
           <div className="passenger-list">
-            {passengers.map((passenger) => (
-              <article className="passenger-item" key={passenger.id}>
+            {passengers.map((passenger) => {
+              const addressLine = formatPassengerAddressLine(passenger);
+              const contact = formatPassengerContact(passenger.email, passenger.phone);
+
+              return (
+              <article
+                className={`passenger-item${isInactiveClient(passenger) ? " passenger-item-inactive" : ""}`}
+                key={passenger.id}
+              >
                 {editingId === passenger.id ? (
                   <div className="passenger-edit-form">
-                    <PassengerFields value={editForm} onChange={setEditForm} disabled={disabled || saving} />
+                    <PassengerFields
+                      value={editForm}
+                      onChange={setEditForm}
+                      disabled={disabled || saving}
+                      showAddress
+                      showQualifiers
+                    />
                     <p className="field-hint">
                       Updates apply to this person across all requests where they appear.
                     </p>
@@ -155,15 +174,24 @@ export default function PassengersSection({
                   <>
                     <div className="passenger-item-header">
                       <div>
-                        <strong>
-                          {passenger.is_primary ? "Primary · " : ""}
-                          {passenger.first_name} {passenger.last_name}
-                        </strong>
-                        <div className="meta">
-                          {passenger.email} · {passenger.phone}
+                        <div className="passenger-item-title">
+                          <strong>
+                            {passenger.is_primary ? "Primary · " : ""}
+                            {passenger.first_name} {passenger.last_name}
+                          </strong>
+                          {isInactiveClient(passenger) ? <InactiveClientBadge /> : null}
                         </div>
                         {passenger.date_of_birth ? (
-                          <div className="meta">Date of birth: {passenger.date_of_birth}</div>
+                          <div className="meta">{formatDate(passenger.date_of_birth)}</div>
+                        ) : null}
+                        {contact ? <div className="meta">{contact}</div> : null}
+                        {addressLine ? (
+                          <div className="meta passenger-address-line">{addressLine}</div>
+                        ) : null}
+                        {passenger.qualifiers?.length ? (
+                          <div className="meta">
+                            Qualifying discounts: {passenger.qualifiers.join(", ")}
+                          </div>
                         ) : null}
                       </div>
                       {!disabled ? (
@@ -191,7 +219,8 @@ export default function PassengersSection({
                   </>
                 )}
               </article>
-            ))}
+              );
+            })}
           </div>
 
           {!disabled ? (
@@ -209,6 +238,7 @@ export default function PassengersSection({
         title="Add passenger to request"
         saving={saving}
         excludePassengerIds={passengers.map((passenger) => passenger.passenger_id)}
+        showQualifiers
         onClose={() => setPickerOpen(false)}
         onAttachExisting={handleAttachExisting}
         onCreateNew={handleCreateNew}

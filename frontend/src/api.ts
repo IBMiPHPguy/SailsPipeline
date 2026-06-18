@@ -1,7 +1,10 @@
-import { authHeaders } from "./authApi";
+import { authHeaders, parseApiError } from "./apiClient";
 import type {
   Attachment,
   AttachmentKind,
+  ClientDetail,
+  ClientListItem,
+  ClientUpdateInput,
   DashboardData,
   RequestNote,
   RequestNoteInput,
@@ -26,27 +29,14 @@ import type {
   WorkflowTemplate,
 } from "./types";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
-
-async function parseError(response: Response, fallback: string): Promise<string> {
-  const error = await response.json().catch(() => ({ detail: fallback }));
-  if (Array.isArray(error.detail)) {
-    return (
-      error.detail
-        .map((item: { msg?: string }) => item.msg)
-        .filter(Boolean)
-        .join(" ") || fallback
-    );
-  }
-  return typeof error.detail === "string" ? error.detail : fallback;
-}
+import { API_BASE } from "./apiClient";
 
 export async function fetchDashboard(): Promise<DashboardData> {
   const response = await fetch(`${API_BASE}/dashboard`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to load dashboard."));
+    throw new Error(await parseApiError(response, "Unable to load dashboard."));
   }
   return response.json();
 }
@@ -56,7 +46,7 @@ export async function fetchRequests(): Promise<TravelRequest[]> {
     headers: authHeaders(),
   });
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to load travel requests."));
+    throw new Error(await parseApiError(response, "Unable to load travel requests."));
   }
   return response.json();
 }
@@ -66,7 +56,7 @@ export async function fetchClosedRequests(): Promise<TravelRequest[]> {
     headers: authHeaders(),
   });
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to load closed requests."));
+    throw new Error(await parseApiError(response, "Unable to load closed requests."));
   }
   return response.json();
 }
@@ -77,7 +67,7 @@ export async function reopenRequest(requestId: number): Promise<TravelRequest> {
     headers: authHeaders(true),
   });
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to reopen request."));
+    throw new Error(await parseApiError(response, "Unable to reopen request."));
   }
   return response.json();
 }
@@ -87,7 +77,7 @@ export async function fetchRequest(requestId: number): Promise<TravelRequestDeta
     headers: authHeaders(),
   });
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to load travel request."));
+    throw new Error(await parseApiError(response, "Unable to load travel request."));
   }
   return response.json();
 }
@@ -97,7 +87,7 @@ export async function fetchRequestChangeHistory(requestId: number): Promise<Requ
     headers: authHeaders(),
   });
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to load change history."));
+    throw new Error(await parseApiError(response, "Unable to load change history."));
   }
   return response.json();
 }
@@ -107,7 +97,7 @@ export async function fetchRequestNotes(requestId: number): Promise<RequestNote[
     headers: authHeaders(),
   });
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to load notes."));
+    throw new Error(await parseApiError(response, "Unable to load notes."));
   }
   return response.json();
 }
@@ -117,7 +107,7 @@ export async function fetchNote(requestId: number, noteId: number): Promise<Requ
     headers: authHeaders(),
   });
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to load note."));
+    throw new Error(await parseApiError(response, "Unable to load note."));
   }
   return response.json();
 }
@@ -130,7 +120,7 @@ export async function fetchCommunication(
     headers: authHeaders(),
   });
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to load communication."));
+    throw new Error(await parseApiError(response, "Unable to load communication."));
   }
   return response.json();
 }
@@ -143,7 +133,7 @@ export async function createRequest(payload: TravelRequestInput): Promise<Travel
   });
 
   if (!response.ok) {
-    throw new Error(await parseError(response, "Request failed."));
+    throw new Error(await parseApiError(response, "Request failed."));
   }
 
   return response.json();
@@ -160,7 +150,7 @@ export async function updateRequest(
   });
 
   if (!response.ok) {
-    throw new Error(await parseError(response, "Update failed."));
+    throw new Error(await parseApiError(response, "Update failed."));
   }
 
   return response.json();
@@ -177,7 +167,7 @@ export async function uploadTranscript(requestId: number, file: File): Promise<A
   });
 
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to upload call transcript."));
+    throw new Error(await parseApiError(response, "Unable to upload call transcript."));
   }
 
   return response.json();
@@ -194,7 +184,7 @@ export async function uploadChatLog(requestId: number, file: File): Promise<Atta
   });
 
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to upload chat log."));
+    throw new Error(await parseApiError(response, "Unable to upload chat log."));
   }
 
   return response.json();
@@ -210,7 +200,7 @@ export async function fetchAttachmentContent(
   });
 
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to load attachment."));
+    throw new Error(await parseApiError(response, "Unable to load attachment."));
   }
 
   return response.text();
@@ -227,7 +217,61 @@ export async function searchPassengers(query = "", limit = 20): Promise<Passenge
     headers: authHeaders(),
   });
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to search passengers."));
+    throw new Error(await parseApiError(response, "Unable to search passengers."));
+  }
+  return response.json();
+}
+
+export async function fetchClients(): Promise<ClientListItem[]> {
+  const response = await fetch(`${API_BASE}/passengers`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to load clients."));
+  }
+  return response.json();
+}
+
+export async function fetchClient(clientId: number): Promise<ClientDetail> {
+  const response = await fetch(`${API_BASE}/passengers/${clientId}`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to load client."));
+  }
+  return response.json();
+}
+
+export async function updateClient(clientId: number, payload: ClientUpdateInput): Promise<ClientDetail> {
+  const response = await fetch(`${API_BASE}/passengers/${clientId}`, {
+    method: "PATCH",
+    headers: authHeaders(true),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to update client."));
+  }
+  return response.json();
+}
+
+export async function deactivateClient(clientId: number): Promise<ClientDetail> {
+  const response = await fetch(`${API_BASE}/passengers/${clientId}/deactivate`, {
+    method: "POST",
+    headers: authHeaders(true),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to deactivate client."));
+  }
+  return response.json();
+}
+
+export async function activateClient(clientId: number): Promise<ClientDetail> {
+  const response = await fetch(`${API_BASE}/passengers/${clientId}/activate`, {
+    method: "POST",
+    headers: authHeaders(true),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to reactivate client."));
   }
   return response.json();
 }
@@ -243,7 +287,7 @@ export async function addPassenger(
   });
 
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to add passenger."));
+    throw new Error(await parseApiError(response, "Unable to add passenger."));
   }
 
   return response.json();
@@ -261,7 +305,7 @@ export async function updatePassenger(
   });
 
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to update passenger."));
+    throw new Error(await parseApiError(response, "Unable to update passenger."));
   }
 
   return response.json();
@@ -274,7 +318,7 @@ export async function deletePassenger(requestId: number, passengerId: number): P
   });
 
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to delete passenger."));
+    throw new Error(await parseApiError(response, "Unable to delete passenger."));
   }
 }
 
@@ -286,7 +330,7 @@ export async function addNote(requestId: number, payload: RequestNoteInput): Pro
   });
 
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to add note."));
+    throw new Error(await parseApiError(response, "Unable to add note."));
   }
 
   return response.json();
@@ -304,7 +348,7 @@ export async function updateNote(
   });
 
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to update note."));
+    throw new Error(await parseApiError(response, "Unable to update note."));
   }
 
   return response.json();
@@ -321,7 +365,7 @@ export async function addProposedCruise(
   });
 
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to add proposed cruise."));
+    throw new Error(await parseApiError(response, "Unable to add proposed cruise."));
   }
 
   return response.json();
@@ -339,7 +383,7 @@ export async function updateProposedCruise(
   });
 
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to update proposed cruise."));
+    throw new Error(await parseApiError(response, "Unable to update proposed cruise."));
   }
 
   return response.json();
@@ -356,7 +400,7 @@ export async function addQuotedInsurance(
   });
 
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to add insurance quote."));
+    throw new Error(await parseApiError(response, "Unable to add insurance quote."));
   }
 
   return response.json();
@@ -374,7 +418,7 @@ export async function updateQuotedInsurance(
   });
 
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to update insurance quote."));
+    throw new Error(await parseApiError(response, "Unable to update insurance quote."));
   }
 
   return response.json();
@@ -385,7 +429,7 @@ export async function fetchWorkflowTemplates(): Promise<WorkflowTemplate[]> {
     headers: authHeaders(),
   });
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to load workflow templates."));
+    throw new Error(await parseApiError(response, "Unable to load workflow templates."));
   }
   return response.json();
 }
@@ -404,7 +448,7 @@ export async function startWorkflow(
     }),
   });
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to start workflow."));
+    throw new Error(await parseApiError(response, "Unable to start workflow."));
   }
   return response.json();
 }
@@ -412,15 +456,18 @@ export async function startWorkflow(
 export async function updateWorkflow(
   requestId: number,
   workflowId: number,
-  status: string,
+  payload: {
+    status: string;
+    close_reason?: string;
+  },
 ): Promise<RequestWorkflow> {
   const response = await fetch(`${API_BASE}/requests/${requestId}/workflows/${workflowId}`, {
     method: "PATCH",
     headers: authHeaders(true),
-    body: JSON.stringify({ status }),
+    body: JSON.stringify(payload),
   });
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to update workflow."));
+    throw new Error(await parseApiError(response, "Unable to update workflow."));
   }
   return response.json();
 }
@@ -441,7 +488,7 @@ export async function updateTask(
     body: JSON.stringify(payload),
   });
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to update task."));
+    throw new Error(await parseApiError(response, "Unable to update task."));
   }
   return response.json();
 }
@@ -456,7 +503,7 @@ export async function addCommunication(
     body: JSON.stringify(payload),
   });
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to save communication."));
+    throw new Error(await parseApiError(response, "Unable to save communication."));
   }
   return response.json();
 }
@@ -472,9 +519,19 @@ export async function updateCommunication(
     body: JSON.stringify(payload),
   });
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to update communication."));
+    throw new Error(await parseApiError(response, "Unable to update communication."));
   }
   return response.json();
+}
+
+export async function deleteCommunication(requestId: number, communicationId: number): Promise<void> {
+  const response = await fetch(`${API_BASE}/requests/${requestId}/communications/${communicationId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to delete communication."));
+  }
 }
 
 export async function uploadResearchDocument(requestId: number, file: File): Promise<ResearchDocument> {
@@ -487,7 +544,7 @@ export async function uploadResearchDocument(requestId: number, file: File): Pro
     body: formData,
   });
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to upload research document."));
+    throw new Error(await parseApiError(response, "Unable to upload research document."));
   }
   return response.json();
 }
@@ -498,7 +555,7 @@ export async function fetchResearchDocumentContent(requestId: number, documentId
     { headers: authHeaders() },
   );
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to load research document."));
+    throw new Error(await parseApiError(response, "Unable to load research document."));
   }
   return response.text();
 }
@@ -513,7 +570,7 @@ export async function generateProposedCruisesFromResearch(
     body: JSON.stringify({ research_document_id: researchDocumentId }),
   });
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to generate proposed cruises from research."));
+    throw new Error(await parseApiError(response, "Unable to generate proposed cruises from research."));
   }
   return response.json();
 }
@@ -528,7 +585,7 @@ export async function generateResearchCommunicationFromProposals(
     body: JSON.stringify({ request_workflow_id: requestWorkflowId }),
   });
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to generate proposal email."));
+    throw new Error(await parseApiError(response, "Unable to generate proposal email."));
   }
   return response.json();
 }
@@ -543,7 +600,7 @@ export async function addProposedCruisesBulk(
     body: JSON.stringify({ cruises }),
   });
   if (!response.ok) {
-    throw new Error(await parseError(response, "Unable to add proposed cruises."));
+    throw new Error(await parseApiError(response, "Unable to add proposed cruises."));
   }
   const payload = (await response.json()) as { cruises: ProposedCruise[] };
   return payload.cruises;

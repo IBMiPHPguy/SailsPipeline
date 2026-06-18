@@ -250,23 +250,17 @@ export function getTaskWorkspaceHint(taskKey: string): string | null {
       return `Follow up with the client if they have not responded within ${FOLLOW_UP_DUE_DAYS} days of sending the proposal. Mark as reached out to extend the due date another ${FOLLOW_UP_DUE_DAYS} days without closing the task.`;
     case "client_response":
       return "Record whether each proposed cruise was accepted or rejected. This task can be completed anytime after the proposal is sent, even if follow-up is still open.";
-    case "verify_dates_of_birth":
-    case "verify_names_spellings":
-    case "verify_email_phone":
-      return "Review and update passenger details in the Passengers section above, then mark this task done.";
+    case "verify_passenger_details":
+      return "Review each passenger's name, date of birth, and contact information below. Email and phone are required for the primary passenger only. Save to update passenger records and complete this task.";
+    case "collect_passenger_addresses":
     case "collect_lead_passenger_addresses":
-      return "Collect lead passenger addresses (passenger address fields coming soon), then mark this task done.";
+      return "Enter the primary passenger's home address below. Other passenger addresses are optional, and you can copy the primary address to another passenger when it matches.";
+    case "create_cabin_holds":
+      return "Enter cruise line reservation IDs for each cabin based on the request's max cabins needed. Add multiple IDs per cabin when needed.";
+    case "collect_payment_and_send_booking_communication":
+      return "Collect deposit or final payment for each reservation ID, send cruise line booking communications, then mark payment collected for every reservation.";
     case "create_trip_in_crm":
-      return "Create the trip in your agency CRM using the manual checklist, then mark this task done.";
-    case "collect_deposit_or_final_payment":
-      return "Collect deposit or final payment if required, then mark this task done.";
-    case "send_cruise_line_booking_communication":
-    case "send_agency_crm_communication":
-      return "Send the booking communication to the client and save a copy in Communications, then mark this task done.";
-    case "setup_crm_final_payment_followups":
-      return "Set up CRM follow-up tasks for final payment, then mark this task done.";
-    case "record_promised_obc":
-      return "Record any promised onboard credit on the accepted proposed cruise, then mark this task done.";
+      return "Use the CRM entry summary below while you work in your agency CRM. Check off each step as you complete it, then mark this task done.";
     default:
       return null;
   }

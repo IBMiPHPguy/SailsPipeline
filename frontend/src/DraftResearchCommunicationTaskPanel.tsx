@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
 import { generateResearchCommunicationFromProposals } from "./api";
 import { PROPOSED_CRUISE_STATUS_PROPOSED } from "./formOptions";
+import ResearchCommunicationBodyPreview from "./ResearchCommunicationBodyPreview";
 import type { GeneratedResearchCommunicationResponse, ProposedCruise } from "./types";
+import { copyCommunicationBodyToClipboard, formatDate } from "./utils";
 
 type DraftResearchCommunicationTaskPanelProps = {
   requestId: number;
@@ -30,7 +32,7 @@ function getProposalEmailValidationIssues(cruises: ProposedCruise[]): string[] {
   }
 
   for (const cruise of proposed) {
-    const label = `${cruise.cruise_line} · ${cruise.ship} (departs ${cruise.departure_date})`;
+    const label = `${cruise.cruise_line} · ${cruise.ship} (departs ${formatDate(cruise.departure_date)})`;
     if (Number(cruise.cost) <= 0) {
       issues.push(`${label}: cruise cost must be greater than $0.`);
     }
@@ -40,6 +42,23 @@ function getProposalEmailValidationIssues(cruises: ProposedCruise[]): string[] {
   }
 
   return issues;
+}
+
+function getProposalEmailItineraryWarnings(cruises: ProposedCruise[]): string[] {
+  const proposed = cruises.filter((cruise) => cruise.status === PROPOSED_CRUISE_STATUS_PROPOSED);
+  const warnings: string[] = [];
+
+  for (const cruise of proposed) {
+    if (cruise.itinerary_details?.trim()) {
+      continue;
+    }
+    const label = `${cruise.cruise_line} · ${cruise.ship} (departs ${formatDate(cruise.departure_date)})`;
+    warnings.push(
+      `${label}: add itinerary details on the proposed cruise (one day/port per line) for an accurate proposal email.`,
+    );
+  }
+
+  return warnings;
 }
 
 export default function DraftResearchCommunicationTaskPanel({
@@ -52,6 +71,8 @@ export default function DraftResearchCommunicationTaskPanel({
 }: DraftResearchCommunicationTaskPanelProps) {
   const [generating, setGenerating] = useState(false);
   const [generated, setGenerated] = useState<GeneratedResearchCommunicationResponse | null>(null);
+  const [copyMessage, setCopyMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
   const proposedOptions = useMemo(
     () => proposedCruises.filter((cruise) => cruise.status === PROPOSED_CRUISE_STATUS_PROPOSED),
@@ -59,6 +80,10 @@ export default function DraftResearchCommunicationTaskPanel({
   );
   const validationIssues = useMemo(
     () => getProposalEmailValidationIssues(proposedCruises),
+    [proposedCruises],
+  );
+  const itineraryWarnings = useMemo(
+    () => getProposalEmailItineraryWarnings(proposedCruises),
     [proposedCruises],
   );
   const canGenerate = validationIssues.length === 0;
@@ -70,6 +95,7 @@ export default function DraftResearchCommunicationTaskPanel({
     }
 
     setGenerating(true);
+    setErrorMessage("");
     onError("");
     try {
       const result = await generateResearchCommunicationFromProposals(requestId, requestWorkflowId);
@@ -77,7 +103,10 @@ export default function DraftResearchCommunicationTaskPanel({
       await onChanged();
     } catch (generateError) {
       setGenerated(null);
-      onError(generateError instanceof Error ? generateError.message : "Unable to generate proposal email.");
+      const message =
+        generateError instanceof Error ? generateError.message : "Unable to generate proposal email.";
+      setErrorMessage(message);
+      onError(message);
     } finally {
       setGenerating(false);
     }
@@ -87,8 +116,8 @@ export default function DraftResearchCommunicationTaskPanel({
     <div className="draft-research-communication-task-panel">
       <div className="workflow-task-guidance">
         <p>
-          AI will draft a client proposal email using every proposed cruise in Proposed status, then save it in
-          Communications as a cruise proposal. Follow-up messages can be added separately later.
+          AI writes the intro and closing only. Cruise pricing and itinerary come from each proposed cruise. Add
+          itinerary details on the proposed cruise before generating for an accurate day-by-day itinerary in the email.
         </p>
       </div>
 
@@ -110,6 +139,17 @@ export default function DraftResearchCommunicationTaskPanel({
         </div>
       )}
 
+      {itineraryWarnings.length > 0 ? (
+        <div className="status warning draft-research-communication-validation">
+          <p>For the best proposal email, add itinerary details to each proposed cruise:</p>
+          <ul>
+            {itineraryWarnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       {proposedOptions.length > 0 ? (
         <ul className="proposed-cruises-task-result-list">
           {proposedOptions.map((cruise) => (
@@ -118,7 +158,7 @@ export default function DraftResearchCommunicationTaskPanel({
                 {cruise.cruise_line} · {cruise.ship}
               </strong>
               <div className="meta">
-                Departs {cruise.departure_date} · {cruise.number_of_nights} nights · {cruise.itinerary_name}
+                Departs {formatDate(cruise.departure_date)} · {cruise.number_of_nights} nights · {cruise.itinerary_name}
               </div>
               <div className="meta">
                 {cruise.room_category} · Cost {formatMoney(Number(cruise.cost))} · Deposit{" "}
@@ -135,6 +175,8 @@ export default function DraftResearchCommunicationTaskPanel({
         </button>
       ) : null}
 
+      {errorMessage ? <p className="status error">{errorMessage}</p> : null}
+
       {generated ? (
         <div className="draft-research-communication-results">
           <p className="status success workflow-task-upload-success">
@@ -149,9 +191,22 @@ export default function DraftResearchCommunicationTaskPanel({
             <input type="text" readOnly value={generated.email_subject} />
           </label>
           <label>
-            Email body
-            <pre className="draft-research-communication-body">{generated.body}</pre>
+            Email preview
+            <ResearchCommunicationBodyPreview body={generated.body} />
           </label>
+          <button
+            type="button"
+            className="modal-secondary"
+            onClick={() => {
+              setCopyMessage("");
+              void copyCommunicationBodyToClipboard(generated.body)
+                .then(() => setCopyMessage("Email body copied to clipboard."))
+                .catch(() => onError("Unable to copy email body."));
+            }}
+          >
+            Copy formatted email body
+          </button>
+          {copyMessage ? <p className="status success workflow-task-upload-success">{copyMessage}</p> : null}
         </div>
       ) : null}
     </div>

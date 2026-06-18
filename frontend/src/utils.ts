@@ -73,3 +73,24 @@ export async function copyTextToClipboard(text: string): Promise<void> {
   document.execCommand("copy");
   document.body.removeChild(textarea);
 }
+
+export function isHtmlCommunicationBody(body: string): boolean {
+  const trimmed = body.trim().toLowerCase();
+  return trimmed.startsWith("<!doctype html") || trimmed.startsWith("<html");
+}
+
+export async function copyCommunicationBodyToClipboard(body: string): Promise<void> {
+  if (isHtmlCommunicationBody(body) && navigator.clipboard?.write && typeof ClipboardItem !== "undefined") {
+    const plainText =
+      new DOMParser().parseFromString(body, "text/html").body.textContent?.trim() ?? body;
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        "text/html": new Blob([body], { type: "text/html" }),
+        "text/plain": new Blob([plainText], { type: "text/plain" }),
+      }),
+    ]);
+    return;
+  }
+
+  await copyTextToClipboard(body);
+}

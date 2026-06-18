@@ -89,12 +89,21 @@ When editing a request, the workspace uses a responsive two-column layout:
 
 The client content card (passengers through communications) stays beside request details when there is room. It expands to full width only when it would otherwise sit below the request details panel.
 
-### Passengers
+### Passengers and clients
 
 - Add passengers manually or link from the shared passenger registry
 - Search existing passengers with `GET /api/passengers/search`
 - Primary passenger contact fields sync back to the request header
 - Passenger field changes are audited
+
+**Clients page** (`/clients`) manages reusable passenger profiles across requests:
+
+- List, search, view, and edit client profiles
+- **Deactivate** inactive clients (they stay on existing requests but cannot be added to new ones)
+- **Reactivate** previously inactive clients
+- Deactivation uses a confirmation modal with an explicit opt-in checkbox
+
+Inactive passengers are visually flagged in request passenger lists.
 
 ### Proposed cruises and quoted insurance
 
@@ -111,7 +120,7 @@ The client content card (passengers through communications) stays beside request
 - **Notes** — free-text notes with AI-generated summaries and change history
 - **Call transcripts** and **chat logs** — uploaded as `.txt` files, stored on disk under `ATTACHMENTS_DIR`
 - **Research documents** — `.txt` uploads used for AI extraction and new research cycles
-- **Communications** — draft/sent/archived messages (research proposal, follow-up, booking, agency, etc.)
+- **Communications** — draft/sent/archived messages (research proposal, follow-up, booking, agency, etc.); draft communications can be deleted from the request workspace
 
 ### Workflows
 
@@ -123,7 +132,7 @@ Workflow templates:
 | --- | --- |
 | Research | Research options, upload findings, create proposals, draft communication |
 | Communicate Research | Send proposal, follow up, record client response |
-| Enter Trip in CRM | Post-booking checklist (passenger verification, CRM steps, payments, OBC) |
+| Enter Trip in CRM | Post-booking checklist (passenger verification, cabin holds, payments, CRM entry) |
 
 #### Research workflow tasks
 
@@ -199,6 +208,27 @@ Request, passenger, and note changes are recorded in change history views. These
 
 Uploaded files (transcripts, chats, research documents) live in the `attachment_uploads` Docker volume, mounted at `/app/uploads` in the backend container.
 
+## Backend layout
+
+The FastAPI app is created in `backend/app/application.py` and mounted for Uvicorn via `backend/app/main.py`. HTTP routes are grouped by domain under `backend/app/routers/`; business logic lives in `backend/app/services/`.
+
+| Module | Responsibility |
+| --- | --- |
+| `routers/health.py`, `routers/auth.py` | Health check and authentication |
+| `routers/dashboard.py` | Dashboard aggregates |
+| `routers/requests.py` | Travel requests, notes, attachments, proposed cruises, insurance, research documents |
+| `routers/passengers.py` | Client registry and request passenger links |
+| `routers/communications.py` | Request communications |
+| `routers/workflows.py` | Workflow templates, workflow lifecycle, task updates |
+| `services/request_service.py` | Request queries, detail assembly, open-request guards |
+| `services/dashboard_service.py` | Dashboard response building |
+| `services/passenger_service.py`, `passenger_helpers.py` | Passenger registry and request sync |
+| `services/communication_service.py` | Communication CRUD and Gemini draft generation |
+| `services/workflow_service.py` | Workflow creation, completion, and task updates |
+| `services/proposed_cruise_record_service.py` | Proposed cruise persistence and Gemini extraction |
+
+Domain helpers (cabin normalization, workflow templates, research email HTML, etc.) remain in focused modules beside `services/`.
+
 ## Environment variables
 
 See `.env.example` for defaults.
@@ -259,9 +289,14 @@ All routes below require authentication unless noted.
 - `POST /api/requests/{id}/quoted-insurance`
 - `PATCH /api/requests/{id}/quoted-insurance/{quote_id}`
 
-### Passengers
+### Passengers and client registry
 
 - `GET /api/passengers/search?q=&limit=`
+- `GET /api/passengers`
+- `GET /api/passengers/{passenger_id}`
+- `PATCH /api/passengers/{passenger_id}`
+- `POST /api/passengers/{passenger_id}/deactivate`
+- `POST /api/passengers/{passenger_id}/activate`
 - `POST /api/requests/{id}/passengers`
 - `PATCH /api/requests/{id}/passengers/{passenger_id}`
 - `DELETE /api/requests/{id}/passengers/{passenger_id}`
@@ -278,11 +313,62 @@ All routes below require authentication unless noted.
 - `GET /api/requests/{id}/communications/{communication_id}`
 - `POST /api/requests/{id}/communications`
 - `PATCH /api/requests/{id}/communications/{communication_id}`
+- `DELETE /api/requests/{id}/communications/{communication_id}` — draft only
 - `POST /api/requests/{id}/communications/generate-from-proposals`
 - `POST /api/requests/{id}/research-documents`
 - `GET /api/requests/{id}/research-documents/{document_id}/content`
 
 Interactive docs with request/response schemas: http://localhost:8080/docs
+
+## Testing
+
+The project includes backend unit tests, API integration tests, and frontend unit tests. Test services use the Docker Compose `test` profile with an ephemeral MySQL database (`test-db`). The current suite is **28 backend tests** and **10 frontend tests**.
+
+Run the full suite:
+
+```powershell
+docker compose --profile test rm -sf test-db
+docker compose --profile test up -d test-db
+.\scripts\run-tests.ps1
+```
+
+The test database uses a fresh MySQL container with `db/init.sql`. Recreate `test-db` after schema changes.
+
+Run only backend unit tests:
+
+```powershell
+.\scripts\run-tests.ps1 -Suite unit
+```
+
+Run only backend integration tests:
+
+```powershell
+.\scripts\run-tests.ps1 -Suite integration
+```
+
+Run only frontend tests:
+
+```powershell
+.\scripts\run-tests.ps1 -Suite frontend
+```
+
+Equivalent Docker commands:
+
+```powershell
+docker compose --profile test up -d test-db
+docker compose --profile test run --rm backend-test
+docker compose --profile test run --rm frontend-test
+```
+
+Backend layout:
+
+- `backend/tests/unit/` — domain/helper tests (workflow logic, cabin normalization, passenger activation, research email HTML)
+- `backend/tests/integration/` — FastAPI endpoint tests against MySQL (auth, requests, communications, passenger reactivation)
+- `backend/pytest.ini`, `backend/requirements-dev.txt` — pytest configuration and dev dependencies
+
+Frontend tests live beside source files as `*.test.ts` and run with Vitest (`apiClient.test.ts`, `domainHelpers.test.ts`).
+
+Use `scripts/run-tests.ps1` as the recommended entry point; it starts `test-db` when needed and runs the selected suites.
 
 ## Database migrations
 

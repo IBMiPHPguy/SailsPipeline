@@ -1,5 +1,6 @@
+import { formatCruiseLines } from "./CruiseLineMultiSelect";
 import type { RequestNote, TravelRequestDetail, TravelRequestInput } from "./types";
-import { formatDestinationSummary } from "./utils";
+import { formatDate, formatDestinationSummary } from "./utils";
 
 function line(label: string, value: string | number | null | undefined): string {
   if (value === null || value === undefined || value === "") {
@@ -19,9 +20,8 @@ export function buildResearchBriefText(
     last_name: form.last_name,
     email: form.email,
     phone: form.phone,
-    state_of_residency: form.state_of_residency,
-    cruise_line: form.cruise_line,
-    excluded_cruise_line: form.excluded_cruise_line ?? null,
+    cruise_lines: form.cruise_lines,
+    excluded_cruise_lines: form.excluded_cruise_lines ?? [],
     destination: form.destination,
     destination_details: ["Caribbean", "Alaska", "Asia", "Europe"].includes(form.destination)
       ? form.destination_details ?? null
@@ -29,7 +29,6 @@ export function buildResearchBriefText(
     departure_date: form.departure_date,
     return_date: form.return_date,
     cabin_types: form.cabin_types,
-    qualifiers: form.qualifiers,
     passengers: form.passengers,
     cabins_needed: form.cabins_needed,
   };
@@ -43,16 +42,14 @@ export function buildResearchBriefText(
     line("Name", `${form.first_name} ${form.last_name}`.trim()),
     line("Email", form.email),
     line("Phone", form.phone),
-    line("State of residency", form.state_of_residency),
     "",
     "CRUISE PREFERENCES",
-    line("Cruise line", form.cruise_line),
-    line("Excluded cruise line", form.excluded_cruise_line?.trim() || null),
+    line("Preferred cruise lines", formatCruiseLines(form.cruise_lines)),
+    line("Cruise lines to avoid", formatCruiseLines(form.excluded_cruise_lines)),
     line("Destination", formatDestinationSummary(summaryRequest)),
-    line("Departure date", form.departure_date),
-    line("Return date", form.return_date),
+    line("Departure date", formatDate(form.departure_date)),
+    line("Return date", formatDate(form.return_date)),
     line("Cabin types", form.cabin_types.join(", ") || null),
-    line("Qualifiers", form.qualifiers.join(", ") || null),
     line("Passenger count", form.passengers),
     line("Cabins needed", form.cabins_needed),
     "",
@@ -61,8 +58,12 @@ export function buildResearchBriefText(
       ? ["  (none)"]
       : request.request_passengers.map((passenger, index) => {
           const name = `${passenger.first_name} ${passenger.last_name}`.trim();
-          const dob = passenger.date_of_birth ? `DOB ${passenger.date_of_birth}` : "DOB not set";
-          return `  ${index + 1}. ${name} — ${dob} — ${passenger.email} — ${passenger.phone}`;
+          const dob = passenger.date_of_birth ? `DOB ${formatDate(passenger.date_of_birth)}` : "DOB not set";
+          const state = passenger.state_or_province?.trim();
+          const address = state ? ` · ${state}` : "";
+          const discounts =
+            passenger.qualifiers?.length > 0 ? ` · Discounts: ${passenger.qualifiers.join(", ")}` : "";
+          return `  ${index + 1}. ${name} — ${dob} — ${passenger.email} — ${passenger.phone}${address}${discounts}`;
         })),
     "",
     "NOTES",

@@ -1,8 +1,10 @@
+import { formatCruiseLines } from "./CruiseLineMultiSelect";
 import { useEffect, useState } from "react";
 import { fetchRequestNotes } from "./api";
 import type { RequestNote, TravelRequestDetail, TravelRequestInput } from "./types";
-import { formatDestinationSummary } from "./utils";
+import { formatDate, formatDestinationSummary } from "./utils";
 import { downloadResearchBrief } from "./researchBrief";
+import { isInactiveClient } from "./passengerDisplay";
 
 type ResearchTaskBriefPanelProps = {
   request: TravelRequestDetail;
@@ -36,8 +38,8 @@ export default function ResearchTaskBriefPanel({ request, form }: ResearchTaskBr
     ...request,
     first_name: form.first_name,
     last_name: form.last_name,
-    cruise_line: form.cruise_line,
-    excluded_cruise_line: form.excluded_cruise_line ?? null,
+    cruise_lines: form.cruise_lines,
+    excluded_cruise_lines: form.excluded_cruise_lines ?? [],
     destination: form.destination,
     destination_details: ["Caribbean", "Alaska", "Asia", "Europe"].includes(form.destination)
       ? form.destination_details ?? null
@@ -45,7 +47,6 @@ export default function ResearchTaskBriefPanel({ request, form }: ResearchTaskBr
     departure_date: form.departure_date,
     return_date: form.return_date,
     cabin_types: form.cabin_types,
-    qualifiers: form.qualifiers,
     passengers: form.passengers,
     cabins_needed: form.cabins_needed,
   };
@@ -73,17 +74,13 @@ export default function ResearchTaskBriefPanel({ request, form }: ResearchTaskBr
           </dd>
         </div>
         <div>
-          <dt>State</dt>
-          <dd>{form.state_of_residency}</dd>
+          <dt>Preferred cruise lines</dt>
+          <dd>{formatCruiseLines(form.cruise_lines)}</dd>
         </div>
-        <div>
-          <dt>Cruise line</dt>
-          <dd>{form.cruise_line}</dd>
-        </div>
-        {form.excluded_cruise_line?.trim() ? (
+        {form.excluded_cruise_lines?.length ? (
           <div>
-            <dt>Excluded line</dt>
-            <dd>{form.excluded_cruise_line}</dd>
+            <dt>Cruise lines to avoid</dt>
+            <dd>{formatCruiseLines(form.excluded_cruise_lines)}</dd>
           </div>
         ) : null}
         <div>
@@ -93,16 +90,12 @@ export default function ResearchTaskBriefPanel({ request, form }: ResearchTaskBr
         <div>
           <dt>Travel dates</dt>
           <dd>
-            {form.departure_date} to {form.return_date}
+            {formatDate(form.departure_date)} to {formatDate(form.return_date)}
           </dd>
         </div>
         <div>
           <dt>Cabin types</dt>
           <dd>{form.cabin_types.length > 0 ? form.cabin_types.join(", ") : "—"}</dd>
-        </div>
-        <div>
-          <dt>Qualifiers</dt>
-          <dd>{form.qualifiers.length > 0 ? form.qualifiers.join(", ") : "—"}</dd>
         </div>
         <div>
           <dt>Passengers / cabins</dt>
@@ -120,7 +113,11 @@ export default function ResearchTaskBriefPanel({ request, form }: ResearchTaskBr
             {request.request_passengers.map((passenger) => (
               <li key={passenger.id}>
                 {passenger.first_name} {passenger.last_name}
-                {passenger.date_of_birth ? ` · DOB ${passenger.date_of_birth}` : ""}
+                {isInactiveClient(passenger) ? " · Inactive client" : ""}
+                {passenger.date_of_birth ? ` · DOB ${formatDate(passenger.date_of_birth)}` : ""}
+                {passenger.qualifiers?.length
+                  ? ` · Discounts: ${passenger.qualifiers.join(", ")}`
+                  : ""}
               </li>
             ))}
           </ul>

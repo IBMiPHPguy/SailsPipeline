@@ -39,22 +39,66 @@ export type PassengerProfile = {
   id: number;
   first_name: string;
   last_name: string;
-  email: string;
-  phone: string;
+  email: string | null;
+  phone: string | null;
   date_of_birth: string | null;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
+};
+
+export type ClientListItem = {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  phone: string | null;
+  date_of_birth: string | null;
+  is_active: boolean;
+  request_count: number;
+};
+
+export type ClientDetail = PassengerProfile & {
+  address_line_1: string | null;
+  address_line_2: string | null;
+  city: string | null;
+  state_or_province: string | null;
+  postal_code: string | null;
+  country: string | null;
+  request_count?: number;
+};
+
+export type ClientUpdateInput = {
+  first_name?: string;
+  last_name?: string;
+  email?: string | null;
+  phone?: string | null;
+  date_of_birth?: string | null;
+  address_line_1?: string | null;
+  address_line_2?: string | null;
+  city?: string | null;
+  state_or_province?: string | null;
+  postal_code?: string | null;
+  country?: string | null;
 };
 
 export type RequestPassenger = {
   id: number;
   passenger_id: number;
   is_primary: boolean;
+  passenger_is_active: boolean;
   first_name: string;
   last_name: string;
-  email: string;
-  phone: string;
+  email: string | null;
+  phone: string | null;
   date_of_birth: string | null;
+  address_line_1: string | null;
+  address_line_2: string | null;
+  city: string | null;
+  state_or_province: string | null;
+  postal_code: string | null;
+  country: string | null;
+  qualifiers: string[];
   created_at: string;
   updated_at: string;
 };
@@ -63,9 +107,16 @@ export type RequestPassengerInput = {
   passenger_id?: number;
   first_name?: string;
   last_name?: string;
-  email?: string;
-  phone?: string;
+  email?: string | null;
+  phone?: string | null;
   date_of_birth?: string | null;
+  address_line_1?: string | null;
+  address_line_2?: string | null;
+  city?: string | null;
+  state_or_province?: string | null;
+  postal_code?: string | null;
+  country?: string | null;
+  qualifiers?: string[];
 };
 
 export type RequestNoteAudit = {
@@ -126,13 +177,29 @@ export type CreditInclude = {
   amount?: number | null;
 };
 
+export type CabinPricingEntry = {
+  deposit_amount: number;
+  cost: number;
+};
+
 export type ProposedCruiseIncludes = {
   drink_package: NamedInclude;
   wifi: NamedInclude;
   excursion_credit: CreditInclude;
   onboard_credit: CreditInclude;
+  gift_obc: CreditInclude;
   tips: boolean;
   excursion: boolean;
+};
+
+export type ProposedCruiseRoom = {
+  room_category: string;
+  room_number: string;
+  passengers_in_room: number;
+  deposit_amount: number;
+  commission: number;
+  cost: number;
+  includes: ProposedCruiseIncludes;
 };
 
 export type ProposedCruise = {
@@ -142,6 +209,7 @@ export type ProposedCruise = {
   ship: string;
   number_of_nights: number;
   itinerary_name: string;
+  itinerary_details?: string | null;
   room_category: string;
   room_number: string;
   passengers_in_room: number;
@@ -149,9 +217,12 @@ export type ProposedCruise = {
   deposit_due_date: string;
   final_payment_due_date: string;
   cost: number;
+  cabin_pricing: CabinPricingEntry[];
+  cabin_rooms: ProposedCruiseRoom[];
   includes: ProposedCruiseIncludes;
   status: string;
   passengers: RequestPassenger[];
+  room_passengers: RequestPassenger[][];
   created_by: UserAudit;
   updated_by: UserAudit;
   created_at: string;
@@ -180,6 +251,7 @@ export type ProposedCruiseInput = {
   ship: string;
   number_of_nights: number;
   itinerary_name: string;
+  itinerary_details?: string | null;
   room_category: string;
   room_number: string;
   passengers_in_room: number;
@@ -187,7 +259,10 @@ export type ProposedCruiseInput = {
   deposit_due_date: string;
   final_payment_due_date: string;
   cost: number;
+  cabin_pricing?: CabinPricingEntry[];
+  cabin_rooms?: ProposedCruiseRoom[];
   includes: ProposedCruiseIncludes;
+  room_passenger_ids: number[][];
   passenger_ids: number[];
   status?: string;
 };
@@ -224,17 +299,16 @@ export type TravelRequest = {
   last_name: string;
   email: string;
   phone: string;
-  state_of_residency: string;
-  cruise_line: string;
-  excluded_cruise_line: string | null;
+  cruise_lines: string[];
+  excluded_cruise_lines: string[];
   destination: string;
   destination_details: DestinationDetails | null;
   departure_date: string;
   return_date: string;
   cabin_types: string[];
-  qualifiers: string[];
   passengers: number;
   cabins_needed: number;
+  cabin_hold_reservation_ids: string[][];
   status: string;
   close_reason: string | null;
   created_by: UserAudit;
@@ -349,6 +423,9 @@ export type DashboardData = {
   open_count: number;
   stale_count: number;
   closed_count: number;
+  purchased_closed_count: number;
+  other_closed_count: number;
+  successful_sales_close_rate: number | null;
   open_requests: DashboardOpenRequest[];
 };
 
@@ -357,24 +434,25 @@ export type TravelRequestInput = {
   last_name: string;
   email: string;
   phone: string;
-  state_of_residency: string;
-  cruise_line: string;
-  excluded_cruise_line?: string;
+  cruise_lines: string[];
+  excluded_cruise_lines?: string[];
   destination: string;
   destination_details?: DestinationDetails | null;
   departure_date: string;
   return_date: string;
   cabin_types: string[];
-  qualifiers: string[];
   passengers: number;
   cabins_needed: number;
   first_passenger_date_of_birth?: string;
   primary_passenger_id?: number;
+  /** Primary passenger discounts; set at create time only, not edited on the request form. */
+  qualifiers?: string[];
 };
 
-export type TravelRequestUpdateInput = TravelRequestInput & {
+export type TravelRequestUpdateInput = Partial<TravelRequestInput> & {
   status?: string;
   close_reason?: string | null;
+  cabin_hold_reservation_ids?: string[][] | null;
 };
 
 export type RegisterInput = {
@@ -385,6 +463,9 @@ export type RegisterInput = {
 
 export type AppView =
   | { type: "dashboard" }
+  | { type: "clients" }
   | { type: "closed" }
   | { type: "new" }
   | { type: "edit"; requestId: number };
+
+export type AppNavItem = "dashboard" | "clients";

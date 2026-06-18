@@ -1,32 +1,6 @@
 import { clearToken, getToken, setToken } from "./authStorage";
+import { API_BASE, authHeaders, parseApiError } from "./apiClient";
 import type { AuthResponse, RegisterInput, User } from "./types";
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
-
-function authHeaders(includeJson = false): HeadersInit {
-  const headers: Record<string, string> = {};
-  if (includeJson) {
-    headers["Content-Type"] = "application/json";
-  }
-  const token = getToken();
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-  return headers;
-}
-
-async function parseError(response: Response, fallback: string): Promise<string> {
-  const error = await response.json().catch(() => ({ detail: fallback }));
-  if (Array.isArray(error.detail)) {
-    return (
-      error.detail
-        .map((item: { msg?: string }) => item.msg)
-        .filter(Boolean)
-        .join(" ") || fallback
-    );
-  }
-  return typeof error.detail === "string" ? error.detail : fallback;
-}
 
 export async function login(username: string, password: string): Promise<AuthResponse> {
   const body = new URLSearchParams({ username, password });
@@ -37,7 +11,7 @@ export async function login(username: string, password: string): Promise<AuthRes
   });
 
   if (!response.ok) {
-    throw new Error(await parseError(response, "Login failed."));
+    throw new Error(await parseApiError(response, "Login failed."));
   }
 
   const data: AuthResponse = await response.json();
@@ -53,7 +27,7 @@ export async function register(payload: RegisterInput): Promise<User> {
   });
 
   if (!response.ok) {
-    throw new Error(await parseError(response, "Registration failed."));
+    throw new Error(await parseApiError(response, "Registration failed."));
   }
 
   return response.json();
@@ -76,4 +50,4 @@ export function logout(): void {
   clearToken();
 }
 
-export { authHeaders };
+export { authHeaders, getToken };

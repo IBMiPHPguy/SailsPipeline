@@ -22,6 +22,7 @@ type CommunicationModalProps = {
   disabled: boolean;
   onCancel: () => void;
   onSave: (payload: RequestCommunicationInput) => Promise<void>;
+  onDelete?: () => void;
 };
 
 export default function CommunicationModal({
@@ -32,6 +33,7 @@ export default function CommunicationModal({
   disabled,
   onCancel,
   onSave,
+  onDelete,
 }: CommunicationModalProps) {
   const [form, setForm] = useState<RequestCommunicationInput>(emptyCommunicationForm);
 
@@ -135,6 +137,16 @@ export default function CommunicationModal({
           </div>
 
           <div className="modal-actions modal-actions-footer">
+            {communication?.status === COMMUNICATION_STATUS_DRAFT && onDelete && !disabled ? (
+              <button
+                type="button"
+                className="danger-button communication-delete-button"
+                disabled={saving}
+                onClick={onDelete}
+              >
+                {saving ? "Deleting..." : "Delete draft"}
+              </button>
+            ) : null}
             <button type="button" className="modal-secondary" disabled={saving} onClick={onCancel}>
               Cancel
             </button>

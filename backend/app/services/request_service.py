@@ -1,0 +1,396 @@
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta
+
+from fastapi import HTTPException
+from sqlalchemy.orm import Session, joinedload, selectinload
+
+from app.audit_helpers import (
+    TRAVEL_REQUEST_AUDIT_FIELDS,
+    apply_updates,
+    collect_field_changes,
+    record_travel_request_field_changes,
+)
+from app.constants import (
+    PRIMARY_CLOSE_REASON,
+    REQUEST_STATUS_CLOSED,
+    REQUEST_STATUS_OPEN,
+    STALE_DAYS,
+    TASK_STATUS_OPEN,
+    WORKFLOW_STATUS_ACTIVE,
+)
+from app.models import (
+    CallTranscript,
+    ChatLog,
+    Passenger,
+    ProposedCruise,
+    ProposedCruisePassenger,
+    QuotedInsurance,
+    RequestCommunication,
+    RequestNote,
+    RequestPassenger,
+    RequestPassengerAudit,
+    RequestResearchDocument,
+    RequestTask,
+    RequestWorkflow,
+    TravelRequest,
+    TravelRequestAudit,
+    User,
+)
+from app.passenger_helpers import attach_passenger_to_request, create_passenger_record
+from app.schemas import (
+    AttachmentRead,
+    DashboardNextOpenTaskRead,
+    DashboardOpenRequest,
+    QuotedInsuranceRead,
+    RequestChangeHistoryRead,
+    RequestCommunicationSummaryRead,
+    RequestNoteSummaryRead,
+    RequestPassengerAuditRead,
+    RequestPassengerRead,
+    RequestWorkflowRead,
+    ResearchDocumentRead,
+    TravelRequestAuditRead,
+    TravelRequestCreate,
+    TravelRequestDetailRead,
+    TravelRequestRead,
+    TravelRequestUpdate,
+    UserAudit,
+)
+from app.services.passenger_service import sync_primary_passenger_from_request
+from app.services.proposed_cruise_service import proposed_cruise_to_read
+from app.workflow_helpers import (
+    TASK_KEY_FOLLOW_UP_RESEARCH,
+    ensure_follow_up_due_date,
+    get_workflow_label,
+)
+
+
+def is_stale_by_last_worked(last_worked_at: datetime) -> bool:
+    threshold = datetime.now(UTC) - timedelta(days=STALE_DAYS)
+    if last_worked_at.tzinfo is None:
+        return last_worked_at.replace(tzinfo=UTC) < threshold
+    return last_worked_at < threshold
+
+
+def resolve_last_worked(request: TravelRequest) -> tuple[datetime, User]:
+    candidates: list[tuple[datetime, User]] = [
+        (request.updated_at, request.updated_by),
+    ]
+    for workflow in request.request_workflows:
+        candidates.append((workflow.created_at, workflow.started_by))
+        if workflow.completed_at is not None and workflow.completed_by is not None:
+            candidates.append((workflow.completed_at, workflow.completed_by))
+        for task in workflow.tasks:
+            if task.completed_at is not None and task.completed_by is not None:
+                candidates.append((task.completed_at, task.completed_by))
+    return max(candidates, key=lambda item: item[0])
+
+
+def resolve_next_open_task(request: TravelRequest) -> DashboardNextOpenTaskRead | None:
+    active_workflow = next(
+        (workflow for workflow in request.request_workflows if workflow.status == WORKFLOW_STATUS_ACTIVE),
+        None,
+    )
+    if active_workflow is None:
+        return None
+
+    open_tasks = sorted(
+        (task for task in active_workflow.tasks if task.status == TASK_STATUS_OPEN),
+        key=lambda task: task.sort_order,
+    )
+    if not open_tasks:
+        return None
+
+    task = open_tasks[0]
+    return DashboardNextOpenTaskRead(
+        id=task.id,
+        task_key=task.task_key,
+        title=task.title,
+        workflow_type=active_workflow.workflow_type,
+        workflow_name=get_workflow_label(active_workflow.workflow_type),
+    )
+
+
+def build_dashboard_open_request(request: TravelRequest) -> DashboardOpenRequest:
+    last_worked_at, last_worked_by = resolve_last_worked(request)
+    base = TravelRequestRead.model_validate(request)
+    return DashboardOpenRequest(
+        **base.model_dump(),
+        is_stale=is_stale_by_last_worked(last_worked_at),
+        next_open_task=resolve_next_open_task(request),
+        last_worked_at=last_worked_at,
+        last_worked_by=UserAudit.model_validate(last_worked_by),
+    )
+
+
+def dashboard_query(db: Session):
+    return db.query(TravelRequest).options(
+        joinedload(TravelRequest.created_by),
+        joinedload(TravelRequest.updated_by),
+        joinedload(TravelRequest.request_workflows).options(
+            joinedload(RequestWorkflow.started_by),
+            joinedload(RequestWorkflow.completed_by),
+            joinedload(RequestWorkflow.tasks).joinedload(RequestTask.completed_by),
+        ),
+    )
+
+
+def request_query(db: Session):
+    return db.query(TravelRequest).options(
+        joinedload(TravelRequest.created_by),
+        joinedload(TravelRequest.updated_by),
+    )
+
+
+def detail_query(db: Session):
+    return db.query(TravelRequest).options(
+        joinedload(TravelRequest.created_by),
+        joinedload(TravelRequest.updated_by),
+        selectinload(TravelRequest.request_passengers).joinedload(RequestPassenger.passenger),
+        selectinload(TravelRequest.request_notes).options(
+            joinedload(RequestNote.created_by),
+            joinedload(RequestNote.updated_by),
+        ),
+        selectinload(TravelRequest.proposed_cruises).options(
+            joinedload(ProposedCruise.created_by),
+            joinedload(ProposedCruise.updated_by),
+            selectinload(ProposedCruise.passenger_links)
+            .joinedload(ProposedCruisePassenger.request_passenger)
+            .joinedload(RequestPassenger.passenger),
+        ),
+        selectinload(TravelRequest.quoted_insurance).options(
+            joinedload(QuotedInsurance.created_by),
+            joinedload(QuotedInsurance.updated_by),
+        ),
+        selectinload(TravelRequest.call_transcripts).joinedload(CallTranscript.created_by),
+        selectinload(TravelRequest.chat_logs).joinedload(ChatLog.created_by),
+        selectinload(TravelRequest.request_workflows).options(
+            joinedload(RequestWorkflow.started_by),
+            joinedload(RequestWorkflow.completed_by),
+            selectinload(RequestWorkflow.tasks).joinedload(RequestTask.completed_by),
+        ),
+        selectinload(TravelRequest.request_communications).options(
+            joinedload(RequestCommunication.created_by),
+            joinedload(RequestCommunication.updated_by),
+        ),
+        selectinload(TravelRequest.research_documents).joinedload(RequestResearchDocument.uploaded_by),
+    )
+
+
+def load_change_history(db: Session, request_id: int) -> TravelRequest | None:
+    return (
+        db.query(TravelRequest)
+        .options(
+            selectinload(TravelRequest.request_audits).joinedload(TravelRequestAudit.changed_by),
+            selectinload(TravelRequest.passenger_audits).joinedload(RequestPassengerAudit.changed_by),
+        )
+        .filter(TravelRequest.id == request_id)
+        .first()
+    )
+
+
+def get_open_request(db: Session, request_id: int) -> TravelRequest:
+    request = db.get(TravelRequest, request_id)
+    if request is None:
+        raise HTTPException(status_code=404, detail="Travel request not found.")
+    if request.status == REQUEST_STATUS_CLOSED:
+        raise HTTPException(status_code=400, detail="Closed requests cannot be updated.")
+    return request
+
+
+def touch_request(request: TravelRequest, current_user: User) -> None:
+    request.updated_by_id = current_user.id
+    request.updated_at = datetime.now(UTC).replace(tzinfo=None)
+
+
+def request_detail_to_read(request: TravelRequest) -> TravelRequestDetailRead:
+    last_worked_at, last_worked_by = resolve_last_worked(request)
+    base = TravelRequestRead.model_validate(request)
+    return TravelRequestDetailRead(
+        **base.model_dump(),
+        last_worked_at=last_worked_at,
+        last_worked_by=UserAudit.model_validate(last_worked_by),
+        request_passengers=[RequestPassengerRead.model_validate(passenger) for passenger in request.request_passengers],
+        request_notes=[RequestNoteSummaryRead.model_validate(note) for note in request.request_notes],
+        call_transcripts=[AttachmentRead.model_validate(attachment) for attachment in request.call_transcripts],
+        chat_logs=[AttachmentRead.model_validate(attachment) for attachment in request.chat_logs],
+        proposed_cruises=[
+            proposed_cruise_to_read(cruise, request.cabins_needed) for cruise in request.proposed_cruises
+        ],
+        quoted_insurance=[QuotedInsuranceRead.model_validate(quote) for quote in request.quoted_insurance],
+        request_workflows=[RequestWorkflowRead.model_validate(workflow) for workflow in request.request_workflows],
+        request_communications=[
+            RequestCommunicationSummaryRead.model_validate(communication)
+            for communication in request.request_communications
+        ],
+        research_documents=[
+            ResearchDocumentRead.model_validate(document) for document in request.research_documents
+        ],
+    )
+
+
+def sync_communicate_research_follow_up_due_dates(db: Session, request: TravelRequest) -> None:
+    changed = False
+    for workflow in request.request_workflows:
+        if workflow.status != WORKFLOW_STATUS_ACTIVE:
+            continue
+        follow_up = next(
+            (task for task in workflow.tasks if task.task_key == TASK_KEY_FOLLOW_UP_RESEARCH),
+            None,
+        )
+        previous_due_at = follow_up.due_at if follow_up is not None else None
+        ensure_follow_up_due_date(workflow)
+        if follow_up is not None and follow_up.due_at != previous_due_at:
+            changed = True
+    if changed:
+        db.commit()
+
+
+def list_requests(db: Session) -> list[TravelRequest]:
+    return request_query(db).order_by(TravelRequest.created_at.desc()).all()
+
+
+def list_closed_requests(db: Session) -> list[TravelRequest]:
+    return (
+        request_query(db)
+        .filter(TravelRequest.status == REQUEST_STATUS_CLOSED)
+        .order_by(TravelRequest.updated_at.desc())
+        .all()
+    )
+
+
+def reopen_request(db: Session, request_id: int, current_user: User) -> TravelRequest:
+    request = db.get(TravelRequest, request_id)
+    if request is None:
+        raise HTTPException(status_code=404, detail="Travel request not found.")
+    if request.status != REQUEST_STATUS_CLOSED:
+        raise HTTPException(status_code=400, detail="Only closed requests can be reopened.")
+    if request.close_reason == PRIMARY_CLOSE_REASON:
+        raise HTTPException(
+            status_code=400,
+            detail="Requests closed as purchased trips cannot be reopened.",
+        )
+
+    updates = {
+        "status": REQUEST_STATUS_OPEN,
+        "close_reason": None,
+    }
+    request_changes = collect_field_changes(request, updates, TRAVEL_REQUEST_AUDIT_FIELDS)
+    record_travel_request_field_changes(db, request, request_changes, current_user)
+    apply_updates(request, updates)
+    touch_request(request, current_user)
+    db.commit()
+    return request_query(db).filter(TravelRequest.id == request_id).one()
+
+
+def create_request(db: Session, payload: TravelRequestCreate, current_user: User) -> TravelRequest:
+    if payload.return_date <= payload.departure_date:
+        raise HTTPException(status_code=400, detail="Return date must be after departure date.")
+
+    data = payload.model_dump(exclude={"first_passenger_date_of_birth", "primary_passenger_id"})
+    request_qualifiers = data.pop("qualifiers", []) or []
+    if payload.destination_details:
+        data["destination_details"] = payload.destination_details.model_dump(exclude_none=True)
+    else:
+        data["destination_details"] = None
+
+    if payload.primary_passenger_id is not None:
+        passenger = db.get(Passenger, payload.primary_passenger_id)
+        if passenger is None:
+            raise HTTPException(status_code=404, detail="Passenger not found.")
+        if not passenger.is_active:
+            raise HTTPException(status_code=400, detail="Inactive clients cannot be used for new requests.")
+        data["first_name"] = passenger.first_name
+        data["last_name"] = passenger.last_name
+        data["email"] = passenger.email
+        data["phone"] = passenger.phone
+        if payload.first_passenger_date_of_birth is not None:
+            passenger.date_of_birth = payload.first_passenger_date_of_birth
+
+    request = TravelRequest(
+        **data,
+        status=REQUEST_STATUS_OPEN,
+        created_by_id=current_user.id,
+        updated_by_id=current_user.id,
+    )
+    db.add(request)
+    db.flush()
+
+    if payload.primary_passenger_id is not None:
+        attach_passenger_to_request(
+            db,
+            request.id,
+            payload.primary_passenger_id,
+            is_primary=True,
+            qualifiers=request_qualifiers,
+        )
+    else:
+        passenger = create_passenger_record(
+            db,
+            first_name=payload.first_name,
+            last_name=payload.last_name,
+            email=payload.email,
+            phone=payload.phone,
+            date_of_birth=payload.first_passenger_date_of_birth,
+            created_by_id=current_user.id,
+        )
+        attach_passenger_to_request(
+            db,
+            request.id,
+            passenger.id,
+            is_primary=True,
+            qualifiers=request_qualifiers,
+        )
+    db.commit()
+    return request_query(db).filter(TravelRequest.id == request.id).one()
+
+
+def get_request_detail(db: Session, request_id: int) -> TravelRequestDetailRead:
+    request = detail_query(db).filter(TravelRequest.id == request_id).first()
+    if request is None:
+        raise HTTPException(status_code=404, detail="Travel request not found.")
+    sync_communicate_research_follow_up_due_dates(db, request)
+    return request_detail_to_read(request)
+
+
+def get_request_change_history(db: Session, request_id: int) -> RequestChangeHistoryRead:
+    request = load_change_history(db, request_id)
+    if request is None:
+        raise HTTPException(status_code=404, detail="Travel request not found.")
+    return RequestChangeHistoryRead(
+        request_audits=[TravelRequestAuditRead.model_validate(audit) for audit in request.request_audits],
+        passenger_audits=[
+            RequestPassengerAuditRead.model_validate(audit) for audit in request.passenger_audits
+        ],
+    )
+
+
+def update_request(
+    db: Session,
+    *,
+    request_id: int,
+    payload: TravelRequestUpdate,
+    current_user: User,
+) -> TravelRequestDetailRead:
+    request = db.get(TravelRequest, request_id)
+    if request is None:
+        raise HTTPException(status_code=404, detail="Travel request not found.")
+    if request.status == REQUEST_STATUS_CLOSED:
+        raise HTTPException(status_code=400, detail="Closed requests cannot be edited.")
+
+    updates = payload.model_dump(exclude_unset=True)
+    departure = updates.get("departure_date", request.departure_date)
+    returning = updates.get("return_date", request.return_date)
+    if returning <= departure:
+        raise HTTPException(status_code=400, detail="Return date must be after departure date.")
+
+    request_changes = collect_field_changes(request, updates, TRAVEL_REQUEST_AUDIT_FIELDS)
+    record_travel_request_field_changes(db, request, request_changes, current_user)
+    apply_updates(request, updates)
+
+    sync_primary_passenger_from_request(request, db, current_user)
+    touch_request(request, current_user)
+    db.commit()
+    request = detail_query(db).filter(TravelRequest.id == request_id).one()
+    return request_detail_to_read(request)

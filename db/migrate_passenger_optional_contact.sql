@@ -1,0 +1,3 @@
+ALTER TABLE passengers
+    MODIFY email VARCHAR(255) NULL,
+    MODIFY phone VARCHAR(30) NULL;

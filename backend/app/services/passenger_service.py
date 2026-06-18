@@ -1,0 +1,82 @@
+from __future__ import annotations
+
+from sqlalchemy.orm import Session, joinedload
+
+from app.audit_helpers import (
+    PASSENGER_AUDIT_FIELDS,
+    TRAVEL_REQUEST_AUDIT_FIELDS,
+    apply_updates,
+    collect_field_changes,
+    record_passenger_field_changes,
+    record_travel_request_field_changes,
+)
+from app.models import RequestPassenger, TravelRequest, User
+
+
+def load_request_passenger(db: Session, link_id: int) -> RequestPassenger:
+    return (
+        db.query(RequestPassenger)
+        .options(joinedload(RequestPassenger.passenger))
+        .filter(RequestPassenger.id == link_id)
+        .one()
+    )
+
+
+def get_primary_passenger(db: Session, request_id: int) -> RequestPassenger | None:
+    primary = (
+        db.query(RequestPassenger)
+        .options(joinedload(RequestPassenger.passenger))
+        .filter(
+            RequestPassenger.travel_request_id == request_id,
+            RequestPassenger.is_primary.is_(True),
+        )
+        .first()
+    )
+    if primary is not None:
+        return primary
+    return (
+        db.query(RequestPassenger)
+        .options(joinedload(RequestPassenger.passenger))
+        .filter(RequestPassenger.travel_request_id == request_id)
+        .order_by(RequestPassenger.id.asc())
+        .first()
+    )
+
+
+def sync_primary_passenger_from_request(
+    request: TravelRequest,
+    db: Session,
+    current_user: User,
+) -> None:
+    primary = get_primary_passenger(db, request.id)
+    if primary is None:
+        return
+    sync_updates = {
+        "first_name": request.first_name,
+        "last_name": request.last_name,
+        "email": request.email,
+        "phone": request.phone,
+    }
+    passenger_changes = collect_field_changes(primary, sync_updates, PASSENGER_AUDIT_FIELDS)
+    record_passenger_field_changes(db, primary, passenger_changes, current_user)
+    apply_updates(primary, sync_updates)
+
+
+def sync_request_from_primary_passenger(
+    db: Session,
+    request: TravelRequest,
+    passenger: RequestPassenger,
+    current_user: User,
+) -> None:
+    primary = get_primary_passenger(db, request.id)
+    if primary is None or primary.id != passenger.id:
+        return
+    sync_updates = {
+        "first_name": passenger.first_name,
+        "last_name": passenger.last_name,
+        "email": passenger.email,
+        "phone": passenger.phone,
+    }
+    request_changes = collect_field_changes(request, sync_updates, TRAVEL_REQUEST_AUDIT_FIELDS)
+    record_travel_request_field_changes(db, request, request_changes, current_user)
+    apply_updates(request, sync_updates)

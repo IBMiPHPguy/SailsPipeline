@@ -28,17 +28,17 @@ class TravelRequest(Base):
     last_name: Mapped[str] = mapped_column(String(80), nullable=False)
     email: Mapped[str] = mapped_column(String(255), nullable=False)
     phone: Mapped[str] = mapped_column(String(30), nullable=False)
-    state_of_residency: Mapped[str] = mapped_column(String(50), nullable=False)
-    cruise_line: Mapped[str] = mapped_column(String(120), nullable=False)
-    excluded_cruise_line: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    cruise_lines: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    excluded_cruise_lines: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     destination: Mapped[str] = mapped_column(String(120), nullable=False)
     destination_details: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     departure_date: Mapped[date] = mapped_column(Date, nullable=False)
     return_date: Mapped[date] = mapped_column(Date, nullable=False)
     cabin_types: Mapped[list[str]] = mapped_column(JSON, nullable=False)
-    qualifiers: Mapped[list[str]] = mapped_column(JSON, nullable=False, server_default="[]")
+    qualifiers: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     passengers: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     cabins_needed: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    cabin_hold_reservation_ids: Mapped[list | None] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(String(40), nullable=False, default="Open")
     close_reason: Mapped[str | None] = mapped_column(String(120), nullable=True)
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
@@ -110,9 +110,16 @@ class Passenger(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     first_name: Mapped[str] = mapped_column(String(80), nullable=False)
     last_name: Mapped[str] = mapped_column(String(80), nullable=False)
-    email: Mapped[str] = mapped_column(String(255), nullable=False)
-    phone: Mapped[str] = mapped_column(String(30), nullable=False)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
     date_of_birth: Mapped[date | None] = mapped_column(Date, nullable=True)
+    address_line_1: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    address_line_2: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    state_or_province: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    postal_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    country: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -130,6 +137,7 @@ class RequestPassenger(Base):
     travel_request_id: Mapped[int] = mapped_column(ForeignKey("travel_requests.id"), nullable=False)
     passenger_id: Mapped[int] = mapped_column(ForeignKey("passengers.id"), nullable=False)
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    qualifiers: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
@@ -155,19 +163,19 @@ class RequestPassenger(Base):
         self.passenger.last_name = value
 
     @property
-    def email(self) -> str:
+    def email(self) -> str | None:
         return self.passenger.email
 
     @email.setter
-    def email(self, value: str) -> None:
+    def email(self, value: str | None) -> None:
         self.passenger.email = value
 
     @property
-    def phone(self) -> str:
+    def phone(self) -> str | None:
         return self.passenger.phone
 
     @phone.setter
-    def phone(self, value: str) -> None:
+    def phone(self, value: str | None) -> None:
         self.passenger.phone = value
 
     @property
@@ -177,6 +185,58 @@ class RequestPassenger(Base):
     @date_of_birth.setter
     def date_of_birth(self, value: date | None) -> None:
         self.passenger.date_of_birth = value
+
+    @property
+    def address_line_1(self) -> str | None:
+        return self.passenger.address_line_1
+
+    @address_line_1.setter
+    def address_line_1(self, value: str | None) -> None:
+        self.passenger.address_line_1 = value
+
+    @property
+    def address_line_2(self) -> str | None:
+        return self.passenger.address_line_2
+
+    @address_line_2.setter
+    def address_line_2(self, value: str | None) -> None:
+        self.passenger.address_line_2 = value
+
+    @property
+    def city(self) -> str | None:
+        return self.passenger.city
+
+    @city.setter
+    def city(self, value: str | None) -> None:
+        self.passenger.city = value
+
+    @property
+    def state_or_province(self) -> str | None:
+        return self.passenger.state_or_province
+
+    @state_or_province.setter
+    def state_or_province(self, value: str | None) -> None:
+        self.passenger.state_or_province = value
+
+    @property
+    def postal_code(self) -> str | None:
+        return self.passenger.postal_code
+
+    @postal_code.setter
+    def postal_code(self, value: str | None) -> None:
+        self.passenger.postal_code = value
+
+    @property
+    def country(self) -> str | None:
+        return self.passenger.country
+
+    @country.setter
+    def country(self, value: str | None) -> None:
+        self.passenger.country = value
+
+    @property
+    def passenger_is_active(self) -> bool:
+        return self.passenger.is_active
 
 
 class TravelRequestAudit(Base):
@@ -291,6 +351,7 @@ def default_proposed_cruise_includes() -> dict:
         "excursion": False,
         "excursion_credit": {"included": False, "amount": None},
         "onboard_credit": {"included": False, "amount": None},
+        "gift_obc": {"included": False, "amount": None},
     }
 
 
@@ -304,6 +365,7 @@ class ProposedCruise(Base):
     ship: Mapped[str] = mapped_column(String(120), nullable=False)
     number_of_nights: Mapped[int] = mapped_column(Integer, nullable=False)
     itinerary_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    itinerary_details: Mapped[str | None] = mapped_column(Text, nullable=True)
     room_category: Mapped[str] = mapped_column(String(120), nullable=False)
     room_number: Mapped[str] = mapped_column(String(40), nullable=False)
     passengers_in_room: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -311,6 +373,8 @@ class ProposedCruise(Base):
     deposit_due_date: Mapped[date] = mapped_column(Date, nullable=False)
     final_payment_due_date: Mapped[date] = mapped_column(Date, nullable=False)
     cost: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    cabin_pricing: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    cabin_rooms: Mapped[list | None] = mapped_column(JSON, nullable=True)
     includes: Mapped[dict] = mapped_column(JSON, nullable=False, default=default_proposed_cruise_includes)
     status: Mapped[str] = mapped_column(String(40), nullable=False, default="Proposed")
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
@@ -337,6 +401,7 @@ class ProposedCruisePassenger(Base):
     request_passenger_id: Mapped[int] = mapped_column(
         ForeignKey("request_passengers.id"), nullable=False
     )
+    cabin_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     proposed_cruise: Mapped[ProposedCruise] = relationship(back_populates="passenger_links")
     request_passenger: Mapped[RequestPassenger] = relationship()

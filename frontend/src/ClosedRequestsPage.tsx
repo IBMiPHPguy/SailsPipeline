@@ -1,19 +1,18 @@
+import { formatCruiseLines } from "./CruiseLineMultiSelect";
 import { useEffect, useState } from "react";
 import { fetchClosedRequests, reopenRequest } from "./api";
 import { canReopenClosedRequest, closeReasonClassName } from "./closeReasonUtils";
 import type { TravelRequest } from "./types";
-import { formatDestinationSummary, formatTimestamp } from "./utils";
+import { formatDestinationSummary, formatDate, formatTimestamp } from "./utils";
 
 type ClosedRequestsPageProps = {
   closedCount: number;
-  onBack: () => void;
   onOpenRequest: (requestId: number) => void;
   onReopened: () => void;
 };
 
 export default function ClosedRequestsPage({
   closedCount,
-  onBack,
   onOpenRequest,
   onReopened,
 }: ClosedRequestsPageProps) {
@@ -60,9 +59,6 @@ export default function ClosedRequestsPage({
     <section className="closed-requests-page">
       <div className="dashboard-header">
         <div>
-          <button type="button" className="back-button" onClick={onBack}>
-            Back to dashboard
-          </button>
           <h2>Closed Requests</h2>
           <p>
             {closedCount} closed request{closedCount === 1 ? "" : "s"}. Purchased trips stay closed; other requests
@@ -106,7 +102,7 @@ export default function ClosedRequestsPage({
                       <td>
                         <div>{formatDestinationSummary(request)}</div>
                         <div className="meta">
-                          {request.cruise_line} · {request.departure_date} to {request.return_date}
+                          {formatCruiseLines(request.cruise_lines)} · {formatDate(request.departure_date)} to {formatDate(request.return_date)}
                         </div>
                       </td>
                       <td>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { fetchResearchDocumentContent, generateProposedCruisesFromResearch, addProposedCruisesBulk } from "./api";
 import type { GeneratedProposedCruisesResponse, ProposedCruiseInput, ResearchDocument } from "./types";
-import { formatFileSize } from "./utils";
+import { formatDate, formatFileSize } from "./utils";
 
 type ProposedCruisesTaskPanelProps = {
   requestId: number;
@@ -188,7 +188,7 @@ export default function ProposedCruisesTaskPanel({
                   {cruise.cruise_line} · {cruise.ship}
                 </strong>
                 <div className="meta">
-                  Departs {cruise.departure_date} · {cruise.number_of_nights} nights · {cruise.itinerary_name}
+                  Departs {formatDate(cruise.departure_date)} · {cruise.number_of_nights} nights · {cruise.itinerary_name}
                 </div>
                 <div className="meta">
                   {cruise.room_category} · Room {cruise.room_number} · {formatMoney(Number(cruise.cost))}
