@@ -259,10 +259,18 @@ def _build_rejection_reasons(
     return rejection_reasons
 
 
+def _load_deposited_cruises(db: Session) -> list[ProposedCruise]:
+    return (
+        db.query(ProposedCruise)
+        .filter(ProposedCruise.status == PROPOSED_CRUISE_STATUS_DEPOSITED)
+        .all()
+    )
+
+
 def _build_year_summary(
     *,
     year: int,
-    booked_cruises: list[ProposedCruise],
+    deposited_cruises: list[ProposedCruise],
     close_years: dict[int, int],
     booked_request_ids: set[int],
     proposed_cruises_by_request: dict[int, list[ProposedCruise]],
@@ -270,7 +278,7 @@ def _build_year_summary(
     total_sales_booked = 0.0
     total_commission = Decimal("0")
 
-    for cruise in booked_cruises:
+    for cruise in deposited_cruises:
         if _event_year(cruise.updated_at) != year:
             continue
         total_sales_booked += float(cruise.cost or 0)
@@ -302,13 +310,13 @@ def _build_year_summary(
 
 def _key_metrics_prior_years(
     *,
-    booked_cruises: list[ProposedCruise],
+    deposited_cruises: list[ProposedCruise],
     rejected_cruises: list[ProposedCruise],
     close_years: dict[int, int],
     current_year: int,
 ) -> list[int]:
     years: set[int] = set()
-    for cruise in booked_cruises:
+    for cruise in deposited_cruises:
         years.add(_event_year(cruise.updated_at))
     for cruise in rejected_cruises:
         years.add(_event_year(cruise.updated_at))
@@ -355,9 +363,10 @@ def get_sales_analytics_key_metrics_year(db: Session, year: int) -> SalesAnalyti
     booked_cruises, rejected_cruises, _closed_without_booking_ids, booked_request_ids, close_years, proposed_cruises_by_request = (
         _load_key_metrics_source_data(db)
     )
+    deposited_cruises = _load_deposited_cruises(db)
     return _build_year_summary(
         year=year,
-        booked_cruises=booked_cruises,
+        deposited_cruises=deposited_cruises,
         close_years=close_years,
         booked_request_ids=booked_request_ids,
         proposed_cruises_by_request=proposed_cruises_by_request,
@@ -452,18 +461,19 @@ def get_sales_analytics(db: Session) -> SalesAnalyticsResponse:
         closed_without_booking_ids=closed_without_booking_ids,
     )
 
-    cruise_line_shares = _build_cruise_line_shares(booked_cruises)
+    deposited_cruises = _load_deposited_cruises(db)
+    cruise_line_shares = _build_cruise_line_shares(deposited_cruises)
     proposed_cruises_by_request = _proposed_cruises_by_request(db.query(ProposedCruise).all())
 
     current_year_summary = _build_year_summary(
         year=today.year,
-        booked_cruises=booked_cruises,
+        deposited_cruises=deposited_cruises,
         close_years=close_years,
         booked_request_ids=booked_request_ids,
         proposed_cruises_by_request=proposed_cruises_by_request,
     )
     key_metrics_prior_years = _key_metrics_prior_years(
-        booked_cruises=booked_cruises,
+        deposited_cruises=deposited_cruises,
         rejected_cruises=rejected_cruises,
         close_years=close_years,
         current_year=today.year,

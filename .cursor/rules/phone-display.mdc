@@ -1,0 +1,24 @@
+---
+description: Format phone numbers for display in reports and read-only views
+globs: frontend/src/**/*.{tsx,ts}
+alwaysApply: false
+---
+
+# Phone number display
+
+When showing phone numbers in **reports, tables, or read-only views**, always format them with `formatDisplayPhone` from `frontend/src/passengerDisplay.ts`.
+
+- Target format: `(xxx) xxx-xxxx` for 10-digit US numbers
+- Never show decimal artifacts from spreadsheet imports (e.g. `5551234567.0`)
+
+```tsx
+// ✅ Display (report cell, client table, modal detail)
+<td>{formatDisplayPhone(client.phone) ?? "—"}</td>
+
+// ❌ Raw stored value in a view
+<td>{client.phone ?? "—"}</td>
+```
+
+**Input fields stay raw.** Do not auto-format while the user is typing or editing. Bind inputs to the stored string (`value={form.phone}`) and only format on read-only display and export output.
+
+Use `formatPassengerContact` when combining email and phone in a single line.

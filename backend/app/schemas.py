@@ -1286,3 +1286,114 @@ class ClientImportResultResponse(BaseModel):
     imported_count: int = Field(ge=0)
     skipped_count: int = Field(ge=0)
     errors: list[ClientImportRowError] = Field(default_factory=list)
+
+
+class ReportWorkflowTaskOption(BaseModel):
+    value: str
+    label: str
+
+
+class ReportWorkflowTaskGroup(BaseModel):
+    workflow_type: str
+    workflow_name: str
+    tasks: list[ReportWorkflowTaskOption]
+
+
+class ReportMetaResponse(BaseModel):
+    workflow_task_groups: list[ReportWorkflowTaskGroup]
+    advisor_names: list[str] = Field(default_factory=list)
+    residence_states: list[str] = Field(default_factory=list)
+
+
+class FunnelLeakRowRead(BaseModel):
+    request_id: int
+    client_name: str
+    quoted_cruise_line: str
+    quoted_destination: str
+    estimated_value_lost: float
+    primary_rejection_reason: str
+    loss_segment: str
+
+
+class FunnelLeakPageRead(BaseModel):
+    items: list[FunnelLeakRowRead]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class AdvisorScorecardRowRead(BaseModel):
+    advisor_name: str
+    active_lead_count: int
+    proposals_pending: int
+    completed_bookings: int
+    avg_pipeline_velocity_days: float | None
+    request_to_close_ratio_percent: float | None
+
+
+class AdvisorScorecardPageRead(BaseModel):
+    items: list[AdvisorScorecardRowRead]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class PassengerDemographicsRowRead(BaseModel):
+    passenger_id: int
+    passenger_name: str
+    date_of_birth: str | None
+    state_of_residence: str | None
+    contact_phone: str | None
+    email_address: str | None
+    qualifiers: list[str]
+
+
+class PassengerDemographicsPageRead(BaseModel):
+    items: list[PassengerDemographicsRowRead]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class ReportManifestRowRead(BaseModel):
+    request_id: int
+    request_status: str
+    pipeline_status: str
+    close_reason: str | None = None
+    primary_passenger: str
+    destination: str
+    cruise_line: str
+    sailing_month_year: str
+    estimated_gross_booking_total: float
+    projected_commission_target: float
+    owner_agent: str
+    current_task: DashboardNextOpenTaskRead | None = None
+
+
+class SalesManifestPageRead(BaseModel):
+    items: list[ReportManifestRowRead]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class ReportSupplierLedgerRowRead(BaseModel):
+    cruise_line: str
+    active_booking_count: int
+    total_volume: float
+    total_commission_booked: float
+    median_price_per_room: float
+    average_commission_rate_percent: float
+    share_percent: float = 0.0
+
+
+class SupplierLedgerPageRead(BaseModel):
+    items: list[ReportSupplierLedgerRowRead]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int

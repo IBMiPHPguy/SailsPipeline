@@ -9,11 +9,18 @@ export function inactiveClientLabel(): string {
 }
 
 export function stripPhoneDigits(phone: string): string {
-  return phone.replace(/\D/g, "");
+  let value = phone.trim();
+
+  // Spreadsheet imports sometimes coerce phones to floats like "5551234567.0".
+  if (/^\d+\.0+$/.test(value)) {
+    value = value.slice(0, value.indexOf("."));
+  }
+
+  return value.replace(/\D/g, "");
 }
 
 export function formatDisplayPhone(phone: string | null | undefined): string | null {
-  const digits = stripPhoneDigits(phone ?? "");
+  const digits = stripPhoneDigits(String(phone ?? ""));
   if (!digits) {
     return null;
   }
@@ -23,7 +30,7 @@ export function formatDisplayPhone(phone: string | null | undefined): string | n
     return `(${normalized.slice(0, 3)}) ${normalized.slice(3, 6)}-${normalized.slice(6)}`;
   }
 
-  return phone?.trim() || null;
+  return String(phone).trim() || null;
 }
 
 export function formatPassengerContact(

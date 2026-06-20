@@ -6,6 +6,7 @@ from app.constants import (
     PROPOSED_CRUISE_REJECTION_REASON_ITINERARY,
     PROPOSED_CRUISE_REJECTION_REASON_PRICE,
     PROPOSED_CRUISE_STATUS_ACCEPTED,
+    PROPOSED_CRUISE_STATUS_DEPOSITED,
     PROPOSED_CRUISE_STATUS_REJECTED,
     REQUEST_STATUS_CLOSED,
     REQUEST_STATUS_OPEN,
@@ -107,19 +108,75 @@ def test_sales_analytics_commission_timeline_and_funnel(db):
         for item in analytics.rejection_reasons
     )
     assert any(month.total_commission == 350.0 for month in analytics.commission_timeline)
-    assert any(share.cruise_line == "Princess Cruises" for share in analytics.cruise_line_shares)
-    princess = next(share for share in analytics.cruise_line_shares if share.cruise_line == "Princess Cruises")
-    assert princess.total_booking_amount == 4200.0
-    assert princess.total_commission == 350.0
-    assert princess.median_booking_amount == 4200.0
-    assert princess.commission_rate_percent == 8.3
-    assert analytics.current_year_summary.total_sales_booked == 4200.0
+    assert analytics.cruise_line_shares == []
+    assert analytics.current_year_summary.total_sales_booked == 0.0
     assert analytics.current_year_summary.total_sales_lost == 0.0
-    assert analytics.current_year_summary.average_commission_rate_percent == 8.3
+    assert analytics.current_year_summary.average_commission_rate_percent is None
     assert analytics.current_year_summary.win_rate_percent is None
     assert analytics.current_year_summary.year == date.today().year
     assert analytics.key_metrics_prior_years == []
     assert any(stage.label == "Active leads" and stage.count == 1 for stage in analytics.funnel_stages)
+
+
+def test_sales_analytics_cruise_line_shares_use_deposited_cruises_only(db):
+    user = _create_user(db, username="analytics-deposited-share")
+    request = _create_open_request(db, user=user)
+
+    db.add_all(
+        [
+            ProposedCruise(
+                travel_request_id=request.id,
+                departure_date=date(2026, 9, 15),
+                cruise_line="Princess Cruises",
+                ship="Sky Princess",
+                number_of_nights=7,
+                itinerary_name="Eastern Caribbean",
+                room_category="Balcony",
+                room_number="B210",
+                passengers_in_room=2,
+                deposit_amount=Decimal("500.00"),
+                deposit_due_date=date(2026, 6, 1),
+                final_payment_due_date=date(2026, 8, 1),
+                cost=Decimal("4200.00"),
+                cabin_rooms=[{"commission": "350.00"}],
+                status=PROPOSED_CRUISE_STATUS_ACCEPTED,
+                created_by=user,
+                updated_by=user,
+            ),
+            ProposedCruise(
+                travel_request_id=request.id,
+                departure_date=date(2026, 10, 1),
+                cruise_line="Celebrity Cruises",
+                ship="Ascent",
+                number_of_nights=7,
+                itinerary_name="Western Caribbean",
+                room_category="Balcony",
+                room_number="7204",
+                passengers_in_room=2,
+                deposit_amount=Decimal("400.00"),
+                deposit_due_date=date(2026, 6, 15),
+                final_payment_due_date=date(2026, 8, 15),
+                cost=Decimal("5100.00"),
+                cabin_rooms=[{"commission": "510.00"}],
+                status=PROPOSED_CRUISE_STATUS_DEPOSITED,
+                created_by=user,
+                updated_by=user,
+            ),
+        ]
+    )
+    db.commit()
+
+    analytics = get_sales_analytics(db)
+
+    assert len(analytics.cruise_line_shares) == 1
+    celebrity = analytics.cruise_line_shares[0]
+    assert celebrity.cruise_line == "Celebrity Cruises"
+    assert celebrity.booking_count == 1
+    assert celebrity.total_booking_amount == 5100.0
+    assert celebrity.total_commission == 510.0
+    assert celebrity.share_percent == 100.0
+    assert analytics.current_year_summary.total_sales_booked == 5100.0
+    assert analytics.current_year_summary.average_commission_rate_percent == 10.0
 
 
 def test_sales_analytics_year_summaries_use_book_and_reject_dates_not_departure(db):
@@ -177,9 +234,9 @@ def test_sales_analytics_year_summaries_use_book_and_reject_dates_not_departure(
     current_year = date.today().year
 
     assert analytics.current_year_summary.year == current_year
-    assert analytics.current_year_summary.total_sales_booked == 5000.0
+    assert analytics.current_year_summary.total_sales_booked == 0.0
     assert analytics.current_year_summary.total_sales_lost == 0.0
-    assert analytics.current_year_summary.average_commission_rate_percent == 8.0
+    assert analytics.current_year_summary.average_commission_rate_percent is None
     assert analytics.current_year_summary.win_rate_percent is None
     assert current_year not in analytics.key_metrics_prior_years
 
@@ -337,9 +394,9 @@ def test_sales_analytics_win_rate_uses_closed_requests_only(db):
 
     # 1 closed win + 1 closed loss = 50%; open requests are excluded
     assert analytics.win_rate_percent == 50.0
-    assert analytics.current_year_summary.total_sales_booked == 8200.0
+    assert analytics.current_year_summary.total_sales_booked == 0.0
     assert analytics.current_year_summary.total_sales_lost == 0.0
-    assert analytics.current_year_summary.average_commission_rate_percent == 7.3
+    assert analytics.current_year_summary.average_commission_rate_percent is None
     assert analytics.current_year_summary.win_rate_percent == 50.0
 
 
@@ -516,7 +573,7 @@ def test_sales_analytics_key_metrics_prior_years_load_on_demand(db):
             final_payment_due_date=date(prior_year, 8, 1),
             cost=Decimal("3100.00"),
             cabin_rooms=[{"commission": "250.00"}],
-            status=PROPOSED_CRUISE_STATUS_ACCEPTED,
+            status=PROPOSED_CRUISE_STATUS_DEPOSITED,
             created_by=user,
             updated_by=user,
             updated_at=datetime(prior_year, 5, 10, 12, 0, 0),

@@ -453,13 +453,13 @@ function CruiseLineShareChart({ shares }: { shares: SalesAnalyticsData["cruise_l
         <div>
           <h3>Cruise line brand share</h3>
           <p className="sales-analytics-card-subtitle">
-            Accepted booking volume, commission, and mix by supplier partner
+            Deposited booking volume, commission, and mix by supplier partner
           </p>
         </div>
       </header>
       <div className="sales-analytics-card-body">
         {shares.length === 0 ? (
-          <p className="meta sales-analytics-empty">No accepted bookings to analyze yet.</p>
+          <p className="meta sales-analytics-empty">No deposited bookings to analyze yet.</p>
         ) : (
           <ul className="sales-cruise-line-list">
             {shares.map((share, index) => (

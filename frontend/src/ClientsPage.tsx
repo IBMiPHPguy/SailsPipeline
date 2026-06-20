@@ -9,6 +9,7 @@ import EditIcon from "./EditIcon";
 import IconTooltip from "./IconTooltip";
 import InactiveClientBadge from "./InactiveClientBadge";
 import PassengerQualifierBadges from "./PassengerQualifierBadges";
+import { formatDisplayPhone } from "./passengerDisplay";
 import ReopenIcon from "./ReopenIcon";
 import type { ClientImportResult, ClientListItem } from "./types";
 import ViewIcon from "./ViewIcon";
@@ -218,7 +219,7 @@ export default function ClientsPage() {
                           </div>
                         </td>
                         <td>{client.date_of_birth ? formatDate(client.date_of_birth) : "—"}</td>
-                        <td>{client.phone ?? "—"}</td>
+                        <td>{formatDisplayPhone(client.phone) ?? "—"}</td>
                         <td>{client.email ?? "—"}</td>
                         <td>{client.request_count}</td>
                         <td className="dashboard-table-actions-cell clients-table-actions-cell">

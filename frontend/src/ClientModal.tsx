@@ -5,6 +5,7 @@ import InactiveClientBadge from "./InactiveClientBadge";
 import PassengerQualifierBadges from "./PassengerQualifierBadges";
 import PassengerFields, { emptyPassengerInput, toPassengerPayload } from "./PassengerFields";
 import { formatPassengerAddressLine, passengerAddressToInput } from "./passengerAddress";
+import { formatDisplayPhone } from "./passengerDisplay";
 import type { ClientDetail, RequestPassengerInput } from "./types";
 import { formatDate } from "./utils";
 
@@ -256,7 +257,7 @@ export default function ClientModal({
                   </div>
                   <div>
                     <dt>Phone</dt>
-                    <dd>{client.phone}</dd>
+                    <dd>{formatDisplayPhone(client.phone) ?? "—"}</dd>
                   </div>
                   <div>
                     <dt>Email</dt>

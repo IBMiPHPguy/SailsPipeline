@@ -9,6 +9,8 @@ import SalesAnalytics from "./SalesAnalytics";
 import AppSidebar, { activeNavItemForView } from "./AppSidebar";
 import Login from "./Login";
 import RequestForm, { emptyRequestForm, isReturnAfterDeparture } from "./RequestForm";
+import ReportViewPage from "./ReportViewPage";
+import ReportsPage from "./ReportsPage";
 import RequestWorkspace from "./RequestWorkspace";
 import { formatCruiseLines } from "./CruiseLineMultiSelect";
 import { buildQuickNoteInput } from "./noteForm";
@@ -99,6 +101,10 @@ function App() {
     }
     if (view.type === "dashboard" || view.type === "closed") {
       document.title = brandedDocumentTitle(REQUEST_DASHBOARD_PAGE_TITLE);
+      return;
+    }
+    if (view.type === "reports" || view.type === "report") {
+      document.title = brandedDocumentTitle("Reports");
       return;
     }
     document.title = BRAND_APP_TITLE;
@@ -239,6 +245,10 @@ function App() {
                 setView({ type: "sales-analytics" });
                 return;
               }
+              if (item === "reports") {
+                setView({ type: "reports" });
+                return;
+              }
               setView({ type: "clients" });
             }}
           />
@@ -290,6 +300,27 @@ function App() {
       ) : null}
 
       {view.type === "clients" ? <ClientsPage /> : null}
+
+      {view.type === "reports" ? (
+        <ReportsPage
+          onViewReport={(reportId) => {
+            setMessage("");
+            setError("");
+            setView({ type: "report", reportId });
+          }}
+        />
+      ) : null}
+
+      {view.type === "report" ? (
+        <ReportViewPage
+          reportId={view.reportId}
+          onBack={() => {
+            setMessage("");
+            setError("");
+            setView({ type: "reports" });
+          }}
+        />
+      ) : null}
 
       {view.type === "closed" ? (
         <ClosedRequestsPage
