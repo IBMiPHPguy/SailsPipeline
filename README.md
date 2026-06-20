@@ -60,6 +60,32 @@ The signed-in home screen shows:
 
 Each open request row shows the next open workflow task, last worked timestamp, and whether it is stale.
 
+### Sales Analytics
+
+The **Sales Analytics** sidebar view summarizes pipeline and booking performance:
+
+- Year-scoped **key metrics** (booked volume, commission, close ratio) based on **deposited** cruises
+- **Cruise line brand share** and funnel-stage counts
+- Optional **copilot Q&A** when `GEMINI_API_KEY` is configured
+
+Endpoints live under `/api/analytics/sales`.
+
+### Reports
+
+The **Reports** sidebar view lists five interactive ledgers grouped by category. Each report opens in a full-page HTML table with filter controls, pagination, and **Export to Excel** (styled `.xlsx` via ExcelJS, exporting all rows that match the current filters).
+
+| Report | Filters (high level) |
+| --- | --- |
+| Sales Volume & Target Manifest | Cruise line, timeframe, pipeline status, workflow task |
+| Supplier Share & Volume Ledger | Cruise line, timeframe |
+| Funnel Leak & Lost Business Analysis | Cruise line, timeframe, loss segment, rejection reason |
+| Advisor Productivity & Quota Scorecard | Timeframe, advisor |
+| Passenger Demographics & Qualifier Ledger | State, qualifier (multi-select, OR logic) |
+
+Report data is served from `/api/reports/*`. Filter metadata (workflow tasks, advisor names, residence states) comes from `GET /api/reports/meta`.
+
+Phone numbers in report and client **display** views use `(xxx) xxx-xxxx` formatting; input fields keep the raw stored value.
+
 ### Travel requests
 
 Each request stores client contact info, destination (with region-specific details), travel dates, cabin preferences, qualifiers, and cabin count. Requests can be **Open** or **Closed** with a close reason.
@@ -220,12 +246,16 @@ The FastAPI app is created in `backend/app/application.py` and mounted for Uvico
 | `routers/passengers.py` | Client registry and request passenger links |
 | `routers/communications.py` | Request communications |
 | `routers/workflows.py` | Workflow templates, workflow lifecycle, task updates |
+| `routers/sales_analytics.py` | Sales analytics aggregates and copilot |
+| `routers/reports.py` | Interactive report pages (manifest, ledger, funnel leak, scorecard, demographics) |
 | `services/request_service.py` | Request queries, detail assembly, open-request guards |
 | `services/dashboard_service.py` | Dashboard response building |
 | `services/passenger_service.py`, `passenger_helpers.py` | Passenger registry and request sync |
 | `services/communication_service.py` | Communication CRUD and Gemini draft generation |
 | `services/workflow_service.py` | Workflow creation, completion, and task updates |
 | `services/proposed_cruise_record_service.py` | Proposed cruise persistence and Gemini extraction |
+| `services/sales_analytics_service.py` | Sales analytics metrics and funnel assembly |
+| `services/reports_service.py` | Filtered report queries and pagination |
 
 Domain helpers (cabin normalization, workflow templates, research email HTML, etc.) remain in focused modules beside `services/`.
 
@@ -355,11 +385,28 @@ All routes below require authentication unless noted.
 - `POST /api/requests/{id}/research-documents`
 - `GET /api/requests/{id}/research-documents/{document_id}/content`
 
+### Sales analytics
+
+- `GET /api/analytics/sales` — dashboard aggregates (funnel, brand share, rejection reasons)
+- `GET /api/analytics/sales/key-metrics/{year}` — year-scoped booked volume and commission metrics
+- `POST /api/analytics/sales/copilot` — natural-language Q&A over analytics data (requires Gemini)
+
+### Reports
+
+Shared query parameters include `page`, `page_size`, and `timeframe` where applicable.
+
+- `GET /api/reports/meta` — workflow task groups, advisor names, residence states
+- `GET /api/reports/sales-manifest` — `cruise_line`, `pipeline_status`, `workflow_task`, `timeframe`
+- `GET /api/reports/supplier-ledger` — `cruise_line`, `timeframe`
+- `GET /api/reports/funnel-leak` — `cruise_line`, `timeframe`, `loss_segment`, `rejection_reason`
+- `GET /api/reports/advisor-scorecard` — `timeframe`, `advisor`
+- `GET /api/reports/passenger-demographics` — `state`, `qualifier` (repeat for multi-select OR filter)
+
 Interactive docs with request/response schemas: http://localhost:8080/docs
 
 ## Testing
 
-The project includes backend unit tests, API integration tests, and frontend unit tests. Test services use the Docker Compose `test` profile with an ephemeral MySQL database (`test-db`). The current suite is **28 backend tests** and **10 frontend tests**.
+The project includes backend unit tests, API integration tests, and frontend unit tests. Test services use the Docker Compose `test` profile with an ephemeral MySQL database (`test-db`). The current suite includes **40+ backend tests** and **22 frontend tests** (report export/layout helpers, domain helpers, and API client utilities).
 
 Run the full suite:
 
@@ -399,11 +446,11 @@ docker compose --profile test run --rm frontend-test
 
 Backend layout:
 
-- `backend/tests/unit/` — domain/helper tests (workflow logic, cabin normalization, passenger activation, audit/security helpers, dashboard assembly, research email HTML)
-- `backend/tests/integration/` — FastAPI endpoint tests against MySQL (auth, requests, communications, passenger reactivation)
+- `backend/tests/unit/` — domain/helper tests (workflow logic, cabin normalization, passenger activation, audit/security helpers, dashboard assembly, research email HTML, **reports service**, sales analytics)
+- `backend/tests/integration/` — FastAPI endpoint tests against MySQL (auth, requests, communications, passenger reactivation, **reports endpoints**)
 - `backend/pytest.ini`, `backend/requirements-dev.txt`, `backend/.coveragerc` — pytest configuration, dev dependencies, and unit-test coverage scope
 
-Frontend tests live beside source files as `*.test.ts` and run with Vitest (`apiClient.test.ts`, `domainHelpers.test.ts`).
+Frontend tests live beside source files as `*.test.ts` and run with Vitest (`apiClient.test.ts`, `domainHelpers.test.ts`, **manifest/supplier/funnel/advisor/passenger report export tests**).
 
 Use `scripts/run-tests.ps1` as the recommended entry point; it starts `test-db` when needed and runs the selected suites.
 
