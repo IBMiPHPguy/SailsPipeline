@@ -1,3 +1,5 @@
+import type { ReportId } from "./reportsCatalog";
+
 export type User = {
   id: number;
   username: string;
@@ -508,15 +510,18 @@ export type RegisterInput = {
   password: string;
 };
 
+
 export type AppView =
   | { type: "dashboard" }
   | { type: "sales-analytics" }
   | { type: "clients" }
+  | { type: "reports" }
+  | { type: "report"; reportId: ReportId }
   | { type: "closed" }
   | { type: "new" }
   | { type: "edit"; requestId: number };
 
-export type AppNavItem = "dashboard" | "sales-analytics" | "clients";
+export type AppNavItem = "dashboard" | "sales-analytics" | "clients" | "reports";
 
 export type SalesAnalyticsMonthCommission = {
   month_key: string;
@@ -591,4 +596,115 @@ export type ClientImportResult = {
   imported_count: number;
   skipped_count: number;
   errors: ClientImportRowError[];
+};
+
+export type ReportWorkflowTaskOption = {
+  value: string;
+  label: string;
+};
+
+export type ReportWorkflowTaskGroup = {
+  workflow_type: string;
+  workflow_name: string;
+  tasks: ReportWorkflowTaskOption[];
+};
+
+export type ReportMeta = {
+  workflow_task_groups: ReportWorkflowTaskGroup[];
+  advisor_names: string[];
+  residence_states: string[];
+};
+
+export type ReportManifestRow = {
+  request_id: number;
+  request_status: string;
+  pipeline_status: string;
+  close_reason: string | null;
+  primary_passenger: string;
+  destination: string;
+  cruise_line: string;
+  sailing_month_year: string;
+  estimated_gross_booking_total: number;
+  projected_commission_target: number;
+  owner_agent: string;
+  current_task: DashboardNextOpenTask | null;
+};
+
+export type SalesManifestPage = {
+  items: ReportManifestRow[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+};
+
+export type ReportSupplierLedgerRow = {
+  cruise_line: string;
+  active_booking_count: number;
+  total_volume: number;
+  total_commission_booked: number;
+  median_price_per_room: number;
+  average_commission_rate_percent: number;
+  share_percent: number;
+};
+
+export type SupplierLedgerPage = {
+  items: ReportSupplierLedgerRow[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+};
+
+export type FunnelLeakRow = {
+  request_id: number;
+  client_name: string;
+  quoted_cruise_line: string;
+  quoted_destination: string;
+  estimated_value_lost: number;
+  primary_rejection_reason: string;
+  loss_segment: string;
+};
+
+export type FunnelLeakPage = {
+  items: FunnelLeakRow[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+};
+
+export type AdvisorScorecardRow = {
+  advisor_name: string;
+  active_lead_count: number;
+  proposals_pending: number;
+  completed_bookings: number;
+  avg_pipeline_velocity_days: number | null;
+  request_to_close_ratio_percent: number | null;
+};
+
+export type AdvisorScorecardPage = {
+  items: AdvisorScorecardRow[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+};
+
+export type PassengerDemographicsRow = {
+  passenger_id: number;
+  passenger_name: string;
+  date_of_birth: string | null;
+  state_of_residence: string | null;
+  contact_phone: string | null;
+  email_address: string | null;
+  qualifiers: string[];
+};
+
+export type PassengerDemographicsPage = {
+  items: PassengerDemographicsRow[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
 };

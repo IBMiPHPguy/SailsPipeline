@@ -13,6 +13,12 @@ import type {
   DashboardData,
   DashboardOpenRequest,
   OpenRequestsPage,
+  ReportMeta,
+  SalesManifestPage,
+  SupplierLedgerPage,
+  FunnelLeakPage,
+  AdvisorScorecardPage,
+  PassengerDemographicsPage,
   SalesAnalyticsData,
   SalesAnalyticsYearSummary,
   RequestNote,
@@ -39,6 +45,14 @@ import type {
 } from "./types";
 
 import { API_BASE } from "./apiClient";
+import {
+  advisorScorecardFiltersToQuery,
+  funnelLeakFiltersToQuery,
+  ledgerFiltersToQuery,
+  passengerDemographicsFiltersToQuery,
+  reportFiltersToQuery,
+  type ReportFilterState,
+} from "./reportFilters";
 
 export async function fetchDashboard(): Promise<DashboardData> {
   const response = await fetch(`${API_BASE}/dashboard`, {
@@ -56,6 +70,86 @@ export async function fetchSalesAnalytics(): Promise<SalesAnalyticsData> {
   });
   if (!response.ok) {
     throw new Error(await parseApiError(response, "Unable to load sales analytics."));
+  }
+  return response.json();
+}
+
+export async function fetchReportMeta(): Promise<ReportMeta> {
+  const response = await fetch(`${API_BASE}/reports/meta`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to load report filters."));
+  }
+  return response.json();
+}
+
+export async function fetchSalesManifest(
+  filters: ReportFilterState,
+  page = filters.page,
+): Promise<SalesManifestPage> {
+  const params = reportFiltersToQuery({ ...filters, page });
+  const response = await fetch(`${API_BASE}/reports/sales-manifest?${params.toString()}`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to load sales manifest report."));
+  }
+  return response.json();
+}
+
+export async function fetchSupplierLedger(
+  filters: ReportFilterState,
+  page = filters.page,
+): Promise<SupplierLedgerPage> {
+  const params = ledgerFiltersToQuery({ ...filters, page });
+  const response = await fetch(`${API_BASE}/reports/supplier-ledger?${params.toString()}`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to load supplier ledger report."));
+  }
+  return response.json();
+}
+
+export async function fetchFunnelLeakReport(
+  filters: ReportFilterState,
+  page = filters.page,
+): Promise<FunnelLeakPage> {
+  const params = funnelLeakFiltersToQuery({ ...filters, page });
+  const response = await fetch(`${API_BASE}/reports/funnel-leak?${params.toString()}`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to load funnel leak report."));
+  }
+  return response.json();
+}
+
+export async function fetchAdvisorScorecard(
+  filters: ReportFilterState,
+  page = filters.page,
+): Promise<AdvisorScorecardPage> {
+  const params = advisorScorecardFiltersToQuery({ ...filters, page });
+  const response = await fetch(`${API_BASE}/reports/advisor-scorecard?${params.toString()}`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to load advisor scorecard report."));
+  }
+  return response.json();
+}
+
+export async function fetchPassengerDemographics(
+  filters: ReportFilterState,
+  page = filters.page,
+): Promise<PassengerDemographicsPage> {
+  const params = passengerDemographicsFiltersToQuery({ ...filters, page });
+  const response = await fetch(`${API_BASE}/reports/passenger-demographics?${params.toString()}`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to load passenger demographics report."));
   }
   return response.json();
 }

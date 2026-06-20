@@ -157,6 +157,37 @@ def test_open_requests_search_and_pagination(client, auth_headers, sample_reques
 
 
 @pytest.mark.integration
+def test_reports_endpoints_return_manifest_and_ledger(client, auth_headers):
+    meta_response = client.get("/api/reports/meta", headers=auth_headers)
+    assert meta_response.status_code == 200
+    assert "workflow_task_groups" in meta_response.json()
+
+    manifest_response = client.get("/api/reports/sales-manifest", headers=auth_headers)
+    assert manifest_response.status_code == 200
+    manifest = manifest_response.json()
+    assert "items" in manifest
+    assert "total_pages" in manifest
+
+    ledger_response = client.get("/api/reports/supplier-ledger", headers=auth_headers)
+    assert ledger_response.status_code == 200
+    assert "items" in ledger_response.json()
+
+    funnel_response = client.get("/api/reports/funnel-leak", headers=auth_headers)
+    assert funnel_response.status_code == 200
+    assert "items" in funnel_response.json()
+
+    scorecard_response = client.get("/api/reports/advisor-scorecard", headers=auth_headers)
+    assert scorecard_response.status_code == 200
+    assert "items" in scorecard_response.json()
+
+    demographics_response = client.get("/api/reports/passenger-demographics", headers=auth_headers)
+    assert demographics_response.status_code == 200
+    assert "items" in demographics_response.json()
+    assert "advisor_names" in meta_response.json()
+    assert "residence_states" in meta_response.json()
+
+
+@pytest.mark.integration
 def test_register_rejected_when_public_registration_disabled(client, monkeypatch):
     from app.config import settings
 
