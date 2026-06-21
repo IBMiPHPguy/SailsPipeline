@@ -3,11 +3,17 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-login_body = urllib.parse.urlencode({"username": "admin", "password": "AdminPass1!"}).encode()
+login_body = json.dumps(
+    {
+        "organization_handle": "default",
+        "username": "admin",
+        "password": "AdminPass1!",
+    }
+).encode()
 req = urllib.request.Request(
     "http://localhost:8000/api/auth/login",
     data=login_body,
-    headers={"Content-Type": "application/x-www-form-urlencoded"},
+    headers={"Content-Type": "application/json"},
     method="POST",
 )
 with urllib.request.urlopen(req) as resp:

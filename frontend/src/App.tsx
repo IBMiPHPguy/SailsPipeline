@@ -12,10 +12,12 @@ import RequestForm, { emptyRequestForm, isReturnAfterDeparture } from "./Request
 import ReportViewPage from "./ReportViewPage";
 import ReportsPage from "./ReportsPage";
 import RequestWorkspace from "./RequestWorkspace";
+import TeamPage from "./TeamPage";
 import { formatCruiseLines } from "./CruiseLineMultiSelect";
 import { buildQuickNoteInput } from "./noteForm";
 import { BRAND_APP_TITLE, brandedDocumentTitle, REQUEST_DASHBOARD_PAGE_TITLE } from "./branding";
 import type { AppView, DashboardData, TravelRequest, TravelRequestInput, User } from "./types";
+import { isTenantSuperUser } from "./tenantRoles";
 import { formatDate, formatDestinationSummary } from "./utils";
 import "./App.css";
 
@@ -75,7 +77,7 @@ function App() {
 
   useEffect(() => {
     async function bootstrap() {
-      if (!getToken()) {
+      if (!getToken("crm")) {
         setAuthLoading(false);
         return;
       }
@@ -95,6 +97,12 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (view.type === "team" && currentUser && !isTenantSuperUser(currentUser.role)) {
+      setView({ type: "dashboard" });
+    }
+  }, [currentUser, view.type]);
+
+  useEffect(() => {
     if (!currentUser) {
       document.title = BRAND_APP_TITLE;
       return;
@@ -105,6 +113,10 @@ function App() {
     }
     if (view.type === "reports" || view.type === "report") {
       document.title = brandedDocumentTitle("Reports");
+      return;
+    }
+    if (view.type === "team") {
+      document.title = brandedDocumentTitle("Team");
       return;
     }
     document.title = BRAND_APP_TITLE;
@@ -233,6 +245,7 @@ function App() {
         {!hideSidebar ? (
           <AppSidebar
             activeItem={activeNavItemForView(view.type)}
+            currentUser={currentUser}
             onNavigate={(item) => {
               setMessage("");
               setError("");
@@ -247,6 +260,10 @@ function App() {
               }
               if (item === "reports") {
                 setView({ type: "reports" });
+                return;
+              }
+              if (item === "team") {
+                setView({ type: "team" });
                 return;
               }
               setView({ type: "clients" });
@@ -300,6 +317,8 @@ function App() {
       ) : null}
 
       {view.type === "clients" ? <ClientsPage /> : null}
+
+      {view.type === "team" && currentUser ? <TeamPage currentUser={currentUser} /> : null}
 
       {view.type === "reports" ? (
         <ReportsPage

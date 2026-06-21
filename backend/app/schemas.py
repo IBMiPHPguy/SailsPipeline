@@ -116,6 +116,12 @@ class UserCreate(BaseModel):
 
 
 class UserLogin(BaseModel):
+    organization_handle: str = Field(min_length=1, max_length=50, pattern=r"^\S+$")
+    username: str = Field(min_length=1, max_length=80)
+    password: str = Field(min_length=1, max_length=128)
+
+
+class BridgeLogin(BaseModel):
     username: str = Field(min_length=1, max_length=80)
     password: str = Field(min_length=1, max_length=128)
 
@@ -124,15 +130,152 @@ class UserRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    agency_id: str
+    agency_id: str | None
     username: str
     email: EmailStr
+    role: str
+    is_active: bool
+    can_view_all_agency_leads: bool
 
 
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserRead
+
+
+class BridgeAgencySummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    name: str
+    organization_handle: str
+    subscription_state: str
+    is_active: bool
+    created_at: datetime
+
+
+class BridgeInvitationSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    target_agency_name: str
+    target_organization_handle: str
+    invite_email: str
+    expires_at: datetime
+    is_used: bool
+    token_status: str
+
+
+class BridgeSummaryResponse(BaseModel):
+    agencies: list[BridgeAgencySummary]
+    invitations: list[BridgeInvitationSummary]
+
+
+class BridgeTenantUserSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    username: str
+    email: EmailStr
+    role: str
+    is_active: bool
+
+
+class BridgeTenantDetail(BaseModel):
+    agency: BridgeAgencySummary
+    users: list[BridgeTenantUserSummary]
+
+
+class BridgeTenantUpdate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    organization_handle: str = Field(min_length=2, max_length=50, pattern=r"^\S+$")
+    subscription_state: str = Field(min_length=1, max_length=40)
+
+
+class PlatformInviteCreate(BaseModel):
+    target_agency_name: str = Field(min_length=1, max_length=255)
+    target_organization_handle: str = Field(min_length=2, max_length=50, pattern=r"^\S+$")
+    invite_email: EmailStr
+
+
+class PlatformInviteCreated(BaseModel):
+    invitation_id: str
+    onboarding_path: str
+    expires_at: datetime
+
+
+class OnboardingInviteRead(BaseModel):
+    target_agency_name: str
+    organization_handle: str
+    invite_email: EmailStr
+    expires_at: datetime
+
+
+class OnboardingAccept(BaseModel):
+    token: str = Field(min_length=1, max_length=255)
+    full_name: str = Field(min_length=1, max_length=120)
+    password: str = Field(min_length=11, max_length=128)
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_strength(cls, value: str) -> str:
+        validate_password(value)
+        return value
+
+
+class AgencyInviteCreate(BaseModel):
+    invite_email: EmailStr
+    role: str = Field(default="tenant_agent", min_length=1, max_length=50)
+
+
+class AgencyInviteCreated(BaseModel):
+    invitation_id: str
+    onboarding_path: str
+    expires_at: datetime
+
+
+class AgencyTeamMember(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    username: str
+    email: EmailStr
+    role: str
+    is_active: bool
+
+
+class AgencyPendingInvite(BaseModel):
+    id: str
+    invite_email: EmailStr
+    role: str
+    expires_at: datetime
+    token_status: str
+
+
+class AgencyTeamSummary(BaseModel):
+    users: list[AgencyTeamMember]
+    invitations: list[AgencyPendingInvite]
+
+
+class AgentInviteRead(BaseModel):
+    agency_name: str
+    organization_handle: str
+    invite_email: EmailStr
+    role: str
+    expires_at: datetime
+
+
+class AgencyUserUpdate(BaseModel):
+    role: str | None = Field(default=None, min_length=1, max_length=50)
+    is_active: bool | None = None
+    email: EmailStr | None = None
+
+    @model_validator(mode="after")
+    def validate_at_least_one_field(self) -> "AgencyUserUpdate":
+        if self.role is None and self.is_active is None and self.email is None:
+            raise ValueError("At least one field must be provided.")
+        return self
 
 
 class UserAudit(BaseModel):

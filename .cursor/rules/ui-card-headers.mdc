@@ -1,0 +1,42 @@
+---
+description: Card layout with bordered gradient headers matching the SailsPipeline palette
+alwaysApply: true
+---
+
+# UI card headers
+
+Use bordered cards with a distinct header band for page sections, panels, and forms. Match existing CRM patterns (`section-card`, `open-requests-table-card`).
+
+## Structure
+
+```tsx
+<section className="card bridge-card">
+  <header className="bridge-card-header">
+    <div>
+      <h2>Section title</h2>
+      <p className="muted">Optional subtitle</p>
+    </div>
+  </header>
+  <div className="bridge-card-body">
+    {/* form, table, or content */}
+  </div>
+</section>
+```
+
+For CRM pages, prefer existing classes: `section-card` + `section-card-header` + `section-card-body`, or `open-requests-table-card` + `open-requests-table-card-header` + `open-requests-table-card-body`.
+
+## Visual rules
+
+- Card: white surface, `border: 1px solid #d9e2ec`, `border-radius: 12px`, light shadow; set `padding: 0` and `overflow: hidden` when using a header band.
+- Header band: soft gradient background from the app palette, with a stronger accent `border-bottom` (2px).
+- Body: padded content area (`1.25rem`–`1.5rem`); keep tables and forms inside the body, not the header.
+- Actions (back buttons, primary actions in the title row) belong in the header band when they relate to the whole card.
+
+## Bridge portal accent
+
+The Bridge uses teal accents (`#0b7285`) via `bridge-card`, `bridge-card-header`, and `bridge-card-body` in `frontend/src/bridge-portal.css`. Reuse those classes for new Bridge pages instead of plain `card` + inline headings.
+
+## Do not
+
+- Put section titles directly in padded card bodies without a header band.
+- Drop header borders or flat white-only cards when surrounding CRM UI uses banded headers.

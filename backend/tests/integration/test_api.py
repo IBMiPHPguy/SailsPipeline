@@ -25,10 +25,50 @@ def test_register_and_login(client):
 
     login_response = client.post(
         "/api/auth/login",
-        data={"username": "newagent", "password": "SecurePass1!"},
+        json={
+            "organization_handle": "default",
+            "username": "newagent",
+            "password": "SecurePass1!",
+        },
     )
     assert login_response.status_code == 200
     assert "access_token" in login_response.json()
+
+
+@pytest.mark.integration
+def test_login_requires_valid_organization_handle(client, test_user):
+    response = client.post(
+        "/api/auth/login",
+        json={
+            "organization_handle": "unknown-tenant",
+            "username": test_user.username,
+            "password": "TestPassword1!",
+        },
+    )
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Incorrect organization handle, username, or password."
+
+
+@pytest.mark.integration
+def test_login_token_includes_tenant_claims(client, test_user):
+    response = client.post(
+        "/api/auth/login",
+        json={
+            "organization_handle": "default",
+            "username": test_user.username,
+            "password": "TestPassword1!",
+        },
+    )
+    assert response.status_code == 200
+    token = response.json()["access_token"]
+
+    from app.security import decode_access_token
+
+    claims = decode_access_token(token)
+    assert claims.user_id == test_user.id
+    assert claims.agency_id == test_user.agency_id
+    assert claims.role == test_user.role
+    assert claims.username == test_user.username
 
 
 @pytest.mark.integration

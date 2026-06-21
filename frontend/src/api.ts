@@ -1,4 +1,4 @@
-import { authHeaders, parseApiError } from "./apiClient";
+import { apiFetch, authHeaders, parseApiError } from "./apiClient";
 import type {
   Attachment,
   AttachmentKind,
@@ -55,7 +55,7 @@ import {
 } from "./reportFilters";
 
 export async function fetchDashboard(): Promise<DashboardData> {
-  const response = await fetch(`${API_BASE}/dashboard`, {
+  const response = await apiFetch(`${API_BASE}/dashboard`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -65,7 +65,7 @@ export async function fetchDashboard(): Promise<DashboardData> {
 }
 
 export async function fetchSalesAnalytics(): Promise<SalesAnalyticsData> {
-  const response = await fetch(`${API_BASE}/analytics/sales`, {
+  const response = await apiFetch(`${API_BASE}/analytics/sales`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -75,7 +75,7 @@ export async function fetchSalesAnalytics(): Promise<SalesAnalyticsData> {
 }
 
 export async function fetchReportMeta(): Promise<ReportMeta> {
-  const response = await fetch(`${API_BASE}/reports/meta`, {
+  const response = await apiFetch(`${API_BASE}/reports/meta`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -89,7 +89,7 @@ export async function fetchSalesManifest(
   page = filters.page,
 ): Promise<SalesManifestPage> {
   const params = reportFiltersToQuery({ ...filters, page });
-  const response = await fetch(`${API_BASE}/reports/sales-manifest?${params.toString()}`, {
+  const response = await apiFetch(`${API_BASE}/reports/sales-manifest?${params.toString()}`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -103,7 +103,7 @@ export async function fetchSupplierLedger(
   page = filters.page,
 ): Promise<SupplierLedgerPage> {
   const params = ledgerFiltersToQuery({ ...filters, page });
-  const response = await fetch(`${API_BASE}/reports/supplier-ledger?${params.toString()}`, {
+  const response = await apiFetch(`${API_BASE}/reports/supplier-ledger?${params.toString()}`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -117,7 +117,7 @@ export async function fetchFunnelLeakReport(
   page = filters.page,
 ): Promise<FunnelLeakPage> {
   const params = funnelLeakFiltersToQuery({ ...filters, page });
-  const response = await fetch(`${API_BASE}/reports/funnel-leak?${params.toString()}`, {
+  const response = await apiFetch(`${API_BASE}/reports/funnel-leak?${params.toString()}`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -131,7 +131,7 @@ export async function fetchAdvisorScorecard(
   page = filters.page,
 ): Promise<AdvisorScorecardPage> {
   const params = advisorScorecardFiltersToQuery({ ...filters, page });
-  const response = await fetch(`${API_BASE}/reports/advisor-scorecard?${params.toString()}`, {
+  const response = await apiFetch(`${API_BASE}/reports/advisor-scorecard?${params.toString()}`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -145,7 +145,7 @@ export async function fetchPassengerDemographics(
   page = filters.page,
 ): Promise<PassengerDemographicsPage> {
   const params = passengerDemographicsFiltersToQuery({ ...filters, page });
-  const response = await fetch(`${API_BASE}/reports/passenger-demographics?${params.toString()}`, {
+  const response = await apiFetch(`${API_BASE}/reports/passenger-demographics?${params.toString()}`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -155,7 +155,7 @@ export async function fetchPassengerDemographics(
 }
 
 export async function fetchSalesAnalyticsKeyMetrics(year: number): Promise<SalesAnalyticsYearSummary> {
-  const response = await fetch(`${API_BASE}/analytics/sales/key-metrics/${year}`, {
+  const response = await apiFetch(`${API_BASE}/analytics/sales/key-metrics/${year}`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -165,7 +165,7 @@ export async function fetchSalesAnalyticsKeyMetrics(year: number): Promise<Sales
 }
 
 export async function downloadClientImportTemplate(): Promise<void> {
-  const response = await fetch(`${API_BASE}/analytics/sales/client-import/template`, {
+  const response = await apiFetch(`${API_BASE}/analytics/sales/client-import/template`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -188,7 +188,7 @@ export async function parseClientImportFile(file: File): Promise<ClientImportPar
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await fetch(`${API_BASE}/analytics/sales/client-import/parse`, {
+  const response = await apiFetch(`${API_BASE}/analytics/sales/client-import/parse`, {
     method: "POST",
     headers: authHeaders(),
     body: formData,
@@ -207,7 +207,7 @@ export async function importClientSpreadsheet(
   formData.append("file", file);
   formData.append("mapping", JSON.stringify(mapping));
 
-  const response = await fetch(`${API_BASE}/analytics/sales/client-import`, {
+  const response = await apiFetch(`${API_BASE}/analytics/sales/client-import`, {
     method: "POST",
     headers: authHeaders(),
     body: formData,
@@ -219,7 +219,7 @@ export async function importClientSpreadsheet(
 }
 
 export async function askSalesCopilot(question: string): Promise<string> {
-  const response = await fetch(`${API_BASE}/analytics/sales/copilot`, {
+  const response = await apiFetch(`${API_BASE}/analytics/sales/copilot`, {
     method: "POST",
     headers: {
       ...authHeaders(),
@@ -254,7 +254,7 @@ export async function fetchOpenRequests(query: OpenRequestsQuery = {}): Promise<
   }
 
   const suffix = params.toString() ? `?${params.toString()}` : "";
-  const response = await fetch(`${API_BASE}/requests/open${suffix}`, {
+  const response = await apiFetch(`${API_BASE}/requests/open${suffix}`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -264,7 +264,7 @@ export async function fetchOpenRequests(query: OpenRequestsQuery = {}): Promise<
 }
 
 export async function fetchRequests(): Promise<TravelRequest[]> {
-  const response = await fetch(`${API_BASE}/requests`, {
+  const response = await apiFetch(`${API_BASE}/requests`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -293,7 +293,7 @@ export async function fetchClosedRequests(query: ClosedRequestsQuery = {}): Prom
   }
 
   const suffix = params.toString() ? `?${params.toString()}` : "";
-  const response = await fetch(`${API_BASE}/requests/closed${suffix}`, {
+  const response = await apiFetch(`${API_BASE}/requests/closed${suffix}`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -303,7 +303,7 @@ export async function fetchClosedRequests(query: ClosedRequestsQuery = {}): Prom
 }
 
 export async function reopenRequest(requestId: number): Promise<TravelRequest> {
-  const response = await fetch(`${API_BASE}/requests/${requestId}/reopen`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}/reopen`, {
     method: "POST",
     headers: authHeaders(true),
   });
@@ -314,7 +314,7 @@ export async function reopenRequest(requestId: number): Promise<TravelRequest> {
 }
 
 export async function fetchRequest(requestId: number): Promise<TravelRequestDetail> {
-  const response = await fetch(`${API_BASE}/requests/${requestId}`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -324,7 +324,7 @@ export async function fetchRequest(requestId: number): Promise<TravelRequestDeta
 }
 
 export async function fetchRequestChangeHistory(requestId: number): Promise<RequestChangeHistory> {
-  const response = await fetch(`${API_BASE}/requests/${requestId}/change-history`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}/change-history`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -334,7 +334,7 @@ export async function fetchRequestChangeHistory(requestId: number): Promise<Requ
 }
 
 export async function fetchRequestNotes(requestId: number): Promise<RequestNote[]> {
-  const response = await fetch(`${API_BASE}/requests/${requestId}/notes`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}/notes`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -344,7 +344,7 @@ export async function fetchRequestNotes(requestId: number): Promise<RequestNote[
 }
 
 export async function fetchNote(requestId: number, noteId: number): Promise<RequestNote> {
-  const response = await fetch(`${API_BASE}/requests/${requestId}/notes/${noteId}`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}/notes/${noteId}`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -357,7 +357,7 @@ export async function fetchCommunication(
   requestId: number,
   communicationId: number,
 ): Promise<RequestCommunication> {
-  const response = await fetch(`${API_BASE}/requests/${requestId}/communications/${communicationId}`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}/communications/${communicationId}`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -367,7 +367,7 @@ export async function fetchCommunication(
 }
 
 export async function createRequest(payload: TravelRequestInput): Promise<TravelRequest> {
-  const response = await fetch(`${API_BASE}/requests`, {
+  const response = await apiFetch(`${API_BASE}/requests`, {
     method: "POST",
     headers: authHeaders(true),
     body: JSON.stringify(payload),
@@ -384,7 +384,7 @@ export async function updateRequest(
   requestId: number,
   payload: TravelRequestUpdateInput,
 ): Promise<TravelRequestDetail> {
-  const response = await fetch(`${API_BASE}/requests/${requestId}`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}`, {
     method: "PATCH",
     headers: authHeaders(true),
     body: JSON.stringify(payload),
@@ -401,7 +401,7 @@ export async function uploadTranscript(requestId: number, file: File): Promise<A
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await fetch(`${API_BASE}/requests/${requestId}/transcripts`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}/transcripts`, {
     method: "POST",
     headers: authHeaders(),
     body: formData,
@@ -418,7 +418,7 @@ export async function uploadChatLog(requestId: number, file: File): Promise<Atta
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await fetch(`${API_BASE}/requests/${requestId}/chats`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}/chats`, {
     method: "POST",
     headers: authHeaders(),
     body: formData,
@@ -436,7 +436,7 @@ export async function generateCommunicationAiSummary(
   kind: AttachmentKind,
   attachmentId: number,
 ): Promise<RequestNoteInput> {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE}/requests/${requestId}/${kind}/${attachmentId}/ai-summary`,
     {
       method: "POST",
@@ -456,7 +456,7 @@ export async function fetchAttachmentContent(
   kind: AttachmentKind,
   attachmentId: number,
 ): Promise<string> {
-  const response = await fetch(`${API_BASE}/requests/${requestId}/${kind}/${attachmentId}/content`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}/${kind}/${attachmentId}/content`, {
     headers: authHeaders(),
   });
 
@@ -474,7 +474,7 @@ export async function searchPassengers(query = "", limit = 20): Promise<Passenge
   }
   params.set("limit", String(limit));
 
-  const response = await fetch(`${API_BASE}/passengers/search?${params.toString()}`, {
+  const response = await apiFetch(`${API_BASE}/passengers/search?${params.toString()}`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -503,7 +503,7 @@ export async function fetchClients(query: ClientsQuery = {}): Promise<ClientsPag
   }
 
   const suffix = params.toString() ? `?${params.toString()}` : "";
-  const response = await fetch(`${API_BASE}/passengers${suffix}`, {
+  const response = await apiFetch(`${API_BASE}/passengers${suffix}`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -513,7 +513,7 @@ export async function fetchClients(query: ClientsQuery = {}): Promise<ClientsPag
 }
 
 export async function fetchClient(clientId: number): Promise<ClientDetail> {
-  const response = await fetch(`${API_BASE}/passengers/${clientId}`, {
+  const response = await apiFetch(`${API_BASE}/passengers/${clientId}`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -523,7 +523,7 @@ export async function fetchClient(clientId: number): Promise<ClientDetail> {
 }
 
 export async function createClient(payload: ClientCreateInput): Promise<ClientDetail> {
-  const response = await fetch(`${API_BASE}/passengers`, {
+  const response = await apiFetch(`${API_BASE}/passengers`, {
     method: "POST",
     headers: authHeaders(true),
     body: JSON.stringify(payload),
@@ -535,7 +535,7 @@ export async function createClient(payload: ClientCreateInput): Promise<ClientDe
 }
 
 export async function updateClient(clientId: number, payload: ClientUpdateInput): Promise<ClientDetail> {
-  const response = await fetch(`${API_BASE}/passengers/${clientId}`, {
+  const response = await apiFetch(`${API_BASE}/passengers/${clientId}`, {
     method: "PATCH",
     headers: authHeaders(true),
     body: JSON.stringify(payload),
@@ -547,7 +547,7 @@ export async function updateClient(clientId: number, payload: ClientUpdateInput)
 }
 
 export async function deactivateClient(clientId: number): Promise<ClientDetail> {
-  const response = await fetch(`${API_BASE}/passengers/${clientId}/deactivate`, {
+  const response = await apiFetch(`${API_BASE}/passengers/${clientId}/deactivate`, {
     method: "POST",
     headers: authHeaders(true),
   });
@@ -558,7 +558,7 @@ export async function deactivateClient(clientId: number): Promise<ClientDetail> 
 }
 
 export async function activateClient(clientId: number): Promise<ClientDetail> {
-  const response = await fetch(`${API_BASE}/passengers/${clientId}/activate`, {
+  const response = await apiFetch(`${API_BASE}/passengers/${clientId}/activate`, {
     method: "POST",
     headers: authHeaders(true),
   });
@@ -572,7 +572,7 @@ export async function addPassenger(
   requestId: number,
   payload: RequestPassengerInput,
 ): Promise<RequestPassenger> {
-  const response = await fetch(`${API_BASE}/requests/${requestId}/passengers`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}/passengers`, {
     method: "POST",
     headers: authHeaders(true),
     body: JSON.stringify(payload),
@@ -590,7 +590,7 @@ export async function updatePassenger(
   passengerId: number,
   payload: RequestPassengerInput,
 ): Promise<RequestPassenger> {
-  const response = await fetch(`${API_BASE}/requests/${requestId}/passengers/${passengerId}`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}/passengers/${passengerId}`, {
     method: "PATCH",
     headers: authHeaders(true),
     body: JSON.stringify(payload),
@@ -604,7 +604,7 @@ export async function updatePassenger(
 }
 
 export async function deletePassenger(requestId: number, passengerId: number): Promise<void> {
-  const response = await fetch(`${API_BASE}/requests/${requestId}/passengers/${passengerId}`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}/passengers/${passengerId}`, {
     method: "DELETE",
     headers: authHeaders(),
   });
@@ -615,7 +615,7 @@ export async function deletePassenger(requestId: number, passengerId: number): P
 }
 
 export async function addNote(requestId: number, payload: RequestNoteInput): Promise<RequestNote> {
-  const response = await fetch(`${API_BASE}/requests/${requestId}/notes`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}/notes`, {
     method: "POST",
     headers: authHeaders(true),
     body: JSON.stringify(payload),
@@ -633,7 +633,7 @@ export async function updateNote(
   noteId: number,
   payload: RequestNoteInput,
 ): Promise<RequestNote> {
-  const response = await fetch(`${API_BASE}/requests/${requestId}/notes/${noteId}`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}/notes/${noteId}`, {
     method: "PATCH",
     headers: authHeaders(true),
     body: JSON.stringify(payload),
@@ -650,7 +650,7 @@ export async function addProposedCruise(
   requestId: number,
   payload: ProposedCruiseInput,
 ): Promise<ProposedCruise> {
-  const response = await fetch(`${API_BASE}/requests/${requestId}/proposed-cruises`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}/proposed-cruises`, {
     method: "POST",
     headers: authHeaders(true),
     body: JSON.stringify(payload),
@@ -668,7 +668,7 @@ export async function updateProposedCruise(
   cruiseId: number,
   payload: Partial<ProposedCruiseInput>,
 ): Promise<ProposedCruise> {
-  const response = await fetch(`${API_BASE}/requests/${requestId}/proposed-cruises/${cruiseId}`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}/proposed-cruises/${cruiseId}`, {
     method: "PATCH",
     headers: authHeaders(true),
     body: JSON.stringify(payload),
@@ -685,7 +685,7 @@ export async function addQuotedInsurance(
   requestId: number,
   payload: QuotedInsuranceInput,
 ): Promise<QuotedInsurance> {
-  const response = await fetch(`${API_BASE}/requests/${requestId}/quoted-insurance`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}/quoted-insurance`, {
     method: "POST",
     headers: authHeaders(true),
     body: JSON.stringify(payload),
@@ -703,7 +703,7 @@ export async function updateQuotedInsurance(
   quoteId: number,
   payload: QuotedInsuranceInput,
 ): Promise<QuotedInsurance> {
-  const response = await fetch(`${API_BASE}/requests/${requestId}/quoted-insurance/${quoteId}`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}/quoted-insurance/${quoteId}`, {
     method: "PATCH",
     headers: authHeaders(true),
     body: JSON.stringify(payload),
@@ -717,7 +717,7 @@ export async function updateQuotedInsurance(
 }
 
 export async function fetchWorkflowTemplates(): Promise<WorkflowTemplate[]> {
-  const response = await fetch(`${API_BASE}/workflow-templates`, {
+  const response = await apiFetch(`${API_BASE}/workflow-templates`, {
     headers: authHeaders(),
   });
   if (!response.ok) {
@@ -731,7 +731,7 @@ export async function startWorkflow(
   workflowType: string,
   parentWorkflowId?: number | null,
 ): Promise<RequestWorkflow> {
-  const response = await fetch(`${API_BASE}/requests/${requestId}/workflows`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}/workflows`, {
     method: "POST",
     headers: authHeaders(true),
     body: JSON.stringify({
@@ -753,7 +753,7 @@ export async function updateWorkflow(
     close_reason?: string;
   },
 ): Promise<RequestWorkflow> {
-  const response = await fetch(`${API_BASE}/requests/${requestId}/workflows/${workflowId}`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}/workflows/${workflowId}`, {
     method: "PATCH",
     headers: authHeaders(true),
     body: JSON.stringify(payload),
@@ -774,7 +774,7 @@ export async function updateTask(
     reached_out?: boolean;
   },
 ): Promise<RequestWorkflow> {
-  const response = await fetch(`${API_BASE}/requests/${requestId}/tasks/${taskId}`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}/tasks/${taskId}`, {
     method: "PATCH",
     headers: authHeaders(true),
     body: JSON.stringify(payload),
@@ -789,7 +789,7 @@ export async function addCommunication(
   requestId: number,
   payload: RequestCommunicationInput,
 ): Promise<RequestCommunication> {
-  const response = await fetch(`${API_BASE}/requests/${requestId}/communications`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}/communications`, {
     method: "POST",
     headers: authHeaders(true),
     body: JSON.stringify(payload),
@@ -805,7 +805,7 @@ export async function updateCommunication(
   communicationId: number,
   payload: Partial<RequestCommunicationInput>,
 ): Promise<RequestCommunication> {
-  const response = await fetch(`${API_BASE}/requests/${requestId}/communications/${communicationId}`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}/communications/${communicationId}`, {
     method: "PATCH",
     headers: authHeaders(true),
     body: JSON.stringify(payload),
@@ -817,7 +817,7 @@ export async function updateCommunication(
 }
 
 export async function deleteCommunication(requestId: number, communicationId: number): Promise<void> {
-  const response = await fetch(`${API_BASE}/requests/${requestId}/communications/${communicationId}`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}/communications/${communicationId}`, {
     method: "DELETE",
     headers: authHeaders(),
   });
@@ -830,7 +830,7 @@ export async function uploadResearchDocument(requestId: number, file: File): Pro
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await fetch(`${API_BASE}/requests/${requestId}/research-documents`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}/research-documents`, {
     method: "POST",
     headers: authHeaders(),
     body: formData,
@@ -842,7 +842,7 @@ export async function uploadResearchDocument(requestId: number, file: File): Pro
 }
 
 export async function fetchResearchDocumentContent(requestId: number, documentId: number): Promise<string> {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE}/requests/${requestId}/research-documents/${documentId}/content`,
     { headers: authHeaders() },
   );
@@ -856,7 +856,7 @@ export async function generateProposedCruisesFromResearch(
   requestId: number,
   researchDocumentId: number,
 ): Promise<GeneratedProposedCruisesResponse> {
-  const response = await fetch(`${API_BASE}/requests/${requestId}/proposed-cruises/generate-from-research`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}/proposed-cruises/generate-from-research`, {
     method: "POST",
     headers: authHeaders(true),
     body: JSON.stringify({ research_document_id: researchDocumentId }),
@@ -871,7 +871,7 @@ export async function generateResearchCommunicationFromProposals(
   requestId: number,
   requestWorkflowId: number | null,
 ): Promise<GeneratedResearchCommunicationResponse> {
-  const response = await fetch(`${API_BASE}/requests/${requestId}/communications/generate-from-proposals`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}/communications/generate-from-proposals`, {
     method: "POST",
     headers: authHeaders(true),
     body: JSON.stringify({ request_workflow_id: requestWorkflowId }),
@@ -886,7 +886,7 @@ export async function addProposedCruisesBulk(
   requestId: number,
   cruises: ProposedCruiseInput[],
 ): Promise<ProposedCruise[]> {
-  const response = await fetch(`${API_BASE}/requests/${requestId}/proposed-cruises/bulk`, {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}/proposed-cruises/bulk`, {
     method: "POST",
     headers: authHeaders(true),
     body: JSON.stringify({ cruises }),
@@ -899,7 +899,7 @@ export async function addProposedCruisesBulk(
 }
 
 export async function fetchHealth(): Promise<{ status: string; service: string }> {
-  const response = await fetch(`${API_BASE}/health`);
+  const response = await apiFetch(`${API_BASE}/health`);
   if (!response.ok) {
     throw new Error("API health check failed.");
   }

@@ -1,30 +1,59 @@
-const TOKEN_KEY = "sailspipeline_token";
-const LEGACY_TOKEN_KEY = "cruisetravelnow_token";
+export type AuthScope = "crm" | "bridge";
 
-export function getToken(): string | null {
-  const token = localStorage.getItem(TOKEN_KEY);
-  if (token) {
-    return token;
-  }
+const CRM_TOKEN_KEY = "sailspipeline_crm_token";
+const BRIDGE_TOKEN_KEY = "sailspipeline_bridge_token";
+const LEGACY_TOKEN_KEY = "sailspipeline_token";
+const LEGACY_CRUISE_TOKEN_KEY = "cruisetravelnow_token";
 
+function tokenKeyForScope(scope: AuthScope): string {
+  return scope === "bridge" ? BRIDGE_TOKEN_KEY : CRM_TOKEN_KEY;
+}
+
+function migrateLegacyCrmToken(): string | null {
   const legacy = localStorage.getItem(LEGACY_TOKEN_KEY);
   if (legacy) {
-    localStorage.setItem(TOKEN_KEY, legacy);
+    localStorage.setItem(CRM_TOKEN_KEY, legacy);
     localStorage.removeItem(LEGACY_TOKEN_KEY);
     return legacy;
+  }
+
+  const cruiseLegacy = localStorage.getItem(LEGACY_CRUISE_TOKEN_KEY);
+  if (cruiseLegacy) {
+    localStorage.setItem(CRM_TOKEN_KEY, cruiseLegacy);
+    localStorage.removeItem(LEGACY_CRUISE_TOKEN_KEY);
+    return cruiseLegacy;
   }
 
   return null;
 }
 
-export function setToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token);
-  localStorage.removeItem(LEGACY_TOKEN_KEY);
+export function getToken(scope: AuthScope = "crm"): string | null {
+  const scoped = localStorage.getItem(tokenKeyForScope(scope));
+  if (scoped) {
+    return scoped;
+  }
+
+  if (scope === "crm") {
+    return migrateLegacyCrmToken();
+  }
+
+  return null;
 }
 
-export function clearToken(): void {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(LEGACY_TOKEN_KEY);
+export function setToken(token: string, scope: AuthScope = "crm"): void {
+  localStorage.setItem(tokenKeyForScope(scope), token);
+  if (scope === "crm") {
+    localStorage.removeItem(LEGACY_TOKEN_KEY);
+    localStorage.removeItem(LEGACY_CRUISE_TOKEN_KEY);
+  }
+}
+
+export function clearToken(scope: AuthScope = "crm"): void {
+  localStorage.removeItem(tokenKeyForScope(scope));
+  if (scope === "crm") {
+    localStorage.removeItem(LEGACY_TOKEN_KEY);
+    localStorage.removeItem(LEGACY_CRUISE_TOKEN_KEY);
+  }
 }
 
 export function validatePassword(password: string): string | null {

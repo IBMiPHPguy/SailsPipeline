@@ -11,6 +11,11 @@ class Settings(BaseSettings):
     seed_admin_username: str | None = None
     seed_admin_email: str | None = None
     seed_admin_password: str | None = None
+    seed_bridge_admin_username: str | None = None
+    seed_bridge_admin_email: str | None = None
+    seed_bridge_admin_password: str | None = None
+    platform_invite_expire_days: int = 7
+    agency_invite_expire_days: int = 3
     attachments_dir: str = "/app/uploads"
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-2.5-flash-lite"

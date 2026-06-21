@@ -1,10 +1,16 @@
 from datetime import date, datetime
 
-from sqlalchemy import JSON, Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, func
+from sqlalchemy import JSON, Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint, event, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 from app.tenant_constants import DEFAULT_AGENCY_ID
+from app.tenant_roles import (
+    DEFAULT_INVITATION_ROLE,
+    SUBSCRIPTION_STATE_ACTIVE,
+    USER_ROLE_PLATFORM_SUPER_ADMIN,
+    USER_ROLE_TENANT_AGENT,
+)
 
 
 class Agency(Base):
@@ -13,6 +19,10 @@ class Agency(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     slug: Mapped[str] = mapped_column(String(80), nullable=False, unique=True)
+    organization_handle: Mapped[str] = mapped_column(String(50), nullable=False, unique=True, index=True)
+    subscription_state: Mapped[str] = mapped_column(
+        String(40), nullable=False, default=SUBSCRIPTION_STATE_ACTIVE, index=True
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -20,25 +30,69 @@ class Agency(Base):
     )
 
     users: Mapped[list["User"]] = relationship(back_populates="agency")
+    agency_invitations: Mapped[list["AgencyInvitation"]] = relationship(back_populates="agency")
 
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (UniqueConstraint("agency_id", "email", name="uq_users_agency_email"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    agency_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("agencies.id"), nullable=False, default=DEFAULT_AGENCY_ID, index=True
+    agency_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("agencies.id"), nullable=True, index=True
     )
     username: Mapped[str] = mapped_column(String(80), nullable=False, unique=True)
-    email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[str] = mapped_column(String(50), nullable=False, default=USER_ROLE_TENANT_AGENT, index=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    can_view_all_agency_leads: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )
 
-    agency: Mapped[Agency] = relationship(back_populates="users")
+    agency: Mapped["Agency | None"] = relationship(back_populates="users")
+
+
+@event.listens_for(User, "before_insert")
+def assign_default_agency_for_tenant_users(_mapper, _connection, target: User) -> None:
+    if target.role == USER_ROLE_PLATFORM_SUPER_ADMIN:
+        return
+    if target.agency_id is None:
+        target.agency_id = DEFAULT_AGENCY_ID
+
+
+class PlatformInvitation(Base):
+    """The Bridge — platform-level tenant provisioning invitations."""
+
+    __tablename__ = "platform_invitations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    target_agency_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    target_organization_handle: Mapped[str] = mapped_column(String(50), nullable=False, unique=True, index=True)
+    invite_email: Mapped[str] = mapped_column(String(255), nullable=False)
+    token: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
+    is_used: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class AgencyInvitation(Base):
+    """Tenant-scoped team invitations issued by a tenant super user."""
+
+    __tablename__ = "agency_invitations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    agency_id: Mapped[str] = mapped_column(String(36), ForeignKey("agencies.id"), nullable=False, index=True)
+    invite_email: Mapped[str] = mapped_column(String(255), nullable=False)
+    token: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
+    role: Mapped[str] = mapped_column(String(50), nullable=False, default=DEFAULT_INVITATION_ROLE)
+    is_used: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    agency: Mapped[Agency] = relationship(back_populates="agency_invitations")
 
 
 class TravelRequest(Base):

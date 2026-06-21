@@ -17,7 +17,9 @@ PASSWORD_PATTERN = re.compile(
 @dataclass(frozen=True)
 class TokenClaims:
     username: str
-    agency_id: str
+    user_id: int
+    agency_id: str | None
+    role: str
 
 
 def validate_password(password: str) -> None:
@@ -41,9 +43,15 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
-def create_access_token(subject: str, agency_id: str) -> str:
+def create_access_token(*, user_id: int, username: str, agency_id: str | None, role: str) -> str:
     expire = datetime.now(UTC) + timedelta(minutes=settings.jwt_expire_minutes)
-    payload = {"sub": subject, "agency_id": agency_id, "exp": expire}
+    payload = {
+        "sub": username,
+        "user_id": user_id,
+        "agency_id": agency_id,
+        "role": role,
+        "exp": expire,
+    }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
@@ -51,9 +59,18 @@ def decode_access_token(token: str) -> TokenClaims:
     try:
         payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
         username = payload.get("sub")
+        user_id = payload.get("user_id")
         agency_id = payload.get("agency_id")
-        if not username or not agency_id:
-            raise JWTError("Missing subject or agency.")
-        return TokenClaims(username=username, agency_id=str(agency_id))
+        role = payload.get("role")
+        if not username or user_id is None or not role:
+            raise JWTError("Missing token claims.")
+        if agency_id is not None:
+            agency_id = str(agency_id)
+        return TokenClaims(
+            username=str(username),
+            user_id=int(user_id),
+            agency_id=agency_id,
+            role=str(role),
+        )
     except JWTError as exc:
         raise ValueError("Invalid or expired token.") from exc

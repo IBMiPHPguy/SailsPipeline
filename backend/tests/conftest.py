@@ -22,8 +22,22 @@ from app.main import app  # noqa: E402
 from app.models import User  # noqa: E402
 from app.security import hash_password  # noqa: E402
 from app.services.agency_service import ensure_default_agency  # noqa: E402
-from app.tenant_constants import DEFAULT_AGENCY_ID  # noqa: E402
+from app.tenant_constants import DEFAULT_AGENCY_ID, DEFAULT_AGENCY_ORGANIZATION_HANDLE  # noqa: E402
+from app.tenant_roles import USER_ROLE_TENANT_SUPER_USER
 from app.tenant_context import clear_current_agency_id, set_current_agency_id  # noqa: E402
+
+
+class _NoCloseSession:
+    """Wrap a test session so middleware close() does not tear down the fixture."""
+
+    def __init__(self, session):
+        self._session = session
+
+    def __getattr__(self, name):
+        return getattr(self._session, name)
+
+    def close(self) -> None:
+        return None
 
 
 def _create_test_engine():
@@ -82,8 +96,16 @@ def client(db):
         yield db
 
     app.dependency_overrides[get_db] = override_get_db
+
+    from app import subscription_gatekeeper as subscription_gatekeeper_module
+
+    original_session_local = subscription_gatekeeper_module.SessionLocal
+    subscription_gatekeeper_module.SessionLocal = lambda: _NoCloseSession(db)
+
     with TestClient(app) as test_client:
         yield test_client
+
+    subscription_gatekeeper_module.SessionLocal = original_session_local
     app.dependency_overrides.clear()
 
 
@@ -94,6 +116,7 @@ def test_user(db):
         username="testuser",
         email="test@example.com",
         password_hash=hash_password("TestPassword1!"),
+        role=USER_ROLE_TENANT_SUPER_USER,
     )
     db.add(user)
     db.commit()
@@ -105,7 +128,11 @@ def test_user(db):
 def auth_headers(client, test_user):
     response = client.post(
         "/api/auth/login",
-        data={"username": test_user.username, "password": "TestPassword1!"},
+        json={
+            "organization_handle": DEFAULT_AGENCY_ORGANIZATION_HANDLE,
+            "username": test_user.username,
+            "password": "TestPassword1!",
+        },
     )
     assert response.status_code == 200, response.text
     token = response.json()["access_token"]

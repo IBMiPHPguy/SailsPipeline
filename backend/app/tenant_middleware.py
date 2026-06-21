@@ -16,7 +16,8 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
             if token:
                 try:
                     claims = decode_access_token(token)
-                    set_current_agency_id(claims.agency_id)
+                    if claims.agency_id is not None:
+                        set_current_agency_id(claims.agency_id)
                 except ValueError:
                     pass
 

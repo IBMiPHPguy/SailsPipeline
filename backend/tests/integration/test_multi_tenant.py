@@ -4,7 +4,8 @@ import pytest
 
 from app.models import Agency, Passenger, User
 from app.security import hash_password
-from app.tenant_constants import DEFAULT_AGENCY_ID
+from app.tenant_constants import DEFAULT_AGENCY_ID, DEFAULT_AGENCY_ORGANIZATION_HANDLE
+from app.tenant_roles import SUBSCRIPTION_STATE_ACTIVE, USER_ROLE_TENANT_AGENT
 
 OTHER_AGENCY_ID = "00000000-0000-4000-8000-000000000002"
 OTHER_AGENCY_PASSWORD = "OtherPass1!"
@@ -17,6 +18,8 @@ def other_agency_user(db) -> User:
             id=OTHER_AGENCY_ID,
             name="Other Test Agency",
             slug="other-test",
+            organization_handle="other-test",
+            subscription_state=SUBSCRIPTION_STATE_ACTIVE,
             is_active=True,
         )
     )
@@ -25,6 +28,7 @@ def other_agency_user(db) -> User:
         username="otheragencyagent",
         email="otheragency@example.com",
         password_hash=hash_password(OTHER_AGENCY_PASSWORD),
+        role=USER_ROLE_TENANT_AGENT,
     )
     db.add(user)
     db.commit()
@@ -36,7 +40,11 @@ def other_agency_user(db) -> User:
 def other_agency_auth_headers(client, other_agency_user):
     response = client.post(
         "/api/auth/login",
-        data={"username": other_agency_user.username, "password": OTHER_AGENCY_PASSWORD},
+        json={
+            "organization_handle": "other-test",
+            "username": other_agency_user.username,
+            "password": OTHER_AGENCY_PASSWORD,
+        },
     )
     assert response.status_code == 200, response.text
     token = response.json()["access_token"]

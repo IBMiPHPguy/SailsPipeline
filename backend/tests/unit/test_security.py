@@ -29,11 +29,19 @@ def test_hash_and_verify_password():
 
 def test_create_and_decode_access_token():
     from app.tenant_constants import DEFAULT_AGENCY_ID
+    from app.tenant_roles import USER_ROLE_TENANT_SUPER_USER
 
-    token = create_access_token("agent-one", DEFAULT_AGENCY_ID)
+    token = create_access_token(
+        user_id=42,
+        username="agent-one",
+        agency_id=DEFAULT_AGENCY_ID,
+        role=USER_ROLE_TENANT_SUPER_USER,
+    )
     claims = decode_access_token(token)
     assert claims.username == "agent-one"
+    assert claims.user_id == 42
     assert claims.agency_id == DEFAULT_AGENCY_ID
+    assert claims.role == USER_ROLE_TENANT_SUPER_USER
 
 
 def test_decode_access_token_rejects_invalid_token():

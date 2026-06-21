@@ -4,7 +4,7 @@
 **Date:** June 20, 2026  
 **Scope:** Database schema (`db/init.sql` + migrations), ORM models, request/passenger/report/analytics services, auth, and file-attachment patterns.
 
-> **Update (June 2026):** Phases 0 and 1 of multi-tenant isolation are implemented. See [`multi-tenant-design.md`](multi-tenant-design.md) for the current architecture. This document remains a historical pre-flight snapshot of gaps that existed before that work.
+> **Update (June 2026):** Phases 0 and 1 of multi-tenant isolation are implemented. See `[multi-tenant-design.md](multi-tenant-design.md)` for the current architecture. This document remains a historical pre-flight snapshot of gaps that existed before that work.
 
 ---
 
@@ -18,13 +18,15 @@ The codebase is **not multi-tenant ready**. There is no `tenant_id` or `agency_i
 
 ## Status at a Glance
 
-| Category | Status | Headline |
-|----------|--------|----------|
-| Schema & FK integrity | 🟢 Mostly ready | Strong FK coverage and cascade deletes across the CRM graph |
-| Multi-tenant isolation | 🔴 Blocker | No tenant column, no query scoping, shared passenger registry |
-| Indexing | 🟡 Gap | No secondary indexes beyond PK/UNIQUE |
-| Reports & analytics | 🔴 / 🟡 | Full-table scans + in-memory filtering on hot paths |
-| File storage | 🟢 Mostly ready | Transcripts, chat logs, and research docs on disk via `stored_path` |
+
+| Category               | Status          | Headline                                                            |
+| ---------------------- | --------------- | ------------------------------------------------------------------- |
+| Schema & FK integrity  | 🟢 Mostly ready | Strong FK coverage and cascade deletes across the CRM graph         |
+| Multi-tenant isolation | 🔴 Blocker      | No tenant column, no query scoping, shared passenger registry       |
+| Indexing               | 🟡 Gap          | No secondary indexes beyond PK/UNIQUE                               |
+| Reports & analytics    | 🔴 / 🟡         | Full-table scans + in-memory filtering on hot paths                 |
+| File storage           | 🟢 Mostly ready | Transcripts, chat logs, and research docs on disk via `stored_path` |
+
 
 ---
 
@@ -74,7 +76,7 @@ The codebase is **not multi-tenant ready**. There is no `tenant_id` or `agency_i
 
 Before safely hosting multiple agencies on one database:
 
-1. Add **`agencies`** table and **`agency_id`** on **`users`**, **`travel_requests`**, and **`passengers`** (P0).
+1. Add `**agencies`** table and `**agency_id**` on `**users**`, `**travel_requests**`, and `**passengers**` (P0).
 2. Enforce **API-layer ownership checks** on every read/write by ID.
 3. Implement **session-level global query filtering** (e.g. SQLAlchemy `with_loader_criteria`).
 4. Scope **file storage paths** per agency.
@@ -84,12 +86,14 @@ Before safely hosting multiple agencies on one database:
 
 ## Recommended priority roadmap
 
-| Phase | Work | Blocks multi-tenant? |
-|-------|------|----------------------|
-| **Phase 0** | `agencies` + `agency_id` on root tables; auth scoping; global query filter | **Yes** |
-| **Phase 1** | Secondary indexes; SQL-filtered paginated reports/analytics | No (required for performance) |
-| **Phase 2** | Audit FK; advisor relational IDs; deferred/lazy large TEXT columns | No |
-| **Phase 3** | Analytics rollup tables; cached meta endpoints; tenant-scoped object storage | No |
+
+| Phase       | Work                                                                         | Blocks multi-tenant?          |
+| ----------- | ---------------------------------------------------------------------------- | ----------------------------- |
+| **Phase 0** | `agencies` + `agency_id` on root tables; auth scoping; global query filter   | **Yes**                       |
+| **Phase 1** | Secondary indexes; SQL-filtered paginated reports/analytics                  | No (required for performance) |
+| **Phase 2** | Audit FK; advisor relational IDs; deferred/lazy large TEXT columns           | No                            |
+| **Phase 3** | Analytics rollup tables; cached meta endpoints; tenant-scoped object storage | No                            |
+
 
 ---
 

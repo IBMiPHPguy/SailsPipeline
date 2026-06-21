@@ -1,0 +1,275 @@
+.bridge-page {
+  min-height: 100vh;
+}
+
+.bridge-hero {
+  margin-bottom: 1.25rem;
+}
+
+.bridge-hero-brand {
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.bridge-app-logo {
+  height: 4.5rem;
+  max-width: min(100%, 18rem);
+}
+
+.bridge-hero-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.bridge-hero-icon {
+  color: #0b7285;
+  filter: none;
+}
+
+.bridge-hero-heading {
+  margin: 0;
+  font-size: 1.35rem;
+  line-height: 1.2;
+  color: var(--app-chrome-text);
+}
+
+.bridge-hero-subtitle {
+  margin: 0.15rem 0 0;
+  font-size: 0.92rem;
+  color: var(--app-chrome-muted);
+}
+
+.bridge-user-panel {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.bridge-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.bridge-toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+.bridge-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.bridge-card {
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #d9e2ec;
+}
+
+.bridge-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.9rem 1.25rem;
+  background: linear-gradient(135deg, #e6fffb 0%, #edf2f7 100%);
+  border-bottom: 2px solid #0b7285;
+}
+
+.bridge-card-header h2,
+.bridge-card-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0b7285;
+}
+
+.bridge-card-header .muted {
+  margin: 0.25rem 0 0;
+  font-size: 0.88rem;
+}
+
+.bridge-card-header--centered {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.bridge-card-body {
+  padding: 1.25rem 1.5rem;
+}
+
+.bridge-form {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.bridge-primary-button {
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+.bridge-invite-result {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #d9e2ec;
+}
+
+.bridge-invite-label {
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+  color: #486581;
+}
+
+.bridge-invite-link {
+  display: block;
+  padding: 0.65rem 0.75rem;
+  background: #f0f4f8;
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  font-size: 0.85rem;
+}
+
+.bridge-table-wrap {
+  overflow: visible;
+}
+
+.bridge-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.bridge-table th,
+.bridge-table td {
+  padding: 0.55rem 0.45rem;
+  border-bottom: 1px solid #d9e2ec;
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.bridge-table th {
+  font-size: 0.82rem;
+  color: #486581;
+}
+
+.bridge-table-actions-heading {
+  width: 4.5rem;
+  text-align: center;
+}
+
+.bridge-table-actions {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.bridge-tenant-edit {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.bridge-back-button {
+  gap: 0.45rem;
+  flex-shrink: 0;
+}
+
+.bridge-back-button-icon {
+  filter: none;
+}
+
+.bridge-tenant-form {
+  max-width: 28rem;
+}
+
+.bridge-save-button {
+  width: auto;
+  min-width: 10rem;
+}
+
+.bridge-login-card,
+.bridge-onboarding-card {
+  width: min(100%, 420px);
+}
+
+.bridge-login-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+}
+
+.bridge-login-title-row h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  color: #0b7285;
+}
+
+.bridge-login-subtitle {
+  margin: 0.35rem 0 0;
+  text-align: center;
+}
+
+.bridge-captain-icon {
+  display: flex;
+  justify-content: center;
+  color: #0b7285;
+  filter: drop-shadow(0 2px 6px rgba(11, 114, 133, 0.18));
+  flex-shrink: 0;
+}
+
+.bridge-login-footnote {
+  margin-top: 1rem;
+  margin-bottom: 0;
+  text-align: center;
+}
+
+.bridge-onboarding-summary {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 0.85rem;
+  background: #f0f4f8;
+  border-radius: 8px;
+}
+
+@media (max-width: 960px) {
+  .bridge-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .bridge-hero-brand {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .bridge-user-panel {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 700px) {
+  .bridge-app-logo {
+    height: 3.75rem;
+  }
+
+  .bridge-hero-title {
+    align-items: flex-start;
+  }
+}

@@ -1,9 +1,14 @@
 import type { ReportId } from "./reportsCatalog";
+import type { UserRole } from "./tenantRoles";
 
 export type User = {
   id: number;
+  agency_id: string | null;
   username: string;
   email: string;
+  role: UserRole;
+  is_active: boolean;
+  can_view_all_agency_leads: boolean;
 };
 
 export type UserAudit = {
@@ -15,6 +20,131 @@ export type AuthResponse = {
   access_token: string;
   token_type: string;
   user: User;
+};
+
+export type LoginInput = {
+  organization_handle: string;
+  username: string;
+  password: string;
+};
+
+export type BridgeLoginInput = {
+  username: string;
+  password: string;
+};
+
+export type BridgeAgencySummary = {
+  id: string;
+  name: string;
+  organization_handle: string;
+  subscription_state: string;
+  is_active: boolean;
+  created_at: string;
+};
+
+export type BridgeInvitationSummary = {
+  id: string;
+  target_agency_name: string;
+  target_organization_handle: string;
+  invite_email: string;
+  expires_at: string;
+  is_used: boolean;
+  token_status: string;
+};
+
+export type BridgeSummary = {
+  agencies: BridgeAgencySummary[];
+  invitations: BridgeInvitationSummary[];
+};
+
+export type BridgeTenantUser = {
+  id: number;
+  username: string;
+  email: string;
+  role: string;
+  is_active: boolean;
+};
+
+export type BridgeTenantDetail = {
+  agency: BridgeAgencySummary;
+  users: BridgeTenantUser[];
+};
+
+export type BridgeTenantUpdate = {
+  name: string;
+  organization_handle: string;
+  subscription_state: string;
+};
+
+export type PlatformInviteCreate = {
+  target_agency_name: string;
+  target_organization_handle: string;
+  invite_email: string;
+};
+
+export type PlatformInviteCreated = {
+  invitation_id: string;
+  onboarding_path: string;
+  expires_at: string;
+};
+
+export type OnboardingInvite = {
+  target_agency_name: string;
+  organization_handle: string;
+  invite_email: string;
+  expires_at: string;
+};
+
+export type OnboardingAcceptInput = {
+  token: string;
+  full_name: string;
+  password: string;
+};
+
+export type AgencyTeamMember = {
+  id: number;
+  username: string;
+  email: string;
+  role: UserRole;
+  is_active: boolean;
+};
+
+export type AgencyPendingInvite = {
+  id: string;
+  invite_email: string;
+  role: string;
+  expires_at: string;
+  token_status: string;
+};
+
+export type AgencyTeamSummary = {
+  users: AgencyTeamMember[];
+  invitations: AgencyPendingInvite[];
+};
+
+export type AgencyInviteCreate = {
+  invite_email: string;
+  role?: UserRole;
+};
+
+export type AgencyInviteCreated = {
+  invitation_id: string;
+  onboarding_path: string;
+  expires_at: string;
+};
+
+export type AgencyUserUpdate = {
+  role?: UserRole;
+  is_active?: boolean;
+  email?: string;
+};
+
+export type AgentInvite = {
+  agency_name: string;
+  organization_handle: string;
+  invite_email: string;
+  role: string;
+  expires_at: string;
 };
 
 export type DestinationDetails = {
@@ -517,11 +647,12 @@ export type AppView =
   | { type: "clients" }
   | { type: "reports" }
   | { type: "report"; reportId: ReportId }
+  | { type: "team" }
   | { type: "closed" }
   | { type: "new" }
   | { type: "edit"; requestId: number };
 
-export type AppNavItem = "dashboard" | "sales-analytics" | "clients" | "reports";
+export type AppNavItem = "dashboard" | "sales-analytics" | "clients" | "reports" | "team";
 
 export type SalesAnalyticsMonthCommission = {
   month_key: string;

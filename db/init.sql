@@ -2,27 +2,68 @@ CREATE TABLE IF NOT EXISTS agencies (
     id CHAR(36) PRIMARY KEY,
     name VARCHAR(120) NOT NULL,
     slug VARCHAR(80) NOT NULL UNIQUE,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
-INSERT INTO agencies (id, name, slug)
-VALUES ('00000000-0000-4000-8000-000000000001', 'Default Agency', 'default');
-
-CREATE TABLE IF NOT EXISTS users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    agency_id CHAR(36) NOT NULL,
-    username VARCHAR(80) NOT NULL UNIQUE,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
+    organization_handle VARCHAR(50) NOT NULL,
+    subscription_state VARCHAR(40) NOT NULL DEFAULT 'Active',
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_users_agency FOREIGN KEY (agency_id) REFERENCES agencies(id)
+    CONSTRAINT uq_agencies_organization_handle UNIQUE (organization_handle)
+);
+
+CREATE INDEX idx_agencies_organization_handle ON agencies(organization_handle);
+CREATE INDEX idx_agencies_subscription_state ON agencies(subscription_state);
+
+INSERT INTO agencies (id, name, slug, organization_handle, subscription_state)
+VALUES ('00000000-0000-4000-8000-000000000001', 'Default Agency', 'default', 'default', 'Active');
+
+CREATE TABLE IF NOT EXISTS platform_invitations (
+    id CHAR(36) PRIMARY KEY,
+    target_agency_name VARCHAR(255) NOT NULL,
+    target_organization_handle VARCHAR(50) NOT NULL,
+    invite_email VARCHAR(255) NOT NULL,
+    token VARCHAR(255) NOT NULL,
+    is_used BOOLEAN NOT NULL DEFAULT FALSE,
+    expires_at TIMESTAMP NOT NULL,
+    cancelled_at TIMESTAMP NULL,
+    CONSTRAINT uq_platform_invitations_org_handle UNIQUE (target_organization_handle),
+    CONSTRAINT uq_platform_invitations_token UNIQUE (token)
+);
+
+CREATE INDEX idx_platform_invitations_token ON platform_invitations(token);
+
+CREATE TABLE IF NOT EXISTS agency_invitations (
+    id CHAR(36) PRIMARY KEY,
+    agency_id CHAR(36) NOT NULL,
+    invite_email VARCHAR(255) NOT NULL,
+    token VARCHAR(255) NOT NULL,
+    role VARCHAR(50) NOT NULL DEFAULT 'tenant_agent',
+    is_used BOOLEAN NOT NULL DEFAULT FALSE,
+    expires_at TIMESTAMP NOT NULL,
+    cancelled_at TIMESTAMP NULL,
+    CONSTRAINT fk_agency_invitations_agency FOREIGN KEY (agency_id) REFERENCES agencies(id),
+    CONSTRAINT uq_agency_invitations_token UNIQUE (token)
+);
+
+CREATE INDEX idx_agency_invitations_agency ON agency_invitations(agency_id);
+CREATE INDEX idx_agency_invitations_token ON agency_invitations(token);
+
+CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    agency_id CHAR(36) NULL,
+    username VARCHAR(80) NOT NULL UNIQUE,
+    email VARCHAR(255) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(50) NOT NULL DEFAULT 'tenant_agent',
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    can_view_all_agency_leads BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_users_agency FOREIGN KEY (agency_id) REFERENCES agencies(id),
+    CONSTRAINT uq_users_agency_email UNIQUE (agency_id, email)
 );
 
 CREATE INDEX idx_users_agency ON users(agency_id);
+CREATE INDEX idx_users_role ON users(role);
 
 CREATE TABLE IF NOT EXISTS travel_requests (
     id INT AUTO_INCREMENT PRIMARY KEY,

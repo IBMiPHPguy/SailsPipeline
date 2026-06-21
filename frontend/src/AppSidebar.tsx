@@ -5,15 +5,18 @@ import {
   CruiseShipNavIcon,
   PersonNavIcon,
   ReportsNavIcon,
+  TeamNavIcon,
 } from "./SidebarNavIcons";
-import type { AppNavItem } from "./types";
+import { isTenantSuperUser } from "./tenantRoles";
+import type { AppNavItem, User } from "./types";
 
 type AppSidebarProps = {
   activeItem: AppNavItem | null;
+  currentUser: User;
   onNavigate: (item: AppNavItem) => void;
 };
 
-const NAV_ITEMS: Array<{
+const BASE_NAV_ITEMS: Array<{
   id: AppNavItem;
   label: string;
   icon: () => ReactNode;
@@ -24,11 +27,21 @@ const NAV_ITEMS: Array<{
   { id: "reports", label: "Reports", icon: ReportsNavIcon },
 ];
 
-export default function AppSidebar({ activeItem, onNavigate }: AppSidebarProps) {
+const TEAM_NAV_ITEM = {
+  id: "team" as const,
+  label: "Team",
+  icon: TeamNavIcon,
+};
+
+export default function AppSidebar({ activeItem, currentUser, onNavigate }: AppSidebarProps) {
+  const navItems = isTenantSuperUser(currentUser.role)
+    ? [...BASE_NAV_ITEMS, TEAM_NAV_ITEM]
+    : BASE_NAV_ITEMS;
+
   return (
     <nav className="app-sidebar" aria-label="Main navigation">
       <ul className="app-sidebar-list">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeItem === item.id;
 
@@ -63,6 +76,9 @@ export function activeNavItemForView(viewType: string): AppNavItem | null {
   }
   if (viewType === "reports" || viewType === "report") {
     return "reports";
+  }
+  if (viewType === "team") {
+    return "team";
   }
   return null;
 }

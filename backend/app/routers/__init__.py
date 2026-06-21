@@ -1,11 +1,14 @@
 from fastapi import FastAPI
 
-from app.routers import auth, communications, dashboard, health, passengers, reports, requests, sales_analytics, workflows
+from app.routers import auth, agency, bridge, communications, dashboard, health, onboarding, passengers, reports, requests, sales_analytics, workflows
 
 
 def register_routers(application: FastAPI) -> None:
     application.include_router(health.router)
     application.include_router(auth.router)
+    application.include_router(bridge.router)
+    application.include_router(onboarding.router)
+    application.include_router(agency.router)
     application.include_router(dashboard.router)
     application.include_router(sales_analytics.router)
     application.include_router(reports.router)

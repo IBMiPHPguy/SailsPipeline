@@ -56,6 +56,19 @@ export function PersonNavIcon() {
   );
 }
 
+export function TeamNavIcon() {
+  return (
+    <SidebarIcon>
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.75">
+        <circle cx="9" cy="9" r="2.5" />
+        <circle cx="16.5" cy="9.5" r="2" />
+        <path d="M4.5 18c.6-2.2 2.2-3.5 4.5-3.5s3.9 1.3 4.5 3.5" strokeLinecap="round" />
+        <path d="M14.5 17.5c.4-1.4 1.3-2.2 2.3-2.2" strokeLinecap="round" />
+      </svg>
+    </SidebarIcon>
+  );
+}
+
 export function ReportsNavIcon() {
   return (
     <SidebarIcon>
