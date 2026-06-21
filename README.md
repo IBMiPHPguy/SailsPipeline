@@ -4,6 +4,8 @@ Web app for managing cruise travel requests from intake through research, client
 
 Agents use a workflow-driven workspace for each open request: capture client details, upload research, propose cruises, draft and send communications, track follow-ups, record client decisions, and close or reopen requests as needed.
 
+SailsPipeline is **multi-tenant**: CRM data is isolated by agency. Each agency signs in with an **organization handle** (tenant slug). Platform operators use **The Bridge** (`/bridge`) to provision new agencies. Agency owners use the CRM **Team** workspace to invite agents and manage user access. See [`docs/multi-tenant-design.md`](docs/multi-tenant-design.md) for architecture, roles, and verification checklist.
+
 ## Stack
 
 | Layer | Technology |
@@ -36,19 +38,37 @@ docker compose up --build
 
 | URL | Purpose |
 | --- | --- |
-| http://localhost:8080 | App (via Nginx) |
+| http://localhost:8080 | CRM app (via Nginx) |
+| http://localhost:8080/bridge | The Bridge (platform admin portal) |
 | http://localhost:5173 | Frontend dev server |
 | http://localhost:8080/docs | OpenAPI / Swagger docs |
 | localhost:3306 | MySQL |
 
-4. Sign in with the seeded admin account from `.env`:
+4. Sign in to the CRM with the seeded admin account from `.env`:
 
+- Organization handle: `default` (default agency slug)
 - Username: `admin`
 - Password: value of `SEED_ADMIN_PASSWORD` in `.env`
 
-You can also register a new account from the Register tab. Passwords must be more than 10 characters and include at least one uppercase letter, one lowercase letter, one numeral, and one special character. Spaces are not allowed.
+Passwords must be more than 10 characters and include at least one uppercase letter, one lowercase letter, one numeral, and one special character. Spaces are not allowed.
+
+**The Bridge:** open http://localhost:8080/bridge and sign in with `SEED_BRIDGE_ADMIN_USERNAME` / `SEED_BRIDGE_ADMIN_PASSWORD` from `.env` to provision new tenant agencies.
+
+New CRM users join through **team invitations** issued by a tenant super user (Team workspace), not self-registration from the login screen. Public registration at `/register` is for **new agency onboarding** from Bridge-issued platform invitations when `ALLOW_PUBLIC_REGISTRATION=true`.
 
 ## Application overview
+
+### Multi-tenant roles
+
+| Role | Access |
+| --- | --- |
+| `tenant_agent` | CRM for one agency |
+| `tenant_super_user` | CRM plus Team workspace (invites, user management) |
+| `platform_super_admin` | The Bridge only (cross-tenant provisioning and agency ledger) |
+
+Inactive agency users (`is_active = false`) cannot sign in; their profiles remain for reporting and can be reactivated from Team.
+
+When an agency subscription is **Past Due** or **Locked**, most CRM API routes return **HTTP 402** and the app shows a subscription restore page. `/api/auth/me` still works so the user can sign out.
 
 ### Dashboard
 
@@ -131,6 +151,31 @@ The client content card (passengers through communications) stays beside request
 
 Inactive passengers are visually flagged in request passenger lists.
 
+### Team (tenant super user)
+
+The **Team** sidebar view (`tenant_super_user` only) manages agency users:
+
+- Issue team invitations (3-day expiry) for agents or other super users
+- Revoke pending invitations
+- Edit user email and role
+- Deactivate or reactivate users (inactive users cannot sign in; history stays in reports)
+- Filter the agency users table: Active only (default), Inactive only, or both
+
+Invited agents complete registration at `/register-agent?token=…`.
+
+### The Bridge (platform super admin)
+
+**The Bridge** at `/bridge` is a separate portal for platform operators:
+
+- Issue platform invitations to provision new tenant companies
+- Review the agency ledger and pending platform invitations
+- Edit agency subscription state and organization handle
+- Revoke pending platform invitations
+
+New agency owners complete onboarding at `/register?token=…`, which creates the agency and first `tenant_super_user` in one step.
+
+CRM and Bridge use separate browser tokens so both can stay open in different tabs.
+
 ### Proposed cruises and quoted insurance
 
 **Proposed cruises** support Proposed, Accepted, and Rejected statuses. The UI splits them into **Proposed & accepted** and **Rejected** sub-tabs.
@@ -209,10 +254,26 @@ docker compose up -d backend
 
 ## Authentication
 
-- `POST /api/auth/register` — create a new user
-- `POST /api/auth/login` — returns a JWT access token
-- `GET /api/auth/me` — current signed-in user
-- All other `/api/*` endpoints require authentication
+CRM sign-in:
+
+- `POST /api/auth/login` — body includes `organization_handle`, `username`, and `password`; returns a JWT access token scoped to that agency
+- `GET /api/auth/me` — current signed-in user (`role`, `is_active`, `agency_id`, etc.)
+- Inactive users are rejected at login and on token validation
+
+Bridge sign-in:
+
+- `POST /api/auth/bridge/login` — platform operator username and password (no organization handle)
+
+Onboarding (unauthenticated):
+
+- `GET/POST /api/onboarding/invites/verify` and `/api/onboarding/accept` — new agency owner registration from Bridge invite (`/register`)
+- `GET/POST /api/onboarding/agent/invites/verify` and `/api/onboarding/agent/accept` — agent registration from Team invite (`/register-agent`)
+
+Legacy self-registration (optional):
+
+- `POST /api/auth/register` — only when `ALLOW_PUBLIC_REGISTRATION=true`; not used by the CRM login screen
+
+All other `/api/*` endpoints require authentication. CRM routes require a tenant JWT; Bridge routes require a platform super admin JWT.
 
 ## Audit tracking
 
@@ -240,7 +301,10 @@ The FastAPI app is created in `backend/app/application.py` and mounted for Uvico
 
 | Module | Responsibility |
 | --- | --- |
-| `routers/health.py`, `routers/auth.py` | Health check and authentication |
+| `routers/health.py`, `routers/auth.py` | Health check and CRM/Bridge authentication |
+| `routers/onboarding.py` | Platform and agent invite verification and acceptance |
+| `routers/agency.py` | Team workspace: users, invites, user updates |
+| `routers/bridge.py` | The Bridge: tenant provisioning, agency ledger |
 | `routers/dashboard.py` | Dashboard aggregates |
 | `routers/requests.py` | Travel requests, notes, attachments, proposed cruises, insurance, research documents |
 | `routers/passengers.py` | Client registry and request passenger links |
@@ -248,6 +312,11 @@ The FastAPI app is created in `backend/app/application.py` and mounted for Uvico
 | `routers/workflows.py` | Workflow templates, workflow lifecycle, task updates |
 | `routers/sales_analytics.py` | Sales analytics aggregates and copilot |
 | `routers/reports.py` | Interactive report pages (manifest, ledger, funnel leak, scorecard, demographics) |
+| `services/agency_invite_service.py` | Agency team invites and user management |
+| `services/auth_service.py` | CRM and Bridge credential authentication |
+| `services/bridge_service.py` | Platform invitations and agency provisioning |
+| `services/agency_service.py` | Default agency bootstrap and tenant ownership checks |
+| `subscription_gatekeeper.py` | HTTP 402 when subscription is Past Due or Locked |
 | `services/request_service.py` | Request queries, detail assembly, open-request guards |
 | `services/dashboard_service.py` | Dashboard response building |
 | `services/passenger_service.py`, `passenger_helpers.py` | Passenger registry and request sync |
@@ -267,7 +336,8 @@ See `.env.example` for defaults.
 | --- | --- |
 | `MYSQL_*` | Database credentials |
 | `JWT_SECRET`, `JWT_EXPIRE_MINUTES` | Auth token signing |
-| `SEED_ADMIN_*` | Initial admin user created on startup |
+| `SEED_ADMIN_*` | Initial CRM tenant super user created on startup |
+| `SEED_BRIDGE_ADMIN_*` | Optional platform operator for The Bridge (`/bridge`) |
 | `ATTACHMENTS_DIR` | Upload root inside the backend container |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | Optional AI integration |
 | `*_PORT` | Host ports for nginx, frontend, backend |
@@ -309,7 +379,7 @@ Other P0 controls already in place:
 - Attachment path containment (blocks `..` and paths outside the upload root)
 - nginx security headers on the dev proxy (`nginx/nginx.conf`)
 
-Local development still exposes ports and allows registration via the Register tab when `ALLOW_PUBLIC_REGISTRATION=true`.
+Local development still exposes ports. CRM login is sign-in only; team and platform onboarding use invitation links when `ALLOW_PUBLIC_REGISTRATION=true`.
 
 ## API endpoints
 
@@ -318,9 +388,32 @@ All routes below require authentication unless noted.
 ### Health and auth
 
 - `GET /api/health`
-- `POST /api/auth/register`
-- `POST /api/auth/login`
+- `POST /api/auth/login` — CRM login (`organization_handle`, `username`, `password`)
+- `POST /api/auth/bridge/login` — Bridge login
 - `GET /api/auth/me`
+- `POST /api/auth/register` — optional legacy self-registration when enabled
+
+### Onboarding
+
+- `GET /api/onboarding/invites/verify?token=` — verify Bridge platform invitation
+- `POST /api/onboarding/accept` — accept platform invitation and create agency owner
+- `GET /api/onboarding/agent/invites/verify?token=` — verify Team agent invitation
+- `POST /api/onboarding/agent/accept` — accept agent invitation
+
+### Agency team (tenant super user)
+
+- `GET /api/agency/team` — agency users and pending invitations
+- `POST /api/agency/invites`
+- `DELETE /api/agency/invites/{invitation_id}`
+- `PATCH /api/agency/users/{user_id}` — role, email, `is_active`
+
+### The Bridge (platform super admin)
+
+- `GET /api/bridge/summary`
+- `POST /api/bridge/invites`
+- `DELETE /api/bridge/invites/{invitation_id}`
+- `GET /api/bridge/tenants/{agency_id}`
+- `PATCH /api/bridge/tenants/{agency_id}`
 
 ### Dashboard and requests
 
@@ -406,7 +499,7 @@ Interactive docs with request/response schemas: http://localhost:8080/docs
 
 ## Testing
 
-The project includes backend unit tests, API integration tests, and frontend unit tests. Test services use the Docker Compose `test` profile with an ephemeral MySQL database (`test-db`). The current suite includes **40+ backend tests** and **22 frontend tests** (report export/layout helpers, domain helpers, and API client utilities).
+The project includes backend unit tests, API integration tests, and frontend unit tests. Test services use the Docker Compose `test` profile with an ephemeral MySQL database (`test-db`). The current suite includes **186 backend tests** and **22 frontend tests** (report export/layout helpers, domain helpers, and API client utilities).
 
 Run the full suite:
 
@@ -446,8 +539,8 @@ docker compose --profile test run --rm frontend-test
 
 Backend layout:
 
-- `backend/tests/unit/` — domain/helper tests (workflow logic, cabin normalization, passenger activation, audit/security helpers, dashboard assembly, research email HTML, **reports service**, sales analytics)
-- `backend/tests/integration/` — FastAPI endpoint tests against MySQL (auth, requests, communications, passenger reactivation, **reports endpoints**)
+- `backend/tests/unit/` — domain/helper tests (workflow logic, cabin normalization, passenger activation, audit/security helpers, dashboard assembly, research email HTML, **reports service**, sales analytics, **agency invites**, **Bridge**, **auth**, multi-tenant schema)
+- `backend/tests/integration/` — FastAPI endpoint tests against MySQL (auth, requests, communications, passenger reactivation, **reports endpoints**, **agency team**, **Bridge**, **multi-tenant isolation**)
 - `backend/pytest.ini`, `backend/requirements-dev.txt`, `backend/.coveragerc` — pytest configuration, dev dependencies, and unit-test coverage scope
 
 Frontend tests live beside source files as `*.test.ts` and run with Vitest (`apiClient.test.ts`, `domainHelpers.test.ts`, **manifest/supplier/funnel/advisor/passenger report export tests**).
@@ -456,11 +549,18 @@ Use `scripts/run-tests.ps1` as the recommended entry point; it starts `test-db` 
 
 ## Database migrations
 
-Fresh installs use `db/init.sql` via Docker entrypoint. Existing volumes may need incremental migrations applied manually:
+Fresh installs use `db/init.sql` via Docker entrypoint (includes multi-tenant Phases 0–2). Existing volumes may need incremental migrations applied manually:
 
 ```powershell
 # Auth (users table)
 Get-Content db\migrate_auth.sql | docker compose exec -T db mysql -uroot -prootsecret sailspipeline
+
+# Multi-tenant (run in order on older databases)
+Get-Content db\migrate_multi_tenant_phase0.sql | docker compose exec -T db mysql -uroot -prootsecret sailspipeline
+Get-Content db\migrate_multi_tenant_phase1.sql | docker compose exec -T db mysql -uroot -prootsecret sailspipeline
+Get-Content db\migrate_multi_tenant_phase2.sql | docker compose exec -T db mysql -uroot -prootsecret sailspipeline
+Get-Content db\migrate_platform_operator_null_agency.sql | docker compose exec -T db mysql -uroot -prootsecret sailspipeline
+Get-Content db\migrate_invitation_cancellation.sql | docker compose exec -T db mysql -uroot -prootsecret sailspipeline
 
 # Other migrations (run as needed for older databases)
 Get-Content db\migrate_questionnaire.sql | docker compose exec -T db mysql -uroot -prootsecret sailspipeline
