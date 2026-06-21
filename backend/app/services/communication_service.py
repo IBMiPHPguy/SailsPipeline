@@ -18,6 +18,7 @@ from app.gemini_service import (
 from app.models import ProposedCruise, RequestCommunication, RequestWorkflow, TravelRequest, User
 from app.research_proposal_email import build_research_proposal_email_html
 from app.schemas import GenerateResearchCommunicationResponse
+from app.services.agency_service import assert_child_belongs_to_request, require_record_for_agency
 from app.services.gemini_context_service import (
     build_request_context_for_gemini,
     proposed_cruise_to_gemini_dict,
@@ -72,12 +73,18 @@ def save_research_proposal_communication(
 ) -> RequestCommunication:
     if request_workflow_id is not None:
         workflow = db.get(RequestWorkflow, request_workflow_id)
-        if workflow is None or workflow.travel_request_id != request.id:
-            raise HTTPException(status_code=404, detail="Workflow not found.")
+        require_record_for_agency(workflow, agency_id=request.agency_id)
+        assert_child_belongs_to_request(
+            child_agency_id=workflow.agency_id,
+            child_travel_request_id=workflow.travel_request_id,
+            request_id=request.id,
+            agency_id=request.agency_id,
+        )
 
     communication = find_draft_research_proposal_communication(db, request.id, request_workflow_id)
     if communication is None:
         communication = RequestCommunication(
+            agency_id=request.agency_id,
             travel_request_id=request.id,
             request_workflow_id=request_workflow_id,
             communication_type=COMMUNICATION_TYPE_RESEARCH_PROPOSAL,
@@ -175,10 +182,16 @@ def create_communication(
 ) -> RequestCommunication:
     if request_workflow_id is not None:
         workflow = db.get(RequestWorkflow, request_workflow_id)
-        if workflow is None or workflow.travel_request_id != request_id:
-            raise HTTPException(status_code=404, detail="Workflow not found.")
+        require_record_for_agency(workflow, agency_id=request.agency_id)
+        assert_child_belongs_to_request(
+            child_agency_id=workflow.agency_id,
+            child_travel_request_id=workflow.travel_request_id,
+            request_id=request_id,
+            agency_id=request.agency_id,
+        )
 
     communication = RequestCommunication(
+        agency_id=request.agency_id,
         travel_request_id=request_id,
         request_workflow_id=request_workflow_id,
         communication_type=communication_type,

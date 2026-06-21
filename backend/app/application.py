@@ -12,6 +12,7 @@ from app.config import settings
 from app.database import Base, SessionLocal, engine
 from app.rate_limit import limiter
 from app.security_config import validate_production_settings
+from app.tenant_middleware import TenantContextMiddleware
 from app.tenant_session import configure_tenant_session
 
 configure_tenant_session()
@@ -79,6 +80,7 @@ def create_app() -> FastAPI:
     application.state.limiter = limiter
     application.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
     application.add_middleware(SlowAPIMiddleware)
+    application.add_middleware(TenantContextMiddleware)
 
     application.add_middleware(
         CORSMiddleware,

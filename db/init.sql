@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS travel_requests (
 
 CREATE TABLE IF NOT EXISTS call_transcripts (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    agency_id CHAR(36) NOT NULL,
     travel_request_id INT NOT NULL,
     original_filename VARCHAR(255) NOT NULL,
     stored_path VARCHAR(500) NOT NULL,
@@ -62,12 +63,14 @@ CREATE TABLE IF NOT EXISTS call_transcripts (
     size_bytes INT NOT NULL,
     created_by_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_call_transcripts_agency FOREIGN KEY (agency_id) REFERENCES agencies(id),
     CONSTRAINT fk_call_transcripts_request FOREIGN KEY (travel_request_id) REFERENCES travel_requests(id) ON DELETE CASCADE,
     CONSTRAINT fk_call_transcripts_user FOREIGN KEY (created_by_id) REFERENCES users(id)
 );
 
 CREATE TABLE IF NOT EXISTS chat_logs (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    agency_id CHAR(36) NOT NULL,
     travel_request_id INT NOT NULL,
     original_filename VARCHAR(255) NOT NULL,
     stored_path VARCHAR(500) NOT NULL,
@@ -75,6 +78,7 @@ CREATE TABLE IF NOT EXISTS chat_logs (
     size_bytes INT NOT NULL,
     created_by_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_chat_logs_agency FOREIGN KEY (agency_id) REFERENCES agencies(id),
     CONSTRAINT fk_chat_logs_request FOREIGN KEY (travel_request_id) REFERENCES travel_requests(id) ON DELETE CASCADE,
     CONSTRAINT fk_chat_logs_user FOREIGN KEY (created_by_id) REFERENCES users(id)
 );
@@ -119,6 +123,7 @@ CREATE TABLE IF NOT EXISTS request_passengers (
 
 CREATE TABLE IF NOT EXISTS request_notes (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    agency_id CHAR(36) NOT NULL,
     travel_request_id INT NOT NULL,
     summary VARCHAR(160) NOT NULL,
     content TEXT NOT NULL,
@@ -126,6 +131,7 @@ CREATE TABLE IF NOT EXISTS request_notes (
     updated_by_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_request_notes_agency FOREIGN KEY (agency_id) REFERENCES agencies(id),
     CONSTRAINT fk_request_notes_request FOREIGN KEY (travel_request_id) REFERENCES travel_requests(id) ON DELETE CASCADE,
     CONSTRAINT fk_request_notes_created_by FOREIGN KEY (created_by_id) REFERENCES users(id),
     CONSTRAINT fk_request_notes_updated_by FOREIGN KEY (updated_by_id) REFERENCES users(id)
@@ -172,6 +178,7 @@ CREATE TABLE IF NOT EXISTS request_passenger_audits (
 
 CREATE TABLE IF NOT EXISTS proposed_cruises (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    agency_id CHAR(36) NOT NULL,
     travel_request_id INT NOT NULL,
     departure_date DATE NOT NULL,
     cruise_line VARCHAR(120) NOT NULL,
@@ -196,6 +203,7 @@ CREATE TABLE IF NOT EXISTS proposed_cruises (
     updated_by_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_proposed_cruises_agency FOREIGN KEY (agency_id) REFERENCES agencies(id),
     CONSTRAINT fk_proposed_cruises_request FOREIGN KEY (travel_request_id) REFERENCES travel_requests(id) ON DELETE CASCADE,
     CONSTRAINT fk_proposed_cruises_created_by FOREIGN KEY (created_by_id) REFERENCES users(id),
     CONSTRAINT fk_proposed_cruises_updated_by FOREIGN KEY (updated_by_id) REFERENCES users(id)
@@ -213,6 +221,7 @@ CREATE TABLE IF NOT EXISTS proposed_cruise_passengers (
 
 CREATE TABLE IF NOT EXISTS quoted_insurance (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    agency_id CHAR(36) NOT NULL,
     travel_request_id INT NOT NULL,
     carrier VARCHAR(120) NOT NULL,
     premium_cost DECIMAL(10, 2) NOT NULL,
@@ -226,6 +235,7 @@ CREATE TABLE IF NOT EXISTS quoted_insurance (
     updated_by_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_quoted_insurance_agency FOREIGN KEY (agency_id) REFERENCES agencies(id),
     CONSTRAINT fk_quoted_insurance_request FOREIGN KEY (travel_request_id) REFERENCES travel_requests(id) ON DELETE CASCADE,
     CONSTRAINT fk_quoted_insurance_created_by FOREIGN KEY (created_by_id) REFERENCES users(id),
     CONSTRAINT fk_quoted_insurance_updated_by FOREIGN KEY (updated_by_id) REFERENCES users(id)
@@ -233,6 +243,7 @@ CREATE TABLE IF NOT EXISTS quoted_insurance (
 
 CREATE TABLE IF NOT EXISTS request_workflows (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    agency_id CHAR(36) NOT NULL,
     travel_request_id INT NOT NULL,
     workflow_type VARCHAR(40) NOT NULL,
     status VARCHAR(40) NOT NULL DEFAULT 'Active',
@@ -243,6 +254,7 @@ CREATE TABLE IF NOT EXISTS request_workflows (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     completed_at TIMESTAMP NULL,
+    CONSTRAINT fk_request_workflows_agency FOREIGN KEY (agency_id) REFERENCES agencies(id),
     CONSTRAINT fk_request_workflows_request FOREIGN KEY (travel_request_id) REFERENCES travel_requests(id) ON DELETE CASCADE,
     CONSTRAINT fk_request_workflows_parent FOREIGN KEY (parent_workflow_id) REFERENCES request_workflows(id) ON DELETE SET NULL,
     CONSTRAINT fk_request_workflows_started_by FOREIGN KEY (started_by_id) REFERENCES users(id),
@@ -251,6 +263,7 @@ CREATE TABLE IF NOT EXISTS request_workflows (
 
 CREATE TABLE IF NOT EXISTS request_tasks (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    agency_id CHAR(36) NOT NULL,
     request_workflow_id INT NOT NULL,
     travel_request_id INT NOT NULL,
     task_key VARCHAR(80) NOT NULL,
@@ -264,6 +277,7 @@ CREATE TABLE IF NOT EXISTS request_tasks (
     result JSON NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_request_tasks_agency FOREIGN KEY (agency_id) REFERENCES agencies(id),
     CONSTRAINT fk_request_tasks_workflow FOREIGN KEY (request_workflow_id) REFERENCES request_workflows(id) ON DELETE CASCADE,
     CONSTRAINT fk_request_tasks_request FOREIGN KEY (travel_request_id) REFERENCES travel_requests(id) ON DELETE CASCADE,
     CONSTRAINT fk_request_tasks_completed_by FOREIGN KEY (completed_by_id) REFERENCES users(id)
@@ -271,6 +285,7 @@ CREATE TABLE IF NOT EXISTS request_tasks (
 
 CREATE TABLE IF NOT EXISTS request_communications (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    agency_id CHAR(36) NOT NULL,
     travel_request_id INT NOT NULL,
     request_workflow_id INT NULL,
     communication_type VARCHAR(40) NOT NULL,
@@ -282,6 +297,7 @@ CREATE TABLE IF NOT EXISTS request_communications (
     updated_by_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_request_communications_agency FOREIGN KEY (agency_id) REFERENCES agencies(id),
     CONSTRAINT fk_request_communications_request FOREIGN KEY (travel_request_id) REFERENCES travel_requests(id) ON DELETE CASCADE,
     CONSTRAINT fk_request_communications_workflow FOREIGN KEY (request_workflow_id) REFERENCES request_workflows(id) ON DELETE SET NULL,
     CONSTRAINT fk_request_communications_created_by FOREIGN KEY (created_by_id) REFERENCES users(id),
@@ -290,6 +306,7 @@ CREATE TABLE IF NOT EXISTS request_communications (
 
 CREATE TABLE IF NOT EXISTS request_research_documents (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    agency_id CHAR(36) NOT NULL,
     travel_request_id INT NOT NULL,
     original_filename VARCHAR(255) NOT NULL,
     stored_path VARCHAR(500) NOT NULL,
@@ -297,6 +314,7 @@ CREATE TABLE IF NOT EXISTS request_research_documents (
     size_bytes INT NOT NULL,
     uploaded_by_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_request_research_documents_agency FOREIGN KEY (agency_id) REFERENCES agencies(id),
     CONSTRAINT fk_request_research_documents_request FOREIGN KEY (travel_request_id) REFERENCES travel_requests(id) ON DELETE CASCADE,
     CONSTRAINT fk_request_research_documents_user FOREIGN KEY (uploaded_by_id) REFERENCES users(id)
 );
@@ -309,6 +327,7 @@ CREATE INDEX idx_travel_requests_created_at ON travel_requests(created_at);
 CREATE INDEX idx_travel_requests_created_by ON travel_requests(created_by_id);
 CREATE INDEX idx_travel_requests_status_created ON travel_requests(status, created_at);
 
+CREATE INDEX idx_proposed_cruises_agency ON proposed_cruises(agency_id);
 CREATE INDEX idx_proposed_cruises_status ON proposed_cruises(status);
 CREATE INDEX idx_proposed_cruises_cruise_line ON proposed_cruises(cruise_line);
 CREATE INDEX idx_proposed_cruises_departure ON proposed_cruises(departure_date);

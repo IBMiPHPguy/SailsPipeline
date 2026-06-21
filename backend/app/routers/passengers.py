@@ -33,6 +33,7 @@ from app.schemas import (
     RequestPassengerRead,
     RequestPassengerUpdate,
 )
+from app.services.agency_service import get_passenger_for_agency
 from app.services.passenger_service import (
     detach_request_passenger_from_proposed_cruises,
     load_request_passenger,
@@ -124,12 +125,9 @@ def create_passenger_registry(
 def get_passenger_registry(
     passenger_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Passenger:
-    passenger = get_passenger_or_none(db, passenger_id)
-    if passenger is None:
-        raise HTTPException(status_code=404, detail="Passenger not found.")
-    return passenger
+    return get_passenger_for_agency(db, passenger_id, current_user.agency_id)
 
 
 @router.patch("/{passenger_id}", response_model=PassengerRead)
@@ -139,9 +137,7 @@ def update_passenger_registry(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Passenger:
-    passenger = get_passenger_or_none(db, passenger_id)
-    if passenger is None:
-        raise HTTPException(status_code=404, detail="Passenger not found.")
+    passenger = get_passenger_for_agency(db, passenger_id, current_user.agency_id)
 
     updates = payload.model_dump(exclude_unset=True)
     for field, value in updates.items():
@@ -156,11 +152,9 @@ def update_passenger_registry(
 def deactivate_passenger_registry(
     passenger_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Passenger:
-    passenger = get_passenger_or_none(db, passenger_id)
-    if passenger is None:
-        raise HTTPException(status_code=404, detail="Passenger not found.")
+    passenger = get_passenger_for_agency(db, passenger_id, current_user.agency_id)
     if not passenger.is_active:
         raise HTTPException(status_code=400, detail="Client is already inactive.")
 
@@ -174,11 +168,9 @@ def deactivate_passenger_registry(
 def activate_passenger_registry(
     passenger_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Passenger:
-    passenger = get_passenger_or_none(db, passenger_id)
-    if passenger is None:
-        raise HTTPException(status_code=404, detail="Passenger not found.")
+    passenger = get_passenger_for_agency(db, passenger_id, current_user.agency_id)
     if passenger.is_active:
         raise HTTPException(status_code=400, detail="Client is already active.")
 
@@ -198,9 +190,7 @@ def add_passenger(
     request = get_open_request(db, request_id)
     try:
         if payload.passenger_id is not None:
-            passenger = db.get(Passenger, payload.passenger_id)
-            if passenger is None:
-                raise HTTPException(status_code=404, detail="Passenger not found.")
+            passenger = get_passenger_for_agency(db, payload.passenger_id, current_user.agency_id)
             if not passenger.is_active:
                 raise HTTPException(status_code=400, detail="Inactive clients cannot be added to a request.")
             link = attach_passenger_to_request(

@@ -22,7 +22,9 @@ from app.constants import (
 )
 from app.models import RequestTask, RequestWorkflow, TravelRequest, User
 from app.schemas import RequestTaskUpdate, RequestWorkflowCreate, RequestWorkflowUpdate, WorkflowTemplateRead
+from app.services.agency_service import assert_child_belongs_to_request, require_record_for_agency
 from app.services.request_service import get_open_request, touch_request
+from app.tenant_context import require_current_agency_id
 from app.workflow_helpers import (
     WORKFLOW_DEFINITIONS,
     ensure_follow_up_due_date,
@@ -68,10 +70,16 @@ def create_request_workflow(
 ) -> RequestWorkflow:
     if parent_workflow_id is not None:
         parent = db.get(RequestWorkflow, parent_workflow_id)
-        if parent is None or parent.travel_request_id != request.id:
-            raise HTTPException(status_code=404, detail="Parent workflow not found.")
+        require_record_for_agency(parent, agency_id=request.agency_id)
+        assert_child_belongs_to_request(
+            child_agency_id=parent.agency_id,
+            child_travel_request_id=parent.travel_request_id,
+            request_id=request.id,
+            agency_id=request.agency_id,
+        )
 
     workflow = RequestWorkflow(
+        agency_id=request.agency_id,
         travel_request_id=request.id,
         workflow_type=workflow_type,
         status=WORKFLOW_STATUS_ACTIVE,
@@ -84,6 +92,7 @@ def create_request_workflow(
     for template in get_task_templates(workflow_type):
         db.add(
             RequestTask(
+                agency_id=request.agency_id,
                 request_workflow_id=workflow.id,
                 travel_request_id=request.id,
                 task_key=template.task_key,
@@ -124,8 +133,13 @@ def start_workflow(
 
     if payload.parent_workflow_id is not None:
         parent = db.get(RequestWorkflow, payload.parent_workflow_id)
-        if parent is None or parent.travel_request_id != request_id:
-            raise HTTPException(status_code=404, detail="Parent workflow not found.")
+        require_record_for_agency(parent, agency_id=request.agency_id)
+        assert_child_belongs_to_request(
+            child_agency_id=parent.agency_id,
+            child_travel_request_id=parent.travel_request_id,
+            request_id=request_id,
+            agency_id=request.agency_id,
+        )
 
     workflow = create_request_workflow(
         db,
@@ -149,8 +163,13 @@ def update_workflow(
 ) -> RequestWorkflow:
     request = get_open_request(db, request_id)
     workflow = db.get(RequestWorkflow, workflow_id)
-    if workflow is None or workflow.travel_request_id != request_id:
-        raise HTTPException(status_code=404, detail="Workflow not found.")
+    require_record_for_agency(workflow, agency_id=require_current_agency_id())
+    assert_child_belongs_to_request(
+        child_agency_id=workflow.agency_id,
+        child_travel_request_id=workflow.travel_request_id,
+        request_id=request_id,
+        agency_id=request.agency_id,
+    )
 
     just_completed = False
     if payload.status is not None and payload.status != workflow.status:
@@ -207,8 +226,13 @@ def update_task(
 ) -> RequestWorkflow:
     request = get_open_request(db, request_id)
     task = db.get(RequestTask, task_id)
-    if task is None or task.travel_request_id != request_id:
-        raise HTTPException(status_code=404, detail="Task not found.")
+    require_record_for_agency(task, agency_id=require_current_agency_id())
+    assert_child_belongs_to_request(
+        child_agency_id=task.agency_id,
+        child_travel_request_id=task.travel_request_id,
+        request_id=request_id,
+        agency_id=request.agency_id,
+    )
 
     workflow = load_workflow(db, task.request_workflow_id)
     if workflow.status != WORKFLOW_STATUS_ACTIVE:

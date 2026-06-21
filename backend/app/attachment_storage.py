@@ -58,17 +58,26 @@ def resolve_mime_type(filename: str, content_type: str | None) -> str:
     return mapping.get(extension, "text/plain")
 
 
-def relative_storage_path(request_id: int, kind: str, stored_name: str) -> str:
-    return f"requests/{request_id}/{kind}/{stored_name}"
+def relative_storage_path(agency_id: str, request_id: int, kind: str, stored_name: str) -> str:
+    return f"{agency_id}/requests/{request_id}/{kind}/{stored_name}"
 
 
-def resolve_attachment_path(attachments_dir: str, relative_path: str) -> Path:
+def resolve_attachment_path(
+    attachments_dir: str,
+    relative_path: str,
+    *,
+    agency_id: str | None = None,
+) -> Path:
     if not relative_path or relative_path.startswith(("/", "\\")):
         raise HTTPException(status_code=400, detail="Invalid attachment path.")
     if Path(relative_path).is_absolute():
         raise HTTPException(status_code=400, detail="Invalid attachment path.")
     if ".." in Path(relative_path).parts:
         raise HTTPException(status_code=400, detail="Invalid attachment path.")
+
+    normalized = relative_path.replace("\\", "/")
+    if agency_id is not None and not normalized.startswith(f"{agency_id}/requests/"):
+        raise HTTPException(status_code=404, detail="Attachment not found.")
 
     root = attachments_root(attachments_dir).resolve()
     target = (root / relative_path).resolve()
@@ -86,29 +95,42 @@ async def read_upload_file(upload: UploadFile) -> tuple[bytes, str, str, int]:
     return content, filename, mime_type, size_bytes
 
 
-def write_bytes(attachments_dir: str, relative_path: str, content: bytes) -> None:
-    target = resolve_attachment_path(attachments_dir, relative_path)
+def write_bytes(
+    attachments_dir: str,
+    relative_path: str,
+    content: bytes,
+    *,
+    agency_id: str | None = None,
+) -> None:
+    target = resolve_attachment_path(attachments_dir, relative_path, agency_id=agency_id)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(content)
 
 
 async def store_upload_file(
     attachments_dir: str,
+    agency_id: str,
     request_id: int,
     kind: str,
     upload: UploadFile,
 ) -> tuple[str, str, str, int]:
     content, filename, mime_type, size_bytes = await read_upload_file(upload)
     stored_name = f"{uuid4().hex}_{filename}"
-    relative_path = relative_storage_path(request_id, kind, stored_name)
-    write_bytes(attachments_dir, relative_path, content)
+    relative_path = relative_storage_path(agency_id, request_id, kind, stored_name)
+    write_bytes(attachments_dir, relative_path, content, agency_id=agency_id)
     return relative_path, filename, mime_type, size_bytes
 
 
-def read_attachment_text(attachments_dir: str, relative_path: str, mime_type: str) -> str:
+def read_attachment_text(
+    attachments_dir: str,
+    relative_path: str,
+    mime_type: str,
+    *,
+    agency_id: str | None = None,
+) -> str:
     if not is_text_mime(mime_type):
         raise HTTPException(status_code=415, detail="This file type must be downloaded instead of previewed.")
-    target = resolve_attachment_path(attachments_dir, relative_path)
+    target = resolve_attachment_path(attachments_dir, relative_path, agency_id=agency_id)
     if not target.is_file():
         raise HTTPException(status_code=404, detail="Attachment file not found.")
     return target.read_text(encoding="utf-8", errors="replace")
@@ -148,11 +170,12 @@ def migrate_legacy_attachment_content(db: Session, attachments_dir: str) -> None
         rows = db.execute(
             text(
                 f"""
-                SELECT id, travel_request_id, content
-                FROM {table_name}
-                WHERE (stored_path IS NULL OR stored_path = '')
-                  AND content IS NOT NULL
-                  AND content <> ''
+                SELECT ct.id, ct.travel_request_id, ct.content, tr.agency_id
+                FROM {table_name} ct
+                JOIN travel_requests tr ON tr.id = ct.travel_request_id
+                WHERE (ct.stored_path IS NULL OR ct.stored_path = '')
+                  AND ct.content IS NOT NULL
+                  AND ct.content <> ''
                 """
             )
         ).mappings()
@@ -160,11 +183,12 @@ def migrate_legacy_attachment_content(db: Session, attachments_dir: str) -> None
         for row in rows:
             record_id = row["id"]
             request_id = row["travel_request_id"]
+            agency_id = row["agency_id"]
             filename = f"transcript-{record_id}.txt" if kind == "transcripts" else f"chat-{record_id}.txt"
             stored_name = f"{uuid4().hex}_{filename}"
-            relative_path = relative_storage_path(request_id, kind, stored_name)
+            relative_path = relative_storage_path(agency_id, request_id, kind, stored_name)
             content_bytes = str(row["content"]).encode("utf-8")
-            write_bytes(attachments_dir, relative_path, content_bytes)
+            write_bytes(attachments_dir, relative_path, content_bytes, agency_id=agency_id)
             db.execute(
                 text(
                     f"""

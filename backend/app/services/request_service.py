@@ -62,7 +62,9 @@ from app.schemas import (
     TravelRequestUpdate,
     UserAudit,
 )
+from app.services.agency_service import get_travel_request_for_agency
 from app.services.passenger_service import sync_primary_passenger_from_request
+from app.tenant_context import require_current_agency_id
 from app.services.proposed_cruise_service import proposed_cruise_to_read
 from app.workflow_helpers import (
     TASK_KEY_FOLLOW_UP_RESEARCH,
@@ -196,9 +198,7 @@ def load_change_history(db: Session, request_id: int) -> TravelRequest | None:
 
 
 def get_open_request(db: Session, request_id: int) -> TravelRequest:
-    request = db.get(TravelRequest, request_id)
-    if request is None:
-        raise HTTPException(status_code=404, detail="Travel request not found.")
+    request = get_travel_request_for_agency(db, request_id, require_current_agency_id())
     if request.status == REQUEST_STATUS_CLOSED:
         raise HTTPException(status_code=400, detail="Closed requests cannot be updated.")
     return request
@@ -376,9 +376,7 @@ def search_open_requests(
 
 
 def reopen_request(db: Session, request_id: int, current_user: User) -> TravelRequest:
-    request = db.get(TravelRequest, request_id)
-    if request is None:
-        raise HTTPException(status_code=404, detail="Travel request not found.")
+    request = get_travel_request_for_agency(db, request_id, require_current_agency_id())
     if request.status != REQUEST_STATUS_CLOSED:
         raise HTTPException(status_code=400, detail="Only closed requests can be reopened.")
     if request.close_reason == PRIMARY_CLOSE_REASON:
@@ -465,6 +463,8 @@ def create_request(db: Session, payload: TravelRequestCreate, current_user: User
 
 
 def get_request_detail(db: Session, request_id: int) -> TravelRequestDetailRead:
+    agency_id = require_current_agency_id()
+    get_travel_request_for_agency(db, request_id, agency_id)
     request = detail_query(db).filter(TravelRequest.id == request_id).first()
     if request is None:
         raise HTTPException(status_code=404, detail="Travel request not found.")
@@ -473,6 +473,7 @@ def get_request_detail(db: Session, request_id: int) -> TravelRequestDetailRead:
 
 
 def get_request_change_history(db: Session, request_id: int) -> RequestChangeHistoryRead:
+    get_travel_request_for_agency(db, request_id, require_current_agency_id())
     request = load_change_history(db, request_id)
     if request is None:
         raise HTTPException(status_code=404, detail="Travel request not found.")
@@ -491,12 +492,7 @@ def update_request(
     payload: TravelRequestUpdate,
     current_user: User,
 ) -> TravelRequestDetailRead:
-    request = db.get(TravelRequest, request_id)
-    if request is None:
-        raise HTTPException(status_code=404, detail="Travel request not found.")
-    if request.status == REQUEST_STATUS_CLOSED:
-        raise HTTPException(status_code=400, detail="Closed requests cannot be edited.")
-
+    request = get_open_request(db, request_id)
     updates = payload.model_dump(exclude_unset=True)
     departure = updates.get("departure_date", request.departure_date)
     returning = updates.get("return_date", request.return_date)

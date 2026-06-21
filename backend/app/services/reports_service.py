@@ -57,6 +57,7 @@ ACTIVE_QUOTE_STATUSES = (
 
 @dataclass(frozen=True)
 class ReportQueryFilters:
+    agency_id: str
     cruise_line: str = "all"
     timeframe: str = "all_time"
     pipeline_status: str = "all"
@@ -100,19 +101,25 @@ def _pagination_meta(total: int, page: int, page_size: int) -> int:
 
 
 def _reports_query(db: Session, filters: ReportQueryFilters | None = None):
+    agency_id = filters.agency_id if filters is not None else None
     query = db.query(TravelRequest).options(
         joinedload(TravelRequest.created_by),
         joinedload(TravelRequest.updated_by),
         selectinload(TravelRequest.proposed_cruises),
         selectinload(TravelRequest.request_workflows).selectinload(RequestWorkflow.tasks),
     )
+    if agency_id is not None:
+        query = query.filter(TravelRequest.agency_id == agency_id)
     if filters is not None:
         query = _apply_travel_request_report_filters(query, filters)
     return query
 
 
 def _passengers_filtered_query(db: Session, filters: ReportQueryFilters):
-    query = db.query(Passenger).filter(Passenger.is_active.is_(True))
+    query = db.query(Passenger).filter(
+        Passenger.agency_id == filters.agency_id,
+        Passenger.is_active.is_(True),
+    )
 
     if filters.state != "all":
         query = query.filter(
@@ -170,12 +177,14 @@ def _parse_workflow_task_key(workflow_task: str) -> str | None:
     return workflow_task
 
 
-def _first_open_task_key_subquery():
+def _first_open_task_key_subquery(agency_id: str):
     return (
         select(RequestTask.task_key)
         .select_from(RequestTask)
         .join(RequestWorkflow, RequestTask.request_workflow_id == RequestWorkflow.id)
         .where(
+            RequestTask.agency_id == agency_id,
+            RequestWorkflow.agency_id == agency_id,
             RequestWorkflow.travel_request_id == TravelRequest.id,
             RequestWorkflow.status == WORKFLOW_STATUS_ACTIVE,
             RequestTask.status == TASK_STATUS_OPEN,
@@ -187,10 +196,13 @@ def _first_open_task_key_subquery():
     )
 
 
-def _lead_cruise_line_subquery():
+def _lead_cruise_line_subquery(agency_id: str):
     return (
         select(ProposedCruise.cruise_line)
-        .where(ProposedCruise.travel_request_id == TravelRequest.id)
+        .where(
+            ProposedCruise.agency_id == agency_id,
+            ProposedCruise.travel_request_id == TravelRequest.id,
+        )
         .order_by(
             case(
                 (ProposedCruise.status.in_(BOOKED_CRUISE_STATUSES), 1),
@@ -210,15 +222,18 @@ def _request_prefers_cruise_line(cruise_line: str):
     return cast(TravelRequest.cruise_lines, String).like(f'%"{cruise_line}"%')
 
 
-def _apply_cruise_line_filter(query, cruise_line: str):
+def _apply_cruise_line_filter(query, cruise_line: str, agency_id: str):
     if not cruise_line or cruise_line == "all":
         return query
     if cruise_line not in CRUISE_LINES:
         return query.filter(false())
 
-    lead_line = _lead_cruise_line_subquery()
+    lead_line = _lead_cruise_line_subquery(agency_id)
     has_proposed_cruises = exists(
-        select(ProposedCruise.id).where(ProposedCruise.travel_request_id == TravelRequest.id)
+        select(ProposedCruise.id).where(
+            ProposedCruise.agency_id == agency_id,
+            ProposedCruise.travel_request_id == TravelRequest.id,
+        )
     )
     return query.filter(
         or_(
@@ -229,6 +244,7 @@ def _apply_cruise_line_filter(query, cruise_line: str):
 
 
 def _apply_travel_request_report_filters(query, filters: ReportQueryFilters):
+    query = query.filter(TravelRequest.agency_id == filters.agency_id)
     query = _apply_timeframe_filter(query, filters.timeframe)
 
     if filters.pipeline_status == "open":
@@ -238,21 +254,24 @@ def _apply_travel_request_report_filters(query, filters: ReportQueryFilters):
 
     task_key = _parse_workflow_task_key(filters.workflow_task)
     if task_key is not None:
-        query = query.filter(_first_open_task_key_subquery() == task_key)
+        query = query.filter(_first_open_task_key_subquery(filters.agency_id) == task_key)
 
-    return _apply_cruise_line_filter(query, filters.cruise_line)
+    return _apply_cruise_line_filter(query, filters.cruise_line, filters.agency_id)
+
+
+def _apply_proposed_cruise_timeframe_filter(query, timeframe: str):
+    timeframe_start = _timeframe_start(timeframe)
+    if timeframe_start is not None:
+        query = query.filter(ProposedCruise.created_at >= timeframe_start)
+    return query.filter(ProposedCruise.created_at.isnot(None))
 
 
 def _deposited_cruises_query(db: Session, filters: ReportQueryFilters):
-    query = (
-        db.query(ProposedCruise)
-        .join(TravelRequest, TravelRequest.id == ProposedCruise.travel_request_id)
-        .filter(
-            ProposedCruise.status == PROPOSED_CRUISE_STATUS_DEPOSITED,
-            TravelRequest.created_at.isnot(None),
-        )
+    query = db.query(ProposedCruise).filter(
+        ProposedCruise.agency_id == filters.agency_id,
+        ProposedCruise.status == PROPOSED_CRUISE_STATUS_DEPOSITED,
     )
-    query = _apply_timeframe_filter(query, filters.timeframe)
+    query = _apply_proposed_cruise_timeframe_filter(query, filters.timeframe)
 
     if filters.cruise_line and filters.cruise_line != "all":
         if filters.cruise_line not in CRUISE_LINES:
@@ -354,7 +373,7 @@ def _paginate[T](items: list[T], page: int, page_size: int) -> tuple[list[T], in
     return items[start : start + page_size], total, page, total_pages
 
 
-def get_report_meta(db: Session) -> ReportMetaResponse:
+def get_report_meta(db: Session, agency_id: str) -> ReportMetaResponse:
     workflow_task_groups: list[ReportWorkflowTaskGroup] = []
     for workflow_type in WORKFLOW_DEFINITIONS:
         templates = sorted(
@@ -379,6 +398,7 @@ def get_report_meta(db: Session) -> ReportMetaResponse:
         username
         for (username,) in db.query(User.username)
         .join(TravelRequest, TravelRequest.updated_by_id == User.id)
+        .filter(TravelRequest.agency_id == agency_id)
         .all()
         if username
     }
@@ -386,6 +406,7 @@ def get_report_meta(db: Session) -> ReportMetaResponse:
         username
         for (username,) in db.query(User.username)
         .join(TravelRequest, TravelRequest.created_by_id == User.id)
+        .filter(TravelRequest.agency_id == agency_id)
         .all()
         if username
     }
@@ -396,6 +417,7 @@ def get_report_meta(db: Session) -> ReportMetaResponse:
             for (state,) in (
                 db.query(Passenger.state_or_province)
                 .filter(
+                    Passenger.agency_id == agency_id,
                     Passenger.is_active.is_(True),
                     Passenger.state_or_province.isnot(None),
                     func.trim(Passenger.state_or_province) != "",
@@ -585,7 +607,8 @@ def _funnel_leak_matches_filters(row: FunnelLeakRowRead, filters: ReportQueryFil
 
 
 def get_funnel_leak_page(db: Session, filters: ReportQueryFilters) -> FunnelLeakPageRead:
-    base = _apply_timeframe_filter(_reports_query(db), filters.timeframe)
+    base = _apply_timeframe_filter(_reports_query(db, filters), filters.timeframe)
+    base = base.filter(TravelRequest.agency_id == filters.agency_id)
     requests = base.order_by(TravelRequest.created_at.desc()).all()
     booked_request_ids = _booked_request_ids_from(requests)
     rows: list[FunnelLeakRowRead] = []
@@ -673,7 +696,8 @@ def _build_advisor_scorecard_rows(requests: list[TravelRequest], filters: Report
 
 
 def get_advisor_scorecard_page(db: Session, filters: ReportQueryFilters) -> AdvisorScorecardPageRead:
-    base = _apply_timeframe_filter(_reports_query(db), filters.timeframe)
+    base = _apply_timeframe_filter(_reports_query(db, filters), filters.timeframe)
+    base = base.filter(TravelRequest.agency_id == filters.agency_id)
     requests = base.all()
     rows = _build_advisor_scorecard_rows(requests, filters)
     page_items, total, page, total_pages = _paginate(rows, filters.page, filters.page_size)

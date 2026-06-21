@@ -314,6 +314,9 @@ class RequestNote(Base):
     __tablename__ = "request_notes"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    agency_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("agencies.id"), nullable=False, default=DEFAULT_AGENCY_ID, index=True
+    )
     travel_request_id: Mapped[int] = mapped_column(ForeignKey("travel_requests.id"), nullable=False)
     summary: Mapped[str] = mapped_column(String(160), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
@@ -354,6 +357,9 @@ class CallTranscript(Base):
     __tablename__ = "call_transcripts"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    agency_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("agencies.id"), nullable=False, default=DEFAULT_AGENCY_ID, index=True
+    )
     travel_request_id: Mapped[int] = mapped_column(ForeignKey("travel_requests.id"), nullable=False)
     original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
     stored_path: Mapped[str] = mapped_column(String(500), nullable=False)
@@ -370,6 +376,9 @@ class ChatLog(Base):
     __tablename__ = "chat_logs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    agency_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("agencies.id"), nullable=False, default=DEFAULT_AGENCY_ID, index=True
+    )
     travel_request_id: Mapped[int] = mapped_column(ForeignKey("travel_requests.id"), nullable=False)
     original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
     stored_path: Mapped[str] = mapped_column(String(500), nullable=False)
@@ -399,6 +408,9 @@ class ProposedCruise(Base):
     __table_args__ = (Index("idx_proposed_cruises_request_status", "travel_request_id", "status"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    agency_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("agencies.id"), nullable=False, default=DEFAULT_AGENCY_ID, index=True
+    )
     travel_request_id: Mapped[int] = mapped_column(ForeignKey("travel_requests.id"), nullable=False)
     departure_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     cruise_line: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
@@ -453,6 +465,9 @@ class QuotedInsurance(Base):
     __tablename__ = "quoted_insurance"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    agency_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("agencies.id"), nullable=False, default=DEFAULT_AGENCY_ID, index=True
+    )
     travel_request_id: Mapped[int] = mapped_column(ForeignKey("travel_requests.id"), nullable=False)
     carrier: Mapped[str] = mapped_column(String(120), nullable=False)
     premium_cost: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
@@ -478,6 +493,9 @@ class RequestWorkflow(Base):
     __tablename__ = "request_workflows"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    agency_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("agencies.id"), nullable=False, default=DEFAULT_AGENCY_ID, index=True
+    )
     travel_request_id: Mapped[int] = mapped_column(ForeignKey("travel_requests.id"), nullable=False)
     workflow_type: Mapped[str] = mapped_column(String(40), nullable=False)
     status: Mapped[str] = mapped_column(String(40), nullable=False, default="Active")
@@ -509,6 +527,9 @@ class RequestTask(Base):
     __tablename__ = "request_tasks"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    agency_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("agencies.id"), nullable=False, default=DEFAULT_AGENCY_ID, index=True
+    )
     request_workflow_id: Mapped[int] = mapped_column(ForeignKey("request_workflows.id"), nullable=False)
     travel_request_id: Mapped[int] = mapped_column(ForeignKey("travel_requests.id"), nullable=False)
     task_key: Mapped[str] = mapped_column(String(80), nullable=False)
@@ -534,6 +555,9 @@ class RequestCommunication(Base):
     __tablename__ = "request_communications"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    agency_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("agencies.id"), nullable=False, default=DEFAULT_AGENCY_ID, index=True
+    )
     travel_request_id: Mapped[int] = mapped_column(ForeignKey("travel_requests.id"), nullable=False)
     request_workflow_id: Mapped[int | None] = mapped_column(ForeignKey("request_workflows.id"), nullable=True)
     communication_type: Mapped[str] = mapped_column(String(40), nullable=False)
@@ -558,6 +582,9 @@ class RequestResearchDocument(Base):
     __tablename__ = "request_research_documents"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    agency_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("agencies.id"), nullable=False, default=DEFAULT_AGENCY_ID, index=True
+    )
     travel_request_id: Mapped[int] = mapped_column(ForeignKey("travel_requests.id"), nullable=False)
     original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
     stored_path: Mapped[str] = mapped_column(String(500), nullable=False)

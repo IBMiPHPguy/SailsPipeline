@@ -1,8 +1,15 @@
+from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload, noload
 
-from app.models import RequestNote, RequestNoteAudit, TravelRequest, User
+from app.models import RequestNote, RequestNoteAudit, User
 from app.schemas import RequestNoteCreate, RequestNoteUpdate
+from app.services.agency_service import (
+    assert_child_belongs_to_request,
+    get_travel_request_for_agency,
+    require_record_for_agency,
+)
 from app.services.request_service import get_open_request, touch_request
+from app.tenant_context import require_current_agency_id
 
 
 def load_note(db: Session, note_id: int) -> RequestNote:
@@ -41,11 +48,7 @@ def record_note_audit(
 
 
 def list_request_notes(db: Session, request_id: int) -> list[RequestNote]:
-    request = db.get(TravelRequest, request_id)
-    if request is None:
-        from fastapi import HTTPException
-
-        raise HTTPException(status_code=404, detail="Travel request not found.")
+    get_travel_request_for_agency(db, request_id, require_current_agency_id())
     return (
         db.query(RequestNote)
         .options(
@@ -60,8 +63,8 @@ def list_request_notes(db: Session, request_id: int) -> list[RequestNote]:
 
 
 def get_request_note(db: Session, request_id: int, note_id: int) -> RequestNote:
-    from fastapi import HTTPException
-
+    agency_id = require_current_agency_id()
+    get_travel_request_for_agency(db, request_id, agency_id)
     note = (
         db.query(RequestNote)
         .options(
@@ -72,8 +75,13 @@ def get_request_note(db: Session, request_id: int, note_id: int) -> RequestNote:
         .filter(RequestNote.id == note_id, RequestNote.travel_request_id == request_id)
         .first()
     )
-    if note is None:
-        raise HTTPException(status_code=404, detail="Note not found.")
+    require_record_for_agency(note, agency_id=agency_id)
+    assert_child_belongs_to_request(
+        child_agency_id=note.agency_id,
+        child_travel_request_id=note.travel_request_id,
+        request_id=request_id,
+        agency_id=agency_id,
+    )
     return note
 
 
@@ -88,6 +96,7 @@ def add_note(
     content = payload.content.strip()
     summary = payload.summary.strip()
     note = RequestNote(
+        agency_id=request.agency_id,
         travel_request_id=request_id,
         summary=summary,
         content=content,
@@ -116,12 +125,16 @@ def update_note(
     payload: RequestNoteUpdate,
     current_user: User,
 ) -> RequestNote:
-    from fastapi import HTTPException
-
+    agency_id = require_current_agency_id()
     request = get_open_request(db, request_id)
     note = db.get(RequestNote, note_id)
-    if note is None or note.travel_request_id != request_id:
-        raise HTTPException(status_code=404, detail="Note not found.")
+    require_record_for_agency(note, agency_id=agency_id)
+    assert_child_belongs_to_request(
+        child_agency_id=note.agency_id,
+        child_travel_request_id=note.travel_request_id,
+        request_id=request_id,
+        agency_id=agency_id,
+    )
 
     updates = payload.model_dump(exclude_unset=True)
     changed = False

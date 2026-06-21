@@ -8,9 +8,33 @@ TENANT_SCOPED_MODELS: tuple[type, ...] = ()
 
 def configure_tenant_session() -> None:
     global TENANT_SCOPED_MODELS
-    from app.models import Passenger, TravelRequest
+    from app.models import (
+        CallTranscript,
+        ChatLog,
+        Passenger,
+        ProposedCruise,
+        QuotedInsurance,
+        RequestCommunication,
+        RequestNote,
+        RequestResearchDocument,
+        RequestTask,
+        RequestWorkflow,
+        TravelRequest,
+    )
 
-    TENANT_SCOPED_MODELS = (TravelRequest, Passenger)
+    TENANT_SCOPED_MODELS = (
+        TravelRequest,
+        Passenger,
+        ProposedCruise,
+        RequestCommunication,
+        RequestTask,
+        RequestNote,
+        RequestWorkflow,
+        CallTranscript,
+        ChatLog,
+        RequestResearchDocument,
+        QuotedInsurance,
+    )
 
     @event.listens_for(Session, "do_orm_execute")
     def _apply_tenant_criteria(execute_state):

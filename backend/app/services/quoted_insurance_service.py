@@ -1,12 +1,13 @@
 from datetime import UTC, datetime
 
-from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
 
 from app.constants import QUOTED_INSURANCE_STATUS_DECLINED, QUOTED_INSURANCE_STATUS_PROPOSED
 from app.models import QuotedInsurance, User
 from app.schemas import QuotedInsuranceCreate, QuotedInsuranceUpdate
+from app.services.agency_service import assert_child_belongs_to_request, require_record_for_agency
 from app.services.request_service import get_open_request, touch_request
+from app.tenant_context import require_current_agency_id
 
 
 def load_quoted_insurance(db: Session, quote_id: int) -> QuotedInsurance:
@@ -30,6 +31,7 @@ def add_quoted_insurance(
 ) -> QuotedInsurance:
     request = get_open_request(db, request_id)
     quote = QuotedInsurance(
+        agency_id=request.agency_id,
         travel_request_id=request_id,
         **payload.model_dump(),
         status=QUOTED_INSURANCE_STATUS_PROPOSED,
@@ -52,8 +54,13 @@ def update_quoted_insurance(
 ) -> QuotedInsurance:
     request = get_open_request(db, request_id)
     quote = db.get(QuotedInsurance, quote_id)
-    if quote is None or quote.travel_request_id != request_id:
-        raise HTTPException(status_code=404, detail="Quoted insurance not found.")
+    require_record_for_agency(quote, agency_id=require_current_agency_id())
+    assert_child_belongs_to_request(
+        child_agency_id=quote.agency_id,
+        child_travel_request_id=quote.travel_request_id,
+        request_id=request_id,
+        agency_id=request.agency_id,
+    )
 
     updates = payload.model_dump(exclude_unset=True)
     if "status" in updates:

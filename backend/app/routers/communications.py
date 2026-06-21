@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
@@ -11,6 +11,11 @@ from app.schemas import (
     RequestCommunicationRead,
     RequestCommunicationUpdate,
 )
+from app.services.agency_service import (
+    assert_child_belongs_to_request,
+    get_travel_request_for_agency,
+    require_record_for_agency,
+)
 from app.services.communication_service import (
     create_communication,
     delete_draft_communication,
@@ -19,17 +24,19 @@ from app.services.communication_service import (
     update_communication_record,
 )
 from app.services.request_service import get_open_request
+from app.tenant_context import require_current_agency_id
 
 router = APIRouter(prefix="/api/requests", tags=["communications"])
 
 
-@router.get("/{request_id}/communications/{communication_id}", response_model=RequestCommunicationRead)
-def get_communication(
+def _load_communication_for_request(
+    db: Session,
+    *,
     request_id: int,
     communication_id: int,
-    db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
 ) -> RequestCommunication:
+    agency_id = require_current_agency_id()
+    get_travel_request_for_agency(db, request_id, agency_id)
     communication = (
         db.query(RequestCommunication)
         .options(
@@ -42,9 +49,24 @@ def get_communication(
         )
         .first()
     )
-    if communication is None:
-        raise HTTPException(status_code=404, detail="Communication not found.")
+    require_record_for_agency(communication, agency_id=agency_id)
+    assert_child_belongs_to_request(
+        child_agency_id=communication.agency_id,
+        child_travel_request_id=communication.travel_request_id,
+        request_id=request_id,
+        agency_id=agency_id,
+    )
     return communication
+
+
+@router.get("/{request_id}/communications/{communication_id}", response_model=RequestCommunicationRead)
+def get_communication(
+    request_id: int,
+    communication_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> RequestCommunication:
+    return _load_communication_for_request(db, request_id=request_id, communication_id=communication_id)
 
 
 @router.post(
@@ -103,9 +125,11 @@ def update_communication(
     current_user: User = Depends(get_current_user),
 ) -> RequestCommunication:
     request = get_open_request(db, request_id)
-    communication = db.get(RequestCommunication, communication_id)
-    if communication is None or communication.travel_request_id != request_id:
-        raise HTTPException(status_code=404, detail="Communication not found.")
+    communication = _load_communication_for_request(
+        db,
+        request_id=request_id,
+        communication_id=communication_id,
+    )
 
     return update_communication_record(
         db,
@@ -124,9 +148,11 @@ def delete_communication(
     current_user: User = Depends(get_current_user),
 ) -> None:
     request = get_open_request(db, request_id)
-    communication = db.get(RequestCommunication, communication_id)
-    if communication is None or communication.travel_request_id != request_id:
-        raise HTTPException(status_code=404, detail="Communication not found.")
+    communication = _load_communication_for_request(
+        db,
+        request_id=request_id,
+        communication_id=communication_id,
+    )
 
     delete_draft_communication(
         db,

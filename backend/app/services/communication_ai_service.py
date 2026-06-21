@@ -10,7 +10,9 @@ from app.gemini_service import (
     generate_communication_ai_summary,
 )
 from app.models import CallTranscript, ChatLog, TravelRequest
+from app.services.agency_service import assert_child_belongs_to_request, require_record_for_agency
 from app.services.gemini_context_service import build_request_context_for_gemini
+from app.tenant_context import require_current_agency_id
 
 AUTO_AI_SUMMARY_PREFIX = "✨ AI Summary · "
 
@@ -51,14 +53,15 @@ def build_ai_summary_note_fields(
 
 
 def _load_request_for_ai(db: Session, request_id: int) -> TravelRequest:
+    agency_id = require_current_agency_id()
     request = (
         db.query(TravelRequest)
         .options(joinedload(TravelRequest.request_passengers))
-        .filter(TravelRequest.id == request_id)
+        .filter(TravelRequest.id == request_id, TravelRequest.agency_id == agency_id)
         .one_or_none()
     )
     if request is None:
-        raise HTTPException(status_code=404, detail="Travel request not found.")
+        raise HTTPException(status_code=404, detail="Not found.")
     if request.status == REQUEST_STATUS_CLOSED:
         raise HTTPException(status_code=400, detail="Closed requests cannot be updated.")
     return request
@@ -69,6 +72,7 @@ def _read_transcript_text(transcript: CallTranscript) -> str:
         settings.attachments_dir,
         transcript.stored_path,
         transcript.mime_type,
+        agency_id=transcript.agency_id,
     )
 
 
@@ -77,6 +81,7 @@ def _read_chat_log_text(chat_log: ChatLog) -> str:
         settings.attachments_dir,
         chat_log.stored_path,
         chat_log.mime_type,
+        agency_id=chat_log.agency_id,
     )
 
 
@@ -86,10 +91,16 @@ def generate_transcript_ai_summary_note(
     request_id: int,
     transcript_id: int,
 ) -> dict[str, str]:
+    agency_id = require_current_agency_id()
     request = _load_request_for_ai(db, request_id)
     transcript = db.get(CallTranscript, transcript_id)
-    if transcript is None or transcript.travel_request_id != request_id:
-        raise HTTPException(status_code=404, detail="Call transcript not found.")
+    require_record_for_agency(transcript, agency_id=agency_id)
+    assert_child_belongs_to_request(
+        child_agency_id=transcript.agency_id,
+        child_travel_request_id=transcript.travel_request_id,
+        request_id=request_id,
+        agency_id=agency_id,
+    )
 
     return _generate_attachment_ai_summary_note(
         request=request,
@@ -106,10 +117,16 @@ def generate_chat_log_ai_summary_note(
     request_id: int,
     chat_id: int,
 ) -> dict[str, str]:
+    agency_id = require_current_agency_id()
     request = _load_request_for_ai(db, request_id)
     chat_log = db.get(ChatLog, chat_id)
-    if chat_log is None or chat_log.travel_request_id != request_id:
-        raise HTTPException(status_code=404, detail="Chat log not found.")
+    require_record_for_agency(chat_log, agency_id=agency_id)
+    assert_child_belongs_to_request(
+        child_agency_id=chat_log.agency_id,
+        child_travel_request_id=chat_log.travel_request_id,
+        request_id=request_id,
+        agency_id=agency_id,
+    )
 
     return _generate_attachment_ai_summary_note(
         request=request,

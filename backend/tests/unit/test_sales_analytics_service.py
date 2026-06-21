@@ -15,6 +15,7 @@ from app.constants import (
 )
 from app.models import ProposedCruise, TravelRequest, User
 from app.security import hash_password
+from app.tenant_constants import DEFAULT_AGENCY_ID
 from app.services.sales_analytics_service import get_sales_analytics, get_sales_analytics_key_metrics_year
 
 
@@ -97,7 +98,7 @@ def test_sales_analytics_commission_timeline_and_funnel(db):
     db.add_all([accepted, rejected])
     db.commit()
 
-    analytics = get_sales_analytics(db)
+    analytics = get_sales_analytics(db, DEFAULT_AGENCY_ID)
 
     assert analytics.total_commission_forecast == 350.0
     assert analytics.win_rate_percent is None
@@ -166,7 +167,7 @@ def test_sales_analytics_cruise_line_shares_use_deposited_cruises_only(db):
     )
     db.commit()
 
-    analytics = get_sales_analytics(db)
+    analytics = get_sales_analytics(db, DEFAULT_AGENCY_ID)
 
     assert len(analytics.cruise_line_shares) == 1
     celebrity = analytics.cruise_line_shares[0]
@@ -230,7 +231,7 @@ def test_sales_analytics_year_summaries_use_book_and_reject_dates_not_departure(
     )
     db.commit()
 
-    analytics = get_sales_analytics(db)
+    analytics = get_sales_analytics(db, DEFAULT_AGENCY_ID)
     current_year = date.today().year
 
     assert analytics.current_year_summary.year == current_year
@@ -390,7 +391,7 @@ def test_sales_analytics_win_rate_uses_closed_requests_only(db):
     )
     db.commit()
 
-    analytics = get_sales_analytics(db)
+    analytics = get_sales_analytics(db, DEFAULT_AGENCY_ID)
 
     # 1 closed win + 1 closed loss = 50%; open requests are excluded
     assert analytics.win_rate_percent == 50.0
@@ -532,7 +533,7 @@ def test_sales_analytics_rejection_drivers_split_open_and_closed_leads(db):
     )
     db.commit()
 
-    analytics = get_sales_analytics(db)
+    analytics = get_sales_analytics(db, DEFAULT_AGENCY_ID)
 
     assert any(
         item.segment == SALES_REJECTION_SEGMENT_OPEN_ACTIVE
@@ -581,13 +582,13 @@ def test_sales_analytics_key_metrics_prior_years_load_on_demand(db):
     )
     db.commit()
 
-    analytics = get_sales_analytics(db)
+    analytics = get_sales_analytics(db, DEFAULT_AGENCY_ID)
 
     assert prior_year in analytics.key_metrics_prior_years
     assert analytics.current_year_summary.year == date.today().year
     assert analytics.current_year_summary.total_sales_booked == 0.0
 
-    prior_summary = get_sales_analytics_key_metrics_year(db, prior_year)
+    prior_summary = get_sales_analytics_key_metrics_year(db, prior_year, DEFAULT_AGENCY_ID)
     assert prior_summary.year == prior_year
     assert prior_summary.total_sales_booked == 3100.0
     assert prior_summary.average_commission_rate_percent == 8.1
@@ -753,7 +754,7 @@ def test_sales_analytics_lost_sales_from_closed_requests(db):
     )
     db.commit()
 
-    analytics = get_sales_analytics(db)
+    analytics = get_sales_analytics(db, DEFAULT_AGENCY_ID)
 
     # 4200 single quote + 3900 lowest of two quotes; zero-only and no-quote closes excluded; booked close excluded
     assert analytics.current_year_summary.total_sales_lost == 8100.0

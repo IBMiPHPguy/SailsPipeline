@@ -11,6 +11,7 @@ from app.constants import (
 )
 from app.models import Passenger, ProposedCruise, TravelRequest, User
 from app.security import hash_password
+from app.tenant_constants import DEFAULT_AGENCY_ID
 from app.services.reports_service import (
     ReportQueryFilters,
     get_advisor_scorecard_page,
@@ -53,7 +54,7 @@ def _create_request(db, *, user: User, cruise_line: str = "Royal Caribbean Inter
 
 
 def test_get_report_meta_groups_workflow_tasks_in_sequence(db):
-    meta = get_report_meta(db)
+    meta = get_report_meta(db, DEFAULT_AGENCY_ID)
     assert len(meta.workflow_task_groups) == 3
 
     research = meta.workflow_task_groups[0]
@@ -118,7 +119,7 @@ def test_sales_manifest_page_filters_by_supplier(db):
     )
     db.commit()
 
-    page = get_sales_manifest_page(db, ReportQueryFilters(cruise_line="Royal Caribbean International"))
+    page = get_sales_manifest_page(db, ReportQueryFilters(agency_id=DEFAULT_AGENCY_ID,cruise_line="Royal Caribbean International"))
     assert page.total == 1
     assert page.items[0].request_id == royal.id
     assert page.items[0].cruise_line == "Royal Caribbean International"
@@ -133,12 +134,12 @@ def test_sales_manifest_pipeline_status_reflects_request_open_or_closed(db):
     closed_request.status = REQUEST_STATUS_CLOSED
     db.commit()
 
-    page = get_sales_manifest_page(db, ReportQueryFilters())
+    page = get_sales_manifest_page(db, ReportQueryFilters(agency_id=DEFAULT_AGENCY_ID,))
     statuses = {row.request_id: row.pipeline_status for row in page.items}
     assert statuses[open_request.id] == "Open"
     assert statuses[closed_request.id] == "Closed"
 
-    open_only = get_sales_manifest_page(db, ReportQueryFilters(pipeline_status="open"))
+    open_only = get_sales_manifest_page(db, ReportQueryFilters(agency_id=DEFAULT_AGENCY_ID,pipeline_status="open"))
     assert open_only.total == 1
     assert open_only.items[0].request_id == open_request.id
 
@@ -169,7 +170,7 @@ def test_supplier_ledger_page_aggregates_deposited_volume(db):
     )
     db.commit()
 
-    page = get_supplier_ledger_page(db, ReportQueryFilters())
+    page = get_supplier_ledger_page(db, ReportQueryFilters(agency_id=DEFAULT_AGENCY_ID,))
     assert page.total == 1
     row = page.items[0]
     assert row.cruise_line == "Royal Caribbean International"
@@ -228,12 +229,12 @@ def test_supplier_ledger_page_excludes_accepted_and_includes_closed_requests(db)
     )
     db.commit()
 
-    page = get_supplier_ledger_page(db, ReportQueryFilters())
+    page = get_supplier_ledger_page(db, ReportQueryFilters(agency_id=DEFAULT_AGENCY_ID,))
     assert page.total == 1
     assert page.items[0].cruise_line == "Celebrity Cruises"
     assert page.items[0].active_booking_count == 1
 
-    open_only = get_supplier_ledger_page(db, ReportQueryFilters(pipeline_status="open"))
+    open_only = get_supplier_ledger_page(db, ReportQueryFilters(agency_id=DEFAULT_AGENCY_ID,pipeline_status="open"))
     assert open_only.total == 1
     assert open_only.items[0].cruise_line == "Celebrity Cruises"
 
@@ -267,7 +268,7 @@ def test_funnel_leak_page_includes_rejected_quotes(db):
 
     page = get_funnel_leak_page(
         db,
-        ReportQueryFilters(
+        ReportQueryFilters(agency_id=DEFAULT_AGENCY_ID,
             rejection_reason=PROPOSED_CRUISE_REJECTION_REASON_PRICE,
             cruise_line="Royal Caribbean International",
         ),
@@ -282,13 +283,13 @@ def test_funnel_leak_page_includes_rejected_quotes(db):
 
     filtered = get_funnel_leak_page(
         db,
-        ReportQueryFilters(rejection_reason=PROPOSED_CRUISE_REJECTION_REASON_PRICE),
+        ReportQueryFilters(agency_id=DEFAULT_AGENCY_ID,rejection_reason=PROPOSED_CRUISE_REJECTION_REASON_PRICE),
     )
     assert any(item.request_id == request.id for item in filtered.items)
 
     empty = get_funnel_leak_page(
         db,
-        ReportQueryFilters(rejection_reason="Dates", cruise_line="Royal Caribbean International"),
+        ReportQueryFilters(agency_id=DEFAULT_AGENCY_ID,rejection_reason="Dates", cruise_line="Royal Caribbean International"),
     )
     assert not any(item.request_id == request.id for item in empty.items)
 
@@ -300,7 +301,7 @@ def test_funnel_leak_page_includes_closed_without_booking(db):
     request.close_reason = "Client went elsewhere"
     db.commit()
 
-    page = get_funnel_leak_page(db, ReportQueryFilters(loss_segment="closed_lost"))
+    page = get_funnel_leak_page(db, ReportQueryFilters(agency_id=DEFAULT_AGENCY_ID,loss_segment="closed_lost"))
     matching = [row for row in page.items if row.request_id == request.id]
     assert len(matching) == 1
     assert matching[0].loss_segment == "closed_lost"
@@ -355,7 +356,7 @@ def test_advisor_scorecard_page_tracks_productivity_metrics(db):
     )
     db.commit()
 
-    page = get_advisor_scorecard_page(db, ReportQueryFilters(advisor="scorecard-agent"))
+    page = get_advisor_scorecard_page(db, ReportQueryFilters(agency_id=DEFAULT_AGENCY_ID,advisor="scorecard-agent"))
     assert page.total == 1
     row = page.items[0]
     assert row.advisor_name == "scorecard-agent"
@@ -392,7 +393,7 @@ def test_passenger_demographics_page_filters_by_qualifier(db):
     db.add(senior_passenger)
     db.commit()
 
-    page = get_passenger_demographics_page(db, ReportQueryFilters(qualifiers=("Military",)))
+    page = get_passenger_demographics_page(db, ReportQueryFilters(agency_id=DEFAULT_AGENCY_ID,qualifiers=("Military",)))
     matching = [row for row in page.items if row.passenger_name == "Alex Veteran"]
     assert len(matching) == 1
     assert matching[0].qualifiers == ["Military"]
@@ -413,7 +414,7 @@ def test_passenger_demographics_page_filters_by_qualifier(db):
 
     or_page = get_passenger_demographics_page(
         db,
-        ReportQueryFilters(qualifiers=("Military", "Educator")),
+        ReportQueryFilters(agency_id=DEFAULT_AGENCY_ID,qualifiers=("Military", "Educator")),
     )
     matched_names = {
         row.passenger_name
@@ -449,12 +450,12 @@ def test_passenger_demographics_page_filters_by_state(db):
     db.add(florida_passenger)
     db.commit()
 
-    page = get_passenger_demographics_page(db, ReportQueryFilters(state="Texas"))
+    page = get_passenger_demographics_page(db, ReportQueryFilters(agency_id=DEFAULT_AGENCY_ID,state="Texas"))
     matching = [row for row in page.items if row.passenger_name == "Alex Veteran"]
     assert len(matching) == 1
     assert matching[0].state_of_residence == "Texas"
 
-    florida_page = get_passenger_demographics_page(db, ReportQueryFilters(state="Florida"))
+    florida_page = get_passenger_demographics_page(db, ReportQueryFilters(agency_id=DEFAULT_AGENCY_ID,state="Florida"))
     florida_matching = [row for row in florida_page.items if row.passenger_name == "Blake Sunshine"]
     assert len(florida_matching) == 1
 
@@ -464,7 +465,7 @@ def test_get_report_meta_includes_advisor_names(db):
     _create_request(db, user=user)
     db.commit()
 
-    meta = get_report_meta(db)
+    meta = get_report_meta(db, DEFAULT_AGENCY_ID)
     assert "meta-advisor" in meta.advisor_names
 
 
@@ -482,5 +483,5 @@ def test_get_report_meta_includes_residence_states(db):
     )
     db.commit()
 
-    meta = get_report_meta(db)
+    meta = get_report_meta(db, DEFAULT_AGENCY_ID)
     assert "Ohio" in meta.residence_states

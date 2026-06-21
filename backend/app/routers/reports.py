@@ -30,6 +30,7 @@ router = APIRouter(prefix="/api/reports", tags=["reports"])
 
 def _filters_from_query(
     *,
+    current_user: User = Depends(get_current_user),
     cruise_line: str = Query(default="all"),
     timeframe: str = Query(default="all_time"),
     pipeline_status: str = Query(default="all"),
@@ -43,6 +44,7 @@ def _filters_from_query(
     page_size: int = Query(default=25, ge=1, le=100),
 ) -> ReportQueryFilters:
     return ReportQueryFilters(
+        agency_id=current_user.agency_id,
         cruise_line=cruise_line,
         timeframe=timeframe,
         pipeline_status=pipeline_status,
@@ -60,9 +62,9 @@ def _filters_from_query(
 @router.get("/meta", response_model=ReportMetaResponse)
 def get_reports_meta_route(
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> ReportMetaResponse:
-    return get_report_meta(db)
+    return get_report_meta(db, current_user.agency_id)
 
 
 @router.get("/sales-manifest", response_model=SalesManifestPageRead)

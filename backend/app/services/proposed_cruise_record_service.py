@@ -43,9 +43,11 @@ from app.schemas import (
     ProposedCruiseRead,
     ProposedCruiseUpdate,
 )
+from app.services.agency_service import assert_child_belongs_to_request, require_record_for_agency
 from app.services.gemini_context_service import build_request_context_for_gemini
 from app.services.proposed_cruise_service import proposed_cruise_to_read
 from app.services.request_service import get_open_request, touch_request
+from app.tenant_context import require_current_agency_id
 from app.attachment_storage import read_attachment_text
 
 
@@ -173,6 +175,7 @@ def create_proposed_cruise_record(
     )
     data = payload.model_dump(exclude={"passenger_ids", "room_passenger_ids", "includes", "cabin_rooms", "cabin_pricing"})
     cruise = ProposedCruise(
+        agency_id=request.agency_id,
         travel_request_id=request.id,
         **data,
         includes=payload.includes.model_dump(),
@@ -226,13 +229,19 @@ def generate_proposed_cruises_from_research_document(
 ) -> GenerateProposedCruisesResponse:
     request = get_open_request(db, request_id)
     document = db.get(RequestResearchDocument, payload.research_document_id)
-    if document is None or document.travel_request_id != request_id:
-        raise HTTPException(status_code=404, detail="Research document not found.")
+    require_record_for_agency(document, agency_id=request.agency_id)
+    assert_child_belongs_to_request(
+        child_agency_id=document.agency_id,
+        child_travel_request_id=document.travel_request_id,
+        request_id=request_id,
+        agency_id=request.agency_id,
+    )
 
     research_text = read_attachment_text(
         settings.attachments_dir,
         document.stored_path,
         document.mime_type,
+        agency_id=request.agency_id,
     )
     request_context = build_request_context_for_gemini(request)
 
@@ -300,8 +309,13 @@ def update_proposed_cruise(
 ) -> ProposedCruiseRead:
     request = get_open_request(db, request_id)
     cruise = db.get(ProposedCruise, cruise_id)
-    if cruise is None or cruise.travel_request_id != request_id:
-        raise HTTPException(status_code=404, detail="Proposed cruise not found.")
+    require_record_for_agency(cruise, agency_id=require_current_agency_id())
+    assert_child_belongs_to_request(
+        child_agency_id=cruise.agency_id,
+        child_travel_request_id=cruise.travel_request_id,
+        request_id=request_id,
+        agency_id=request.agency_id,
+    )
 
     updates = payload.model_dump(exclude_unset=True)
     room_passenger_ids = updates.pop("room_passenger_ids", None)

@@ -49,14 +49,16 @@ def _event_year(value: datetime) -> int:
     return value.year
 
 
-def _request_close_years(db: Session, request_ids: set[int]) -> dict[int, int]:
+def _request_close_years(db: Session, request_ids: set[int], agency_id: str) -> dict[int, int]:
     if not request_ids:
         return {}
 
     close_years: dict[int, int] = {}
     audits = (
         db.query(TravelRequestAudit.travel_request_id, TravelRequestAudit.changed_at)
+        .join(TravelRequest, TravelRequest.id == TravelRequestAudit.travel_request_id)
         .filter(
+            TravelRequest.agency_id == agency_id,
             TravelRequestAudit.travel_request_id.in_(request_ids),
             TravelRequestAudit.field_name == "status",
             TravelRequestAudit.to_value == REQUEST_STATUS_CLOSED,
@@ -73,6 +75,7 @@ def _request_close_years(db: Session, request_ids: set[int]) -> dict[int, int]:
         for request_id, updated_at in (
             db.query(TravelRequest.id, TravelRequest.updated_at)
             .filter(
+                TravelRequest.agency_id == agency_id,
                 TravelRequest.id.in_(missing_ids),
                 TravelRequest.status == REQUEST_STATUS_CLOSED,
             )
@@ -95,11 +98,14 @@ def _cruise_total_commission(cruise: ProposedCruise) -> Decimal:
     return total
 
 
-def _booked_request_ids(db: Session) -> set[int]:
+def _booked_request_ids(db: Session, agency_id: str) -> set[int]:
     return {
         row[0]
         for row in db.query(ProposedCruise.travel_request_id)
-        .filter(ProposedCruise.status.in_(BOOKED_CRUISE_STATUSES))
+        .filter(
+            ProposedCruise.agency_id == agency_id,
+            ProposedCruise.status.in_(BOOKED_CRUISE_STATUSES),
+        )
         .distinct()
         .all()
     }
@@ -259,10 +265,13 @@ def _build_rejection_reasons(
     return rejection_reasons
 
 
-def _load_deposited_cruises(db: Session) -> list[ProposedCruise]:
+def _load_deposited_cruises(db: Session, agency_id: str) -> list[ProposedCruise]:
     return (
         db.query(ProposedCruise)
-        .filter(ProposedCruise.status == PROPOSED_CRUISE_STATUS_DEPOSITED)
+        .filter(
+            ProposedCruise.agency_id == agency_id,
+            ProposedCruise.status == PROPOSED_CRUISE_STATUS_DEPOSITED,
+        )
         .all()
     )
 
@@ -326,25 +335,37 @@ def _key_metrics_prior_years(
 
 def _load_key_metrics_source_data(
     db: Session,
+    agency_id: str,
 ) -> tuple[list[ProposedCruise], list[ProposedCruise], set[int], set[int], dict[int, int], dict[int, list[ProposedCruise]]]:
     booked_cruises = (
         db.query(ProposedCruise)
-        .filter(ProposedCruise.status.in_(BOOKED_CRUISE_STATUSES))
+        .filter(
+            ProposedCruise.agency_id == agency_id,
+            ProposedCruise.status.in_(BOOKED_CRUISE_STATUSES),
+        )
         .all()
     )
     rejected_cruises = (
         db.query(ProposedCruise)
-        .filter(ProposedCruise.status == PROPOSED_CRUISE_STATUS_REJECTED)
+        .filter(
+            ProposedCruise.agency_id == agency_id,
+            ProposedCruise.status == PROPOSED_CRUISE_STATUS_REJECTED,
+        )
         .all()
     )
-    all_proposed_cruises = db.query(ProposedCruise).all()
-    booked_request_ids = _booked_request_ids(db)
+    all_proposed_cruises = db.query(ProposedCruise).filter(ProposedCruise.agency_id == agency_id).all()
+    booked_request_ids = _booked_request_ids(db, agency_id)
     closed_request_ids = {
         row[0]
-        for row in db.query(TravelRequest.id).filter(TravelRequest.status == REQUEST_STATUS_CLOSED).all()
+        for row in db.query(TravelRequest.id)
+        .filter(
+            TravelRequest.agency_id == agency_id,
+            TravelRequest.status == REQUEST_STATUS_CLOSED,
+        )
+        .all()
     }
     closed_without_booking_ids = closed_request_ids - booked_request_ids
-    close_years = _request_close_years(db, closed_request_ids)
+    close_years = _request_close_years(db, closed_request_ids, agency_id)
     return (
         booked_cruises,
         rejected_cruises,
@@ -355,15 +376,15 @@ def _load_key_metrics_source_data(
     )
 
 
-def get_sales_analytics_key_metrics_year(db: Session, year: int) -> SalesAnalyticsYearSummary:
+def get_sales_analytics_key_metrics_year(db: Session, year: int, agency_id: str) -> SalesAnalyticsYearSummary:
     today = date.today()
     if year > today.year:
         raise ValueError(f"Key metrics are not available for future year {year}.")
 
     booked_cruises, rejected_cruises, _closed_without_booking_ids, booked_request_ids, close_years, proposed_cruises_by_request = (
-        _load_key_metrics_source_data(db)
+        _load_key_metrics_source_data(db, agency_id)
     )
-    deposited_cruises = _load_deposited_cruises(db)
+    deposited_cruises = _load_deposited_cruises(db, agency_id)
     return _build_year_summary(
         year=year,
         deposited_cruises=deposited_cruises,
@@ -373,7 +394,7 @@ def get_sales_analytics_key_metrics_year(db: Session, year: int) -> SalesAnalyti
     )
 
 
-def get_sales_analytics(db: Session) -> SalesAnalyticsResponse:
+def get_sales_analytics(db: Session, agency_id: str) -> SalesAnalyticsResponse:
     today = date.today()
 
     commission_by_month: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
@@ -381,7 +402,10 @@ def get_sales_analytics(db: Session) -> SalesAnalyticsResponse:
 
     booked_cruises = (
         db.query(ProposedCruise)
-        .filter(ProposedCruise.status.in_(BOOKED_CRUISE_STATUSES))
+        .filter(
+            ProposedCruise.agency_id == agency_id,
+            ProposedCruise.status.in_(BOOKED_CRUISE_STATUSES),
+        )
         .all()
     )
     for cruise in booked_cruises:
@@ -404,39 +428,53 @@ def get_sales_analytics(db: Session) -> SalesAnalyticsResponse:
     data_years = {int(key[:4]) for key in timeline_keys}
     available_years = sorted(data_years | {today.year, today.year + 1})
 
-    open_requests = db.query(TravelRequest).filter(TravelRequest.status == REQUEST_STATUS_OPEN).count()
+    open_requests = (
+        db.query(TravelRequest)
+        .filter(TravelRequest.agency_id == agency_id, TravelRequest.status == REQUEST_STATUS_OPEN)
+        .count()
+    )
+    open_request_ids = {
+        row[0]
+        for row in db.query(TravelRequest.id)
+        .filter(TravelRequest.agency_id == agency_id, TravelRequest.status == REQUEST_STATUS_OPEN)
+        .all()
+    }
     quoted_requests = (
         db.query(ProposedCruise.travel_request_id)
-        .join(TravelRequest, TravelRequest.id == ProposedCruise.travel_request_id)
-        .filter(TravelRequest.status == REQUEST_STATUS_OPEN)
+        .filter(
+            ProposedCruise.agency_id == agency_id,
+            ProposedCruise.travel_request_id.in_(open_request_ids),
+        )
         .distinct()
         .count()
     )
     proposed_cruise_count = (
         db.query(ProposedCruise)
-        .join(TravelRequest, TravelRequest.id == ProposedCruise.travel_request_id)
-        .filter(TravelRequest.status == REQUEST_STATUS_OPEN)
-        .filter(ProposedCruise.status == PROPOSED_CRUISE_STATUS_PROPOSED)
+        .filter(
+            ProposedCruise.agency_id == agency_id,
+            ProposedCruise.travel_request_id.in_(open_request_ids),
+            ProposedCruise.status == PROPOSED_CRUISE_STATUS_PROPOSED,
+        )
         .count()
     )
     accepted_count = db.query(ProposedCruise).filter(
-        ProposedCruise.status.in_(BOOKED_CRUISE_STATUSES)
+        ProposedCruise.agency_id == agency_id,
+        ProposedCruise.status.in_(BOOKED_CRUISE_STATUSES),
     ).count()
     rejected_count = db.query(ProposedCruise).filter(
-        ProposedCruise.status == PROPOSED_CRUISE_STATUS_REJECTED
+        ProposedCruise.agency_id == agency_id,
+        ProposedCruise.status == PROPOSED_CRUISE_STATUS_REJECTED,
     ).count()
 
-    booked_request_ids = _booked_request_ids(db)
+    booked_request_ids = _booked_request_ids(db, agency_id)
     closed_request_ids = {
         row[0]
-        for row in db.query(TravelRequest.id).filter(TravelRequest.status == REQUEST_STATUS_CLOSED).all()
-    }
-    open_request_ids = {
-        row[0]
-        for row in db.query(TravelRequest.id).filter(TravelRequest.status == REQUEST_STATUS_OPEN).all()
+        for row in db.query(TravelRequest.id)
+        .filter(TravelRequest.agency_id == agency_id, TravelRequest.status == REQUEST_STATUS_CLOSED)
+        .all()
     }
     closed_without_booking_ids = closed_request_ids - booked_request_ids
-    close_years = _request_close_years(db, closed_request_ids)
+    close_years = _request_close_years(db, closed_request_ids, agency_id)
     win_rate_percent = _calculate_closed_win_rate_percent(
         closed_request_ids=closed_request_ids,
         booked_request_ids=booked_request_ids,
@@ -452,7 +490,10 @@ def get_sales_analytics(db: Session) -> SalesAnalyticsResponse:
 
     rejected_cruises = (
         db.query(ProposedCruise)
-        .filter(ProposedCruise.status == PROPOSED_CRUISE_STATUS_REJECTED)
+        .filter(
+            ProposedCruise.agency_id == agency_id,
+            ProposedCruise.status == PROPOSED_CRUISE_STATUS_REJECTED,
+        )
         .all()
     )
     rejection_reasons = _build_rejection_reasons(
@@ -461,9 +502,11 @@ def get_sales_analytics(db: Session) -> SalesAnalyticsResponse:
         closed_without_booking_ids=closed_without_booking_ids,
     )
 
-    deposited_cruises = _load_deposited_cruises(db)
+    deposited_cruises = _load_deposited_cruises(db, agency_id)
     cruise_line_shares = _build_cruise_line_shares(deposited_cruises)
-    proposed_cruises_by_request = _proposed_cruises_by_request(db.query(ProposedCruise).all())
+    proposed_cruises_by_request = _proposed_cruises_by_request(
+        db.query(ProposedCruise).filter(ProposedCruise.agency_id == agency_id).all()
+    )
 
     current_year_summary = _build_year_summary(
         year=today.year,

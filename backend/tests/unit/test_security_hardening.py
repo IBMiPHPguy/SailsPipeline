@@ -4,6 +4,7 @@ from fastapi import HTTPException
 from app.attachment_storage import resolve_attachment_path, write_bytes
 from app.config import Settings
 from app.security_config import validate_production_settings
+from app.tenant_constants import DEFAULT_AGENCY_ID
 
 
 def test_validate_production_settings_rejects_insecure_defaults():
@@ -59,10 +60,23 @@ def test_resolve_attachment_path_rejects_absolute_path(tmp_path):
 
 def test_resolve_attachment_path_allows_files_under_root(tmp_path):
     attachments_dir = str(tmp_path)
-    relative_path = "requests/1/transcripts/demo.txt"
+    relative_path = f"{DEFAULT_AGENCY_ID}/requests/1/transcripts/demo.txt"
 
-    write_bytes(attachments_dir, relative_path, b"hello")
-    target = resolve_attachment_path(attachments_dir, relative_path)
+    write_bytes(attachments_dir, relative_path, b"hello", agency_id=DEFAULT_AGENCY_ID)
+    target = resolve_attachment_path(attachments_dir, relative_path, agency_id=DEFAULT_AGENCY_ID)
 
     assert target.is_file()
     assert target.read_text(encoding="utf-8") == "hello"
+
+
+def test_resolve_attachment_path_rejects_wrong_agency_prefix(tmp_path):
+    attachments_dir = str(tmp_path)
+    relative_path = f"{DEFAULT_AGENCY_ID}/requests/1/transcripts/demo.txt"
+    write_bytes(attachments_dir, relative_path, b"hello", agency_id=DEFAULT_AGENCY_ID)
+
+    with pytest.raises(HTTPException, match="Attachment not found"):
+        resolve_attachment_path(
+            attachments_dir,
+            relative_path,
+            agency_id="00000000-0000-4000-8000-000000000002",
+        )

@@ -4,6 +4,8 @@
 **Date:** June 20, 2026  
 **Scope:** Database schema (`db/init.sql` + migrations), ORM models, request/passenger/report/analytics services, auth, and file-attachment patterns.
 
+> **Update (June 2026):** Phases 0 and 1 of multi-tenant isolation are implemented. See [`multi-tenant-design.md`](multi-tenant-design.md) for the current architecture. This document remains a historical pre-flight snapshot of gaps that existed before that work.
+
 ---
 
 ## Overview

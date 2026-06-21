@@ -32,19 +32,19 @@ router = APIRouter(prefix="/api/analytics/sales", tags=["sales-analytics"])
 @router.get("", response_model=SalesAnalyticsResponse)
 def get_sales_analytics_route(
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> SalesAnalyticsResponse:
-    return get_sales_analytics(db)
+    return get_sales_analytics(db, current_user.agency_id)
 
 
 @router.get("/key-metrics/{year}", response_model=SalesAnalyticsYearSummary)
 def get_sales_analytics_key_metrics_route(
     year: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> SalesAnalyticsYearSummary:
     try:
-        return get_sales_analytics_key_metrics_year(db, year)
+        return get_sales_analytics_key_metrics_year(db, year, current_user.agency_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -121,9 +121,9 @@ async def import_client_spreadsheet_route(
 def sales_copilot_route(
     payload: SalesCopilotRequest,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> SalesCopilotResponse:
-    analytics = get_sales_analytics(db)
+    analytics = get_sales_analytics(db, current_user.agency_id)
     try:
         answer = answer_sales_copilot_question(payload.question.strip(), analytics)
     except Exception as exc:
