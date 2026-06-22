@@ -31,6 +31,43 @@ class Agency(Base):
 
     users: Mapped[list["User"]] = relationship(back_populates="agency")
     agency_invitations: Mapped[list["AgencyInvitation"]] = relationship(back_populates="agency")
+    dashboard_rollup: Mapped["AgencyDashboardRollup | None"] = relationship(
+        back_populates="agency",
+        uselist=False,
+    )
+    report_metadata_cache: Mapped["AgencyReportMetadataCache | None"] = relationship(
+        back_populates="agency",
+        uselist=False,
+    )
+
+
+class AgencyDashboardRollup(Base):
+    __tablename__ = "agency_dashboard_rollups"
+
+    agency_id: Mapped[str] = mapped_column(String(36), ForeignKey("agencies.id"), primary_key=True)
+    open_leads_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    proposals_pending_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    completed_bookings_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_volume_booked: Mapped[float] = mapped_column(Numeric(15, 2), nullable=False, default=0)
+    total_commission_booked: Mapped[float] = mapped_column(Numeric(15, 2), nullable=False, default=0)
+    stale_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    closed_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    purchased_closed_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_pipeline_value: Mapped[float] = mapped_column(Numeric(15, 2), nullable=False, default=0)
+    last_refreshed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+
+    agency: Mapped["Agency"] = relationship(back_populates="dashboard_rollup")
+
+
+class AgencyReportMetadataCache(Base):
+    __tablename__ = "agency_report_metadata_caches"
+
+    agency_id: Mapped[str] = mapped_column(String(36), ForeignKey("agencies.id"), primary_key=True)
+    active_advisor_names: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    active_residence_states: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    last_refreshed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+
+    agency: Mapped["Agency"] = relationship(back_populates="report_metadata_cache")
 
 
 class User(Base):
@@ -481,6 +518,7 @@ class ProposedCruise(Base):
     cost: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     cabin_pricing: Mapped[list | None] = mapped_column(JSON, nullable=True)
     cabin_rooms: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    cabin_hold_reservation_ids: Mapped[list | None] = mapped_column(JSON, nullable=True)
     includes: Mapped[dict] = mapped_column(JSON, nullable=False, default=default_proposed_cruise_includes)
     status: Mapped[str] = mapped_column(String(40), nullable=False, default="Proposed", index=True)
     rejection_reason: Mapped[str | None] = mapped_column(String(120), nullable=True)

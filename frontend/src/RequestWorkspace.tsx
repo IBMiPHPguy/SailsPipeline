@@ -478,7 +478,6 @@ export default function RequestWorkspace({ requestId, onBack, onClosed }: Reques
                   embeddedInWorkspace
                   requestId={requestId}
                   cabinsNeeded={request.cabins_needed ?? 1}
-                  cabinHoldReservationIds={request.cabin_hold_reservation_ids ?? []}
                   cruises={request.proposed_cruises}
                   quotes={request.quoted_insurance}
                   passengers={request.request_passengers}

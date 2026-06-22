@@ -875,6 +875,22 @@ class ProposedCruiseUpdate(BaseModel):
     rejection_reason_detail: str | None = Field(default=None, max_length=500)
     cabin_pricing: list[CabinPricingEntry] | None = None
     cabin_rooms: list[ProposedCruiseRoom] | None = None
+    cabin_hold_reservation_ids: list[list[str]] | None = None
+
+    @field_validator("cabin_hold_reservation_ids", mode="before")
+    @classmethod
+    def normalize_cabin_hold_reservation_ids(cls, value: Any) -> list[list[str]] | None:
+        if value is None:
+            return None
+        if not isinstance(value, list):
+            raise ValueError("Invalid cabin hold reservation IDs.")
+        normalized: list[list[str]] = []
+        for cabin_entry in value:
+            if not isinstance(cabin_entry, list):
+                raise ValueError("Invalid cabin hold reservation IDs.")
+            ids = [str(item).strip() for item in cabin_entry if str(item).strip()]
+            normalized.append(ids)
+        return normalized
 
     @field_validator("cruise_line")
     @classmethod
@@ -899,6 +915,16 @@ class ProposedCruiseUpdate(BaseModel):
         if value is not None and value not in PROPOSED_CRUISE_STATUSES:
             raise ValueError("Invalid proposed cruise status selected.")
         return value
+
+    @field_validator("rejection_reason", mode="before")
+    @classmethod
+    def normalize_rejection_reason(cls, value: Any) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            stripped = value.strip()
+            return stripped or None
+        return str(value).strip() or None
 
     @field_validator("rejection_reason")
     @classmethod
@@ -937,6 +963,7 @@ class ProposedCruiseRead(BaseModel):
     cost: Decimal
     cabin_pricing: list[CabinPricingEntry] = Field(default_factory=list)
     cabin_rooms: list[ProposedCruiseRoom] = Field(default_factory=list)
+    cabin_hold_reservation_ids: list[list[str]] = Field(default_factory=list)
     includes: ProposedCruiseIncludes
     status: str
     rejection_reason: str | None = None
@@ -972,6 +999,21 @@ class ProposedCruiseRead(BaseModel):
         if not isinstance(value, list):
             return []
         return [ProposedCruiseRoom.model_validate(item) for item in value]
+
+    @field_validator("cabin_hold_reservation_ids", mode="before")
+    @classmethod
+    def normalize_cabin_hold_reservation_ids(cls, value: Any) -> list[list[str]]:
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            return []
+        normalized: list[list[str]] = []
+        for cabin_entry in value:
+            if not isinstance(cabin_entry, list):
+                continue
+            ids = [str(item).strip() for item in cabin_entry if str(item).strip()]
+            normalized.append(ids)
+        return normalized
 
 
 class BulkProposedCruiseCreateResponse(BaseModel):

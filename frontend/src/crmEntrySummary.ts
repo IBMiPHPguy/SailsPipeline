@@ -1,6 +1,6 @@
 import { BRAND_NAME } from "./branding";
 import { formatMoney } from "./cabinPricing";
-import { normalizeCabinHoldReservationDrafts } from "./cabinHoldReservations";
+import { proposedCruiseReservationIds } from "./cabinHoldReservations";
 import { proposedCruiseToCabinRooms } from "./cabinRooms";
 import {
   PROPOSED_CRUISE_STATUS_ACCEPTED,
@@ -97,7 +97,6 @@ export function buildCrmEntrySummaryText(
 ): string {
   const bookingCruises = getCrmEntryProposedCruises(request.proposed_cruises);
   const cabinsNeeded = Math.max(1, form.cabins_needed ?? request.cabins_needed ?? 1);
-  const reservations = normalizeCabinHoldReservationDrafts(request.cabin_hold_reservation_ids, cabinsNeeded);
 
   const sections: string[] = [
     `${BRAND_NAME} — CRM Entry Summary`,
@@ -119,6 +118,7 @@ export function buildCrmEntrySummaryText(
 
   for (const cruise of bookingCruises) {
     const cabinRooms = proposedCruiseToCabinRooms(cruise, cabinsNeeded);
+    const reservations = proposedCruiseReservationIds(cruise, cabinsNeeded);
     sections.push(
       "",
       `${cruise.cruise_line} · ${cruise.ship}`,

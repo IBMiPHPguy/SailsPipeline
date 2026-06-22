@@ -1,38 +1,25 @@
 from sqlalchemy.orm import Session
 
-from app.constants import PRIMARY_CLOSE_REASON, REQUEST_STATUS_CLOSED, REQUEST_STATUS_OPEN
-from app.models import TravelRequest
 from app.schemas import DashboardResponse
-from app.services.request_service import build_dashboard_open_request, calculate_open_pipeline_value, dashboard_query
+from app.services.agency_rollup_service import get_or_refresh_dashboard_rollup
 
 
-def get_dashboard(db: Session) -> DashboardResponse:
-    open_requests = (
-        dashboard_query(db)
-        .filter(TravelRequest.status == REQUEST_STATUS_OPEN)
-        .all()
-    )
+def get_dashboard(db: Session, agency_id: str) -> DashboardResponse:
+    rollup = get_or_refresh_dashboard_rollup(db, agency_id)
 
-    dashboard_items = [build_dashboard_open_request(request) for request in open_requests]
-    stale_count = sum(1 for item in dashboard_items if item.is_stale)
-    open_count = len(dashboard_items)
-    closed_requests = db.query(TravelRequest).filter(TravelRequest.status == REQUEST_STATUS_CLOSED)
-    closed_count = closed_requests.count()
-    purchased_closed_count = closed_requests.filter(
-        TravelRequest.close_reason == PRIMARY_CLOSE_REASON
-    ).count()
+    closed_count = rollup.closed_count
+    purchased_closed_count = rollup.purchased_closed_count
     other_closed_count = closed_count - purchased_closed_count
     successful_sales_close_rate = (
         round((purchased_closed_count / closed_count) * 100, 1) if closed_count else None
     )
-    total_pipeline_value = calculate_open_pipeline_value(db)
 
     return DashboardResponse(
-        open_count=open_count,
-        stale_count=stale_count,
+        open_count=rollup.open_leads_count,
+        stale_count=rollup.stale_count,
         closed_count=closed_count,
         purchased_closed_count=purchased_closed_count,
         other_closed_count=other_closed_count,
         successful_sales_close_rate=successful_sales_close_rate,
-        total_pipeline_value=total_pipeline_value,
+        total_pipeline_value=float(rollup.total_pipeline_value or 0),
     )

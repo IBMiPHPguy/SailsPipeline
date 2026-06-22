@@ -1,7 +1,5 @@
 import { useMemo, useRef, useState } from "react";
 import {
-  PROPOSED_CRUISE_STATUS_ACCEPTED,
-  PROPOSED_CRUISE_STATUS_DEPOSITED,
   QUOTED_INSURANCE_STATUS_ACCEPTED,
 } from "./formOptions";
 import ProposedCruisesSection, { type ProposedCruisesSectionHandle } from "./ProposedCruisesSection";
@@ -14,7 +12,6 @@ type ProposalsTab = "cruises" | "insurance";
 type RequestProposalsSectionProps = {
   requestId: number;
   cabinsNeeded: number;
-  cabinHoldReservationIds: string[][];
   cruises: ProposedCruise[];
   quotes: QuotedInsurance[];
   passengers: RequestPassenger[];
@@ -29,7 +26,6 @@ type RequestProposalsSectionProps = {
 export default function RequestProposalsSection({
   requestId,
   cabinsNeeded,
-  cabinHoldReservationIds,
   cruises,
   quotes,
   passengers,
@@ -44,16 +40,7 @@ export default function RequestProposalsSection({
   const cruisesSectionRef = useRef<ProposedCruisesSectionHandle>(null);
   const insuranceSectionRef = useRef<QuotedInsuranceSectionHandle>(null);
 
-  const canAddCruise = useMemo(
-    () =>
-      !disabled &&
-      !cruises.some(
-        (cruise) =>
-          cruise.status === PROPOSED_CRUISE_STATUS_ACCEPTED ||
-          cruise.status === PROPOSED_CRUISE_STATUS_DEPOSITED,
-      ),
-    [cruises, disabled],
-  );
+  const canAddCruise = useMemo(() => !disabled, [disabled]);
 
   const canAddInsurance = useMemo(
     () => !disabled && !quotes.some((quote) => quote.status === QUOTED_INSURANCE_STATUS_ACCEPTED),
@@ -115,7 +102,6 @@ export default function RequestProposalsSection({
               embedded
               requestId={requestId}
               cabinsNeeded={cabinsNeeded}
-              cabinHoldReservationIds={cabinHoldReservationIds}
               cruises={cruises}
               passengers={passengers}
               requestPassengerCount={requestPassengerCount}

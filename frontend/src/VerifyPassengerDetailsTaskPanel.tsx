@@ -3,6 +3,7 @@ import { updatePassenger, updateTask } from "./api";
 import { TASK_STATUS_DONE } from "./formOptions";
 import InactiveClientBadge from "./InactiveClientBadge";
 import { isInactiveClient } from "./passengerDisplay";
+import { formatDisplayPhone, stripPhoneDigits } from "./passengerDisplay";
 import type { RequestPassenger } from "./types";
 
 type PassengerDraft = {
@@ -30,7 +31,7 @@ function passengerToDraft(passenger: RequestPassenger): PassengerDraft {
     last_name: passenger.last_name,
     date_of_birth: passenger.date_of_birth ?? "",
     email: passenger.email ?? "",
-    phone: passenger.phone ?? "",
+    phone: formatDisplayPhone(passenger.phone) ?? "",
   };
 }
 
@@ -92,10 +93,10 @@ function buildPassengerUpdates(
     updates.email = draftEmail || null;
   }
 
-  const draftPhone = draft.phone.trim();
-  const originalPhone = (original.phone ?? "").trim();
-  if (draftPhone !== originalPhone) {
-    updates.phone = draftPhone || null;
+  const draftPhoneDigits = stripPhoneDigits(draft.phone);
+  const originalPhoneDigits = stripPhoneDigits(original.phone ?? "");
+  if (draftPhoneDigits !== originalPhoneDigits) {
+    updates.phone = draftPhoneDigits || null;
   }
 
   return Object.keys(updates).length > 0 ? updates : null;
@@ -113,6 +114,7 @@ export default function VerifyPassengerDetailsTaskPanel({
 }: VerifyPassengerDetailsTaskPanelProps) {
   const sortedPassengers = useMemo(() => sortPassengers(passengers), [passengers]);
   const [drafts, setDrafts] = useState<Record<number, PassengerDraft>>({});
+  const [focusedPhonePassengerId, setFocusedPhonePassengerId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const readOnly = disabled || isDone;
 
@@ -122,6 +124,7 @@ export default function VerifyPassengerDetailsTaskPanel({
       nextDrafts[passenger.id] = passengerToDraft(passenger);
     }
     setDrafts(nextDrafts);
+    setFocusedPhonePassengerId(null);
   }, [sortedPassengers]);
 
   function updateDraft(passengerId: number, field: keyof PassengerDraft, value: string) {
@@ -150,20 +153,55 @@ export default function VerifyPassengerDetailsTaskPanel({
       }
 
       if (!normalizeDateOfBirth(draft.date_of_birth)) {
-        return `Enter a valid date of birth (YYYY-MM-DD) for ${draft.first_name.trim()} ${draft.last_name.trim()}.`;
+        return `Enter a valid date of birth for ${draft.first_name.trim()} ${draft.last_name.trim()}.`;
       }
 
       const email = draft.email.trim();
-      const phone = draft.phone.trim();
+      const phoneDigits = stripPhoneDigits(draft.phone);
       if (email && !isValidEmail(email)) {
         return `Enter a valid email address for ${draft.first_name.trim()} ${draft.last_name.trim()}, or leave it blank.`;
       }
-      if (phone && phone.length < 7) {
-        return `Enter a phone number with at least 7 characters for ${draft.first_name.trim()} ${draft.last_name.trim()}, or leave it blank.`;
+      if (phoneDigits && phoneDigits.length < 7) {
+        return `Enter a valid phone number for ${draft.first_name.trim()} ${draft.last_name.trim()}, or leave it blank.`;
       }
     }
 
     return null;
+  }
+
+  function phoneInputValue(passengerId: number, phone: string): string {
+    if (focusedPhonePassengerId === passengerId) {
+      return stripPhoneDigits(phone);
+    }
+    return formatDisplayPhone(phone) ?? phone;
+  }
+
+  function handlePhoneFocus(passengerId: number) {
+    setFocusedPhonePassengerId(passengerId);
+  }
+
+  function handlePhoneChange(passengerId: number, value: string) {
+    if (focusedPhonePassengerId === passengerId) {
+      updateDraft(passengerId, "phone", stripPhoneDigits(value));
+      return;
+    }
+    updateDraft(passengerId, "phone", value);
+  }
+
+  function handlePhoneBlur(passengerId: number) {
+    formatDraftPhone(passengerId);
+    setFocusedPhonePassengerId((current) => (current === passengerId ? null : current));
+  }
+
+  function formatDraftPhone(passengerId: number) {
+    const draft = drafts[passengerId];
+    if (!draft) {
+      return;
+    }
+    const formatted = formatDisplayPhone(draft.phone);
+    if (formatted && formatted !== draft.phone) {
+      updateDraft(passengerId, "phone", formatted);
+    }
   }
 
   async function handleSaveAndComplete() {
@@ -261,10 +299,9 @@ export default function VerifyPassengerDetailsTaskPanel({
                 <label>
                   Date of birth
                   <input
-                    type="text"
+                    type="date"
                     required
                     disabled={readOnly || saving}
-                    placeholder="YYYY-MM-DD"
                     value={draft.date_of_birth}
                     onChange={(event) => updateDraft(passenger.id, "date_of_birth", event.target.value)}
                   />
@@ -275,7 +312,7 @@ export default function VerifyPassengerDetailsTaskPanel({
                     Email
                     <span className="field-optional">Optional</span>
                     <input
-                      type="text"
+                      type="email"
                       disabled={readOnly || saving}
                       value={draft.email}
                       onChange={(event) => updateDraft(passenger.id, "email", event.target.value)}
@@ -285,10 +322,14 @@ export default function VerifyPassengerDetailsTaskPanel({
                     Phone
                     <span className="field-optional">Optional</span>
                     <input
-                      type="text"
+                      type="tel"
+                      inputMode="numeric"
+                      autoComplete="tel"
                       disabled={readOnly || saving}
-                      value={draft.phone}
-                      onChange={(event) => updateDraft(passenger.id, "phone", event.target.value)}
+                      value={phoneInputValue(passenger.id, draft.phone)}
+                      onFocus={() => handlePhoneFocus(passenger.id)}
+                      onChange={(event) => handlePhoneChange(passenger.id, event.target.value)}
+                      onBlur={() => handlePhoneBlur(passenger.id)}
                     />
                   </label>
                 </div>

@@ -8,9 +8,8 @@ from statistics import median
 from sqlalchemy.orm import Session
 
 from app.constants import (
+    BOOKED_CRUISE_STATUSES,
     PROPOSED_CRUISE_REJECTION_REASON_OTHER,
-    PROPOSED_CRUISE_STATUS_ACCEPTED,
-    PROPOSED_CRUISE_STATUS_DEPOSITED,
     PROPOSED_CRUISE_STATUS_PROPOSED,
     PROPOSED_CRUISE_STATUS_REJECTED,
     REQUEST_STATUS_CLOSED,
@@ -27,12 +26,8 @@ from app.schemas import (
     SalesAnalyticsResponse,
     SalesAnalyticsYearSummary,
 )
+from app.services.booked_cruise_metrics import cruise_total_commission, load_booked_cruises
 
-
-BOOKED_CRUISE_STATUSES = (
-    PROPOSED_CRUISE_STATUS_ACCEPTED,
-    PROPOSED_CRUISE_STATUS_DEPOSITED,
-)
 
 REJECTION_REASON_NOT_RECORDED = "Reason not recorded"
 
@@ -84,18 +79,6 @@ def _request_close_years(db: Session, request_ids: set[int], agency_id: str) -> 
             close_years[request_id] = _event_year(updated_at)
 
     return close_years
-
-
-def _cruise_total_commission(cruise: ProposedCruise) -> Decimal:
-    total = Decimal("0")
-    for room in cruise.cabin_rooms or []:
-        if not isinstance(room, dict):
-            continue
-        try:
-            total += Decimal(str(room.get("commission") or 0))
-        except Exception:
-            continue
-    return total
 
 
 def _booked_request_ids(db: Session, agency_id: str) -> set[int]:
@@ -201,7 +184,7 @@ def _build_cruise_line_shares(booked_cruises: list[ProposedCruise]) -> list[Sale
     for cruise in booked_cruises:
         line = (cruise.cruise_line or "Unknown").strip() or "Unknown"
         costs_by_line[line].append(float(cruise.cost or 0))
-        commission_by_line[line] += _cruise_total_commission(cruise)
+        commission_by_line[line] += cruise_total_commission(cruise)
 
     total_booked = sum(len(costs) for costs in costs_by_line.values())
     shares: list[SalesAnalyticsCruiseLineShare] = []
@@ -265,21 +248,14 @@ def _build_rejection_reasons(
     return rejection_reasons
 
 
-def _load_deposited_cruises(db: Session, agency_id: str) -> list[ProposedCruise]:
-    return (
-        db.query(ProposedCruise)
-        .filter(
-            ProposedCruise.agency_id == agency_id,
-            ProposedCruise.status == PROPOSED_CRUISE_STATUS_DEPOSITED,
-        )
-        .all()
-    )
+def _load_booked_cruises(db: Session, agency_id: str) -> list[ProposedCruise]:
+    return load_booked_cruises(db, agency_id)
 
 
 def _build_year_summary(
     *,
     year: int,
-    deposited_cruises: list[ProposedCruise],
+    booked_cruises: list[ProposedCruise],
     close_years: dict[int, int],
     booked_request_ids: set[int],
     proposed_cruises_by_request: dict[int, list[ProposedCruise]],
@@ -287,11 +263,11 @@ def _build_year_summary(
     total_sales_booked = 0.0
     total_commission = Decimal("0")
 
-    for cruise in deposited_cruises:
+    for cruise in booked_cruises:
         if _event_year(cruise.updated_at) != year:
             continue
         total_sales_booked += float(cruise.cost or 0)
-        total_commission += _cruise_total_commission(cruise)
+        total_commission += cruise_total_commission(cruise)
 
     total_sales_lost = _calculate_year_lost_sales(
         year=year,
@@ -319,13 +295,13 @@ def _build_year_summary(
 
 def _key_metrics_prior_years(
     *,
-    deposited_cruises: list[ProposedCruise],
+    booked_cruises: list[ProposedCruise],
     rejected_cruises: list[ProposedCruise],
     close_years: dict[int, int],
     current_year: int,
 ) -> list[int]:
     years: set[int] = set()
-    for cruise in deposited_cruises:
+    for cruise in booked_cruises:
         years.add(_event_year(cruise.updated_at))
     for cruise in rejected_cruises:
         years.add(_event_year(cruise.updated_at))
@@ -384,10 +360,10 @@ def get_sales_analytics_key_metrics_year(db: Session, year: int, agency_id: str)
     booked_cruises, rejected_cruises, _closed_without_booking_ids, booked_request_ids, close_years, proposed_cruises_by_request = (
         _load_key_metrics_source_data(db, agency_id)
     )
-    deposited_cruises = _load_deposited_cruises(db, agency_id)
+    booked_cruises = _load_booked_cruises(db, agency_id)
     return _build_year_summary(
         year=year,
-        deposited_cruises=deposited_cruises,
+        booked_cruises=booked_cruises,
         close_years=close_years,
         booked_request_ids=booked_request_ids,
         proposed_cruises_by_request=proposed_cruises_by_request,
@@ -411,7 +387,7 @@ def get_sales_analytics(db: Session, agency_id: str) -> SalesAnalyticsResponse:
     for cruise in booked_cruises:
         month = date(cruise.departure_date.year, cruise.departure_date.month, 1)
         key = _month_key(month)
-        commission_by_month[key] += _cruise_total_commission(cruise)
+        commission_by_month[key] += cruise_total_commission(cruise)
         bookings_by_month[key] += 1
 
     timeline_keys = sorted(commission_by_month.keys())
@@ -502,21 +478,21 @@ def get_sales_analytics(db: Session, agency_id: str) -> SalesAnalyticsResponse:
         closed_without_booking_ids=closed_without_booking_ids,
     )
 
-    deposited_cruises = _load_deposited_cruises(db, agency_id)
-    cruise_line_shares = _build_cruise_line_shares(deposited_cruises)
+    booked_cruises_for_shares = _load_booked_cruises(db, agency_id)
+    cruise_line_shares = _build_cruise_line_shares(booked_cruises_for_shares)
     proposed_cruises_by_request = _proposed_cruises_by_request(
         db.query(ProposedCruise).filter(ProposedCruise.agency_id == agency_id).all()
     )
 
     current_year_summary = _build_year_summary(
         year=today.year,
-        deposited_cruises=deposited_cruises,
+        booked_cruises=booked_cruises_for_shares,
         close_years=close_years,
         booked_request_ids=booked_request_ids,
         proposed_cruises_by_request=proposed_cruises_by_request,
     )
     key_metrics_prior_years = _key_metrics_prior_years(
-        deposited_cruises=deposited_cruises,
+        booked_cruises=booked_cruises_for_shares,
         rejected_cruises=rejected_cruises,
         close_years=close_years,
         current_year=today.year,

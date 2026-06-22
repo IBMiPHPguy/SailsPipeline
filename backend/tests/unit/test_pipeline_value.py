@@ -115,3 +115,32 @@ def test_calculate_open_pipeline_value_uses_highest_quote_per_request(db):
 
     assert calculate_open_pipeline_value(db) == 14500.0
     assert PROPOSED_CRUISE_STATUS_REJECTED not in ACTIVE_PIPELINE_QUOTE_STATUSES
+
+
+def test_calculate_open_pipeline_value_sums_back_to_back_accepted_cruises(db):
+    user = _create_user(db, username="pipeline-b2b-agent")
+    request = _create_open_request(
+        db,
+        user=user,
+        first_name="Multi",
+        last_name="Cruise",
+        email="multi@example.com",
+    )
+
+    _create_proposed_cruise(
+        db,
+        request=request,
+        user=user,
+        cost=Decimal("5000.00"),
+        status=PROPOSED_CRUISE_STATUS_ACCEPTED,
+    )
+    _create_proposed_cruise(
+        db,
+        request=request,
+        user=user,
+        cost=Decimal("4000.00"),
+        status=PROPOSED_CRUISE_STATUS_ACCEPTED,
+    )
+    db.commit()
+
+    assert calculate_open_pipeline_value(db) == 9000.0

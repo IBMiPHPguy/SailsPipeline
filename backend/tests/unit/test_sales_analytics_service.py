@@ -109,17 +109,19 @@ def test_sales_analytics_commission_timeline_and_funnel(db):
         for item in analytics.rejection_reasons
     )
     assert any(month.total_commission == 350.0 for month in analytics.commission_timeline)
-    assert analytics.cruise_line_shares == []
-    assert analytics.current_year_summary.total_sales_booked == 0.0
+    assert len(analytics.cruise_line_shares) == 1
+    assert analytics.cruise_line_shares[0].cruise_line == "Princess Cruises"
+    assert analytics.cruise_line_shares[0].booking_count == 1
+    assert analytics.current_year_summary.total_sales_booked == 4200.0
     assert analytics.current_year_summary.total_sales_lost == 0.0
-    assert analytics.current_year_summary.average_commission_rate_percent is None
+    assert analytics.current_year_summary.average_commission_rate_percent == 8.3
     assert analytics.current_year_summary.win_rate_percent is None
     assert analytics.current_year_summary.year == date.today().year
     assert analytics.key_metrics_prior_years == []
     assert any(stage.label == "Active leads" and stage.count == 1 for stage in analytics.funnel_stages)
 
 
-def test_sales_analytics_cruise_line_shares_use_deposited_cruises_only(db):
+def test_sales_analytics_cruise_line_shares_aggregate_all_booked_cruises(db):
     user = _create_user(db, username="analytics-deposited-share")
     request = _create_open_request(db, user=user)
 
@@ -169,15 +171,20 @@ def test_sales_analytics_cruise_line_shares_use_deposited_cruises_only(db):
 
     analytics = get_sales_analytics(db, DEFAULT_AGENCY_ID)
 
-    assert len(analytics.cruise_line_shares) == 1
-    celebrity = analytics.cruise_line_shares[0]
-    assert celebrity.cruise_line == "Celebrity Cruises"
+    assert len(analytics.cruise_line_shares) == 2
+    shares_by_line = {share.cruise_line: share for share in analytics.cruise_line_shares}
+    princess = shares_by_line["Princess Cruises"]
+    celebrity = shares_by_line["Celebrity Cruises"]
+    assert princess.booking_count == 1
+    assert princess.total_booking_amount == 4200.0
+    assert princess.total_commission == 350.0
+    assert princess.share_percent == 50.0
     assert celebrity.booking_count == 1
     assert celebrity.total_booking_amount == 5100.0
     assert celebrity.total_commission == 510.0
-    assert celebrity.share_percent == 100.0
-    assert analytics.current_year_summary.total_sales_booked == 5100.0
-    assert analytics.current_year_summary.average_commission_rate_percent == 10.0
+    assert celebrity.share_percent == 50.0
+    assert analytics.current_year_summary.total_sales_booked == 9300.0
+    assert analytics.current_year_summary.average_commission_rate_percent == 9.2
 
 
 def test_sales_analytics_year_summaries_use_book_and_reject_dates_not_departure(db):
@@ -235,9 +242,9 @@ def test_sales_analytics_year_summaries_use_book_and_reject_dates_not_departure(
     current_year = date.today().year
 
     assert analytics.current_year_summary.year == current_year
-    assert analytics.current_year_summary.total_sales_booked == 0.0
+    assert analytics.current_year_summary.total_sales_booked == 5000.0
     assert analytics.current_year_summary.total_sales_lost == 0.0
-    assert analytics.current_year_summary.average_commission_rate_percent is None
+    assert analytics.current_year_summary.average_commission_rate_percent == 8.0
     assert analytics.current_year_summary.win_rate_percent is None
     assert current_year not in analytics.key_metrics_prior_years
 
@@ -395,9 +402,9 @@ def test_sales_analytics_win_rate_uses_closed_requests_only(db):
 
     # 1 closed win + 1 closed loss = 50%; open requests are excluded
     assert analytics.win_rate_percent == 50.0
-    assert analytics.current_year_summary.total_sales_booked == 0.0
+    assert analytics.current_year_summary.total_sales_booked == 4000.0
     assert analytics.current_year_summary.total_sales_lost == 0.0
-    assert analytics.current_year_summary.average_commission_rate_percent is None
+    assert analytics.current_year_summary.average_commission_rate_percent == 6.2
     assert analytics.current_year_summary.win_rate_percent == 50.0
 
 

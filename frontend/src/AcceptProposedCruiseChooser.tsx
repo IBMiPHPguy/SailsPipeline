@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { acceptProposedCruiseForRequest, getProposedCruisesAwaitingAcceptance } from "./acceptProposedCruise";
 import { formatMoney } from "./cabinPricing";
-import { hasAcceptedOrDepositedProposedCruise } from "./crmEntrySummary";
 import type { ProposedCruise } from "./types";
 import { formatDate } from "./utils";
 
@@ -22,12 +21,11 @@ export default function AcceptProposedCruiseChooser({
   onChanged,
   onError,
   title = "Accept a proposed cruise",
-  intro = "No cruise is marked accepted yet. Choose which proposed cruise this booking is for. Other proposed options will be marked rejected.",
+  intro = "Choose a proposed cruise to mark as accepted. You can accept more than one cruise on a request (for example back-to-back or side-by-side sailings).",
 }: AcceptProposedCruiseChooserProps) {
   const [selectedCruiseId, setSelectedCruiseId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const hasAcceptedCruise = hasAcceptedOrDepositedProposedCruise(cruises);
   const proposedCruisesAwaitingAcceptance = useMemo(
     () => getProposedCruisesAwaitingAcceptance(cruises),
     [cruises],
@@ -47,7 +45,7 @@ export default function AcceptProposedCruiseChooser({
     });
   }, [proposedCruisesAwaitingAcceptance]);
 
-  if (hasAcceptedCruise || proposedCruisesAwaitingAcceptance.length === 0) {
+  if (proposedCruisesAwaitingAcceptance.length === 0) {
     return null;
   }
 

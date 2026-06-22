@@ -60,7 +60,7 @@ export default function CabinHoldReservationFields({
   disabled,
   readOnly = false,
   passengerNamesByCabin,
-  singleReservationOnly = false,
+  singleReservationOnly = true,
   compact = false,
 }: CabinHoldReservationFieldsProps) {
   const drafts = normalizeCabinHoldReservationDrafts(value, cabinsNeeded).map((cabinIds, cabinIndex) =>

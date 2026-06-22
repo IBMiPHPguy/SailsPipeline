@@ -378,6 +378,7 @@ export type ProposedCruise = {
   cost: number;
   cabin_pricing: CabinPricingEntry[];
   cabin_rooms: ProposedCruiseRoom[];
+  cabin_hold_reservation_ids?: string[][];
   includes: ProposedCruiseIncludes;
   status: string;
   rejection_reason?: string | null;
@@ -422,6 +423,7 @@ export type ProposedCruiseInput = {
   cost: number;
   cabin_pricing?: CabinPricingEntry[];
   cabin_rooms?: ProposedCruiseRoom[];
+  cabin_hold_reservation_ids?: string[][];
   includes: ProposedCruiseIncludes;
   room_passenger_ids: number[][];
   passenger_ids: number[];

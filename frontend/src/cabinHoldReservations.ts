@@ -20,6 +20,13 @@ export function normalizeCabinHoldReservationDrafts(
   return drafts;
 }
 
+export function proposedCruiseReservationIds(
+  cruise: { cabin_hold_reservation_ids?: CabinHoldReservationIds | null },
+  cabinsNeeded: number,
+): CabinHoldReservationIds {
+  return normalizeCabinHoldReservationDrafts(cruise.cabin_hold_reservation_ids, cabinsNeeded);
+}
+
 export function sanitizeCabinHoldReservationIds(
   drafts: CabinHoldReservationIds,
   cabinsNeeded: number,

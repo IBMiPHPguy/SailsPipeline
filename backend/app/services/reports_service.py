@@ -10,10 +10,9 @@ from sqlalchemy import String, and_, case, cast, exists, false, func, or_, selec
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.constants import (
+    BOOKED_CRUISE_STATUSES,
     CRUISE_LINES,
     PROPOSED_CRUISE_REJECTION_REASON_OTHER,
-    PROPOSED_CRUISE_STATUS_ACCEPTED,
-    PROPOSED_CRUISE_STATUS_DEPOSITED,
     PROPOSED_CRUISE_STATUS_PROPOSED,
     PROPOSED_CRUISE_STATUS_REJECTED,
     REQUEST_STATUS_CLOSED,
@@ -37,21 +36,17 @@ from app.schemas import (
     SalesManifestPageRead,
     SupplierLedgerPageRead,
 )
+from app.services.agency_rollup_service import get_or_refresh_report_metadata_cache
+from app.services.booked_cruise_metrics import cruise_total_commission, sum_booked_cruise_financials
 from app.services.request_service import resolve_next_open_task
 from app.workflow_helpers import WORKFLOW_DEFINITIONS, WORKFLOW_TASK_TEMPLATES, get_workflow_label
 
 REPORTS_PAGE_SIZE_DEFAULT = 25
 REPORTS_PAGE_SIZE_MAX = 100
 
-BOOKED_CRUISE_STATUSES = (
-    PROPOSED_CRUISE_STATUS_ACCEPTED,
-    PROPOSED_CRUISE_STATUS_DEPOSITED,
-)
-
 ACTIVE_QUOTE_STATUSES = (
     PROPOSED_CRUISE_STATUS_PROPOSED,
-    PROPOSED_CRUISE_STATUS_ACCEPTED,
-    PROPOSED_CRUISE_STATUS_DEPOSITED,
+    *BOOKED_CRUISE_STATUSES,
 )
 
 
@@ -140,15 +135,7 @@ def _passengers_filtered_query(db: Session, filters: ReportQueryFilters):
 
 
 def _cruise_total_commission(cruise: ProposedCruise) -> float:
-    total = Decimal("0")
-    for room in cruise.cabin_rooms or []:
-        if not isinstance(room, dict):
-            continue
-        try:
-            total += Decimal(str(room.get("commission") or 0))
-        except Exception:
-            continue
-    return float(total)
+    return float(cruise_total_commission(cruise))
 
 
 def _timeframe_start(timeframe: str) -> datetime | None:
@@ -266,10 +253,10 @@ def _apply_proposed_cruise_timeframe_filter(query, timeframe: str):
     return query.filter(ProposedCruise.created_at.isnot(None))
 
 
-def _deposited_cruises_query(db: Session, filters: ReportQueryFilters):
+def _booked_cruises_query(db: Session, filters: ReportQueryFilters):
     query = db.query(ProposedCruise).filter(
         ProposedCruise.agency_id == filters.agency_id,
-        ProposedCruise.status == PROPOSED_CRUISE_STATUS_DEPOSITED,
+        ProposedCruise.status.in_(BOOKED_CRUISE_STATUSES),
     )
     query = _apply_proposed_cruise_timeframe_filter(query, filters.timeframe)
 
@@ -344,10 +331,16 @@ def _lead_departure_date(request: TravelRequest, lead_cruise: ProposedCruise | N
 
 def _build_manifest_row(request: TravelRequest) -> ReportManifestRowRead:
     cruises = list(request.proposed_cruises or [])
+    booked_cruises = [cruise for cruise in cruises if cruise.status in BOOKED_CRUISE_STATUSES]
     lead_cruise = _lead_cruise(cruises)
     bucket = _request_pipeline_bucket(request)
-    gross_total = float(lead_cruise.cost or 0) if lead_cruise is not None else 0.0
-    commission_target = _cruise_total_commission(lead_cruise) if lead_cruise is not None else 0.0
+    if booked_cruises:
+        gross_total, commission_target = sum_booked_cruise_financials(booked_cruises)
+        display_cruise = max(booked_cruises, key=lambda cruise: float(cruise.cost or 0))
+    else:
+        gross_total = float(lead_cruise.cost or 0) if lead_cruise is not None else 0.0
+        commission_target = _cruise_total_commission(lead_cruise) if lead_cruise is not None else 0.0
+        display_cruise = lead_cruise
 
     return ReportManifestRowRead(
         request_id=request.id,
@@ -356,8 +349,8 @@ def _build_manifest_row(request: TravelRequest) -> ReportManifestRowRead:
         close_reason=request.close_reason,
         primary_passenger=_primary_passenger_name(request),
         destination=request.destination,
-        cruise_line=_lead_cruise_line(request, lead_cruise),
-        sailing_month_year=_format_sailing_month_year(_lead_departure_date(request, lead_cruise)),
+        cruise_line=_lead_cruise_line(request, display_cruise),
+        sailing_month_year=_format_sailing_month_year(_lead_departure_date(request, display_cruise)),
         estimated_gross_booking_total=gross_total,
         projected_commission_target=commission_target,
         owner_agent=_owner_agent(request),
@@ -394,40 +387,9 @@ def get_report_meta(db: Session, agency_id: str) -> ReportMetaResponse:
             )
         )
 
-    updated_advisors = {
-        username
-        for (username,) in db.query(User.username)
-        .join(TravelRequest, TravelRequest.updated_by_id == User.id)
-        .filter(TravelRequest.agency_id == agency_id)
-        .all()
-        if username
-    }
-    created_advisors = {
-        username
-        for (username,) in db.query(User.username)
-        .join(TravelRequest, TravelRequest.created_by_id == User.id)
-        .filter(TravelRequest.agency_id == agency_id)
-        .all()
-        if username
-    }
-    advisor_names = sorted(updated_advisors | created_advisors)
-    residence_states = sorted(
-        {
-            state.strip()
-            for (state,) in (
-                db.query(Passenger.state_or_province)
-                .filter(
-                    Passenger.agency_id == agency_id,
-                    Passenger.is_active.is_(True),
-                    Passenger.state_or_province.isnot(None),
-                    func.trim(Passenger.state_or_province) != "",
-                )
-                .distinct()
-                .all()
-            )
-            if state and state.strip()
-        }
-    )
+    cache = get_or_refresh_report_metadata_cache(db, agency_id)
+    advisor_names = list(cache.active_advisor_names or [])
+    residence_states = list(cache.active_residence_states or [])
 
     return ReportMetaResponse(
         workflow_task_groups=workflow_task_groups,
@@ -500,7 +462,7 @@ def _build_supplier_ledger_rows_from_aggregates(
 
 
 def get_supplier_ledger_page(db: Session, filters: ReportQueryFilters) -> SupplierLedgerPageRead:
-    base = _deposited_cruises_query(db, filters)
+    base = _booked_cruises_query(db, filters)
     aggregates = (
         base.with_entities(
             ProposedCruise.cruise_line,
@@ -660,24 +622,24 @@ def _build_advisor_scorecard_rows(requests: list[TravelRequest], filters: Report
             and any(cruise.status == PROPOSED_CRUISE_STATUS_PROPOSED for cruise in (request.proposed_cruises or []))
         )
 
-        deposited_cruises: list[tuple[TravelRequest, ProposedCruise]] = []
+        booked_cruises: list[tuple[TravelRequest, ProposedCruise]] = []
         for request in owned_requests:
             for cruise in request.proposed_cruises or []:
-                if cruise.status == PROPOSED_CRUISE_STATUS_DEPOSITED:
-                    deposited_cruises.append((request, cruise))
+                if cruise.status in BOOKED_CRUISE_STATUSES:
+                    booked_cruises.append((request, cruise))
 
-        completed_bookings = len(deposited_cruises)
+        completed_bookings = len(booked_cruises)
         velocity_days: list[float] = []
-        for request, cruise in deposited_cruises:
+        for request, cruise in booked_cruises:
             if request.created_at is None or cruise.updated_at is None:
                 continue
             delta = cruise.updated_at - request.created_at
             velocity_days.append(max(delta.total_seconds(), 0) / 86400)
 
         avg_pipeline_velocity_days = round(sum(velocity_days) / len(velocity_days), 1) if velocity_days else None
-        deposited_request_ids = {request.id for request, _cruise in deposited_cruises}
+        booked_request_ids = {request.id for request, _cruise in booked_cruises}
         request_to_close_ratio_percent = (
-            round((len(deposited_request_ids) / len(owned_requests)) * 100, 1) if owned_requests else None
+            round((len(booked_request_ids) / len(owned_requests)) * 100, 1) if owned_requests else None
         )
 
         rows.append(

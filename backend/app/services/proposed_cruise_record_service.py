@@ -46,6 +46,10 @@ from app.schemas import (
 from app.services.agency_service import assert_child_belongs_to_request, require_record_for_agency
 from app.services.gemini_context_service import build_request_context_for_gemini
 from app.services.proposed_cruise_service import proposed_cruise_to_read
+from app.services.agency_rollup_service import (
+    rollup_refresh_triggers_on_cruise_status,
+    schedule_agency_rollup_refresh,
+)
 from app.services.request_service import get_open_request, touch_request
 from app.tenant_context import require_current_agency_id
 from app.attachment_storage import read_attachment_text
@@ -323,6 +327,7 @@ def update_proposed_cruise(
     includes = updates.pop("includes", None)
     cabin_pricing = updates.pop("cabin_pricing", None)
     cabin_rooms = updates.pop("cabin_rooms", None)
+    cabin_hold_reservation_ids = updates.pop("cabin_hold_reservation_ids", None)
     rejection_reason = updates.pop("rejection_reason", None)
     rejection_reason_detail = updates.pop("rejection_reason_detail", None)
 
@@ -386,6 +391,9 @@ def update_proposed_cruise(
                     cruise.cabin_rooms[index]["deposit_amount"] = entry["deposit_amount"]
                     cruise.cabin_rooms[index]["cost"] = entry["cost"]
 
+    if cabin_hold_reservation_ids is not None:
+        cruise.cabin_hold_reservation_ids = cabin_hold_reservation_ids
+
     if room_passenger_ids is not None or passenger_ids is not None:
         normalized_room_passenger_ids = normalize_room_passenger_ids(
             room_passenger_ids,
@@ -403,5 +411,7 @@ def update_proposed_cruise(
     cruise.updated_by_id = current_user.id
     touch_request(request, current_user)
     db.commit()
+    if rollup_refresh_triggers_on_cruise_status(next_status):
+        schedule_agency_rollup_refresh(request.agency_id)
     cruise = load_proposed_cruise(db, cruise.id)
     return proposed_cruise_to_read(cruise, request.cabins_needed)

@@ -123,6 +123,8 @@ export function buildProposedCruisePayload(form: ProposedCruiseInput, cabinsNeed
     };
   }
 
+  delete base.rejection_reason;
+  delete base.rejection_reason_detail;
   return base;
 }
 

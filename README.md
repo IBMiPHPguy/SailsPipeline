@@ -77,15 +77,18 @@ The signed-in home screen shows:
 - **Open requests** — active travel requests with destination, dates, and workflow context
 - **Stale requests** — open requests with no activity in 3+ days (`STALE_DAYS`)
 - **Closed requests** — clickable tile that opens the closed-requests list
+- **Pipeline value** — sums booked cruise costs on open requests (back-to-back accepted cruises count in full); otherwise uses the highest active quote per request
 
 Each open request row shows the next open workflow task, last worked timestamp, and whether it is stale.
+
+Dashboard tile counts and pipeline value are served from **per-agency rollup rows** (`agency_dashboard_rollups`), refreshed on a schedule and when requests close or proposed cruises are accepted, deposited, or rejected.
 
 ### Sales Analytics
 
 The **Sales Analytics** sidebar view summarizes pipeline and booking performance:
 
-- Year-scoped **key metrics** (booked volume, commission, close ratio) based on **deposited** cruises
-- **Cruise line brand share** and funnel-stage counts
+- Year-scoped **key metrics** (booked volume, commission, close ratio) from **Accepted and Deposited** proposed cruises — each cruise row counts separately (back-to-back and side-by-side bookings sum correctly)
+- **Cruise line brand share** and funnel-stage counts at the cruise-row level
 - Optional **copilot Q&A** when `GEMINI_API_KEY` is configured
 
 Endpoints live under `/api/analytics/sales`.
@@ -102,7 +105,9 @@ The **Reports** sidebar view lists five interactive ledgers grouped by category.
 | Advisor Productivity & Quota Scorecard | Timeframe, advisor |
 | Passenger Demographics & Qualifier Ledger | State, qualifier (multi-select, OR logic) |
 
-Report data is served from `/api/reports/*`. Filter metadata (workflow tasks, advisor names, residence states) comes from `GET /api/reports/meta`.
+Report data is served from `/api/reports/*`. Filter metadata (workflow tasks, advisor names, residence states) comes from `GET /api/reports/meta` (advisor and state lists are cached per agency).
+
+**Booked-cruise aggregation:** Sales manifest gross/commission totals sum all Accepted and Deposited cruises on a request. The supplier ledger groups volume, commission, and booking counts by cruise line at the cruise-row level (side-by-side lines on one request each get their own ledger row).
 
 Phone numbers in report and client **display** views use `(xxx) xxx-xxxx` formatting; input fields keep the raw stored value.
 
@@ -178,10 +183,10 @@ CRM and Bridge use separate browser tokens so both can stay open in different ta
 
 ### Proposed cruises and quoted insurance
 
-**Proposed cruises** support Proposed, Accepted, and Rejected statuses. The UI splits them into **Proposed & accepted** and **Rejected** sub-tabs.
+**Proposed cruises** support Proposed, Accepted, Deposited, and Rejected statuses. The UI splits them into **Proposed & accepted** and **Rejected** sub-tabs.
 
 - Add cruises manually or bulk-generate from a research document (Gemini)
-- When one cruise is accepted, adding more proposed cruises is hidden
+- **Back-to-back / side-by-side bookings:** accept multiple cruises on one request without auto-rejecting the others; each accepted cruise keeps its own cabin-hold reservation IDs and payment checklist in Enter Trip in CRM
 - Accepted/rejected state drives workflow outcomes in **Record client response**
 
 **Quoted insurance** tracks Proposed, Accepted, and Declined quotes. Adding new quotes is hidden once a proposed cruise has been accepted.
@@ -220,11 +225,11 @@ Tasks run in a linear order in the UI (later tasks stay locked until prerequisit
 
 1. **Send research communication** — pick a draft research-proposal communication, copy subject/body, mark sent when delivered. Completing this schedules the follow-up due date **3 days** later.
 2. **Follow up on research communication** — optional **Mark as reached out** resets the due date +3 days without completing the task. Tasks show **Late** when overdue and client response is not yet recorded. Follow-up does **not** block recording the client response.
-3. **Record client response** — accept one proposed cruise or reject all options:
-   - **Accept:** remaining proposed cruises are auto-rejected; save is available once every proposed cruise has a decision
+3. **Record client response** — accept one or more proposed cruises, or reject all options:
+   - **Accept:** mark each cruise the client wants as accepted; other cruises stay proposed until you reject them explicitly
    - **Reject all:** choose to close the request (with close reason) or start a new Research workflow (requires uploading a new research document first). **Purchased - Trip Created** is hidden when all cruises are rejected
 
-When a cruise is accepted, the Communicate Research workflow can complete and the **Enter Trip in CRM** workflow can be started manually.
+When at least one cruise is accepted, the Communicate Research workflow can complete and the **Enter Trip in CRM** workflow can be started manually.
 
 #### Task updates
 
@@ -318,7 +323,9 @@ The FastAPI app is created in `backend/app/application.py` and mounted for Uvico
 | `services/agency_service.py` | Default agency bootstrap and tenant ownership checks |
 | `subscription_gatekeeper.py` | HTTP 402 when subscription is Past Due or Locked |
 | `services/request_service.py` | Request queries, detail assembly, open-request guards |
-| `services/dashboard_service.py` | Dashboard response building |
+| `services/dashboard_service.py` | Dashboard response building (rollup-backed counts) |
+| `services/agency_rollup_service.py` | Per-agency dashboard rollups and report metadata cache refresh |
+| `services/booked_cruise_metrics.py` | Shared Accepted/Deposited cruise SQL aggregates (volume, counts, commission) |
 | `services/passenger_service.py`, `passenger_helpers.py` | Passenger registry and request sync |
 | `services/communication_service.py` | Communication CRUD and Gemini draft generation |
 | `services/workflow_service.py` | Workflow creation, completion, and task updates |
@@ -346,6 +353,9 @@ See `.env.example` for defaults.
 | `EXPOSE_OPENAPI` | When `false`, hides `/docs` and `/openapi.json` on the backend |
 | `AUTH_RATE_LIMIT` | slowapi limit for login/register (default `10/minute`) |
 | `APP_ENV` | Set to `production` to enforce secure startup checks |
+| `ROLLUP_SCHEDULER_ENABLED` | When `true`, background job refreshes agency analytics rollups (default `true`; disabled in test) |
+| `ROLLUP_REFRESH_POLL_SECONDS` | How often queued rollup refreshes are processed (default `30`) |
+| `ROLLUP_DAILY_REFRESH_HOUR_UTC` | Hour (UTC) for a full rollup refresh of all agencies (default `3`) |
 
 Change `JWT_SECRET`, database passwords, and the seeded admin password before deploying outside local development.
 
@@ -549,7 +559,7 @@ Use `scripts/run-tests.ps1` as the recommended entry point; it starts `test-db` 
 
 ## Database migrations
 
-Fresh installs use `db/init.sql` via Docker entrypoint (includes multi-tenant Phases 0–2). Existing volumes may need incremental migrations applied manually:
+Fresh installs use `db/init.sql` via Docker entrypoint (includes multi-tenant Phases 0–2, Phase 3a rollups, and per-cruise cabin-hold reservation IDs). Existing volumes may need incremental migrations applied manually:
 
 ```powershell
 # Auth (users table)
@@ -559,6 +569,8 @@ Get-Content db\migrate_auth.sql | docker compose exec -T db mysql -uroot -proots
 Get-Content db\migrate_multi_tenant_phase0.sql | docker compose exec -T db mysql -uroot -prootsecret sailspipeline
 Get-Content db\migrate_multi_tenant_phase1.sql | docker compose exec -T db mysql -uroot -prootsecret sailspipeline
 Get-Content db\migrate_multi_tenant_phase2.sql | docker compose exec -T db mysql -uroot -prootsecret sailspipeline
+Get-Content db\migrate_multi_tenant_phase3_rollups.sql | docker compose exec -T db mysql -uroot -prootsecret sailspipeline
+Get-Content db\migrate_proposed_cruise_reservation_ids.sql | docker compose exec -T db mysql -uroot -prootsecret sailspipeline
 Get-Content db\migrate_platform_operator_null_agency.sql | docker compose exec -T db mysql -uroot -prootsecret sailspipeline
 Get-Content db\migrate_invitation_cancellation.sql | docker compose exec -T db mysql -uroot -prootsecret sailspipeline
 

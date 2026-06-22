@@ -3,7 +3,7 @@ import { updateTask } from "./api";
 import AcceptProposedCruiseChooser from "./AcceptProposedCruiseChooser";
 import { getProposedCruisesAwaitingAcceptance } from "./acceptProposedCruise";
 import { formatMoney } from "./cabinPricing";
-import { normalizeCabinHoldReservationDrafts } from "./cabinHoldReservations";
+import { proposedCruiseReservationIds } from "./cabinHoldReservations";
 import { proposedCruiseToCabinRooms } from "./cabinRooms";
 import {
   buildCrmEntrySummaryText,
@@ -128,7 +128,6 @@ export default function CreateTripInCrmTaskPanel({
   const proposedCruisesAwaitingAcceptance = getProposedCruisesAwaitingAcceptance(request.proposed_cruises);
   const bookingCruises = getCrmEntryProposedCruises(request.proposed_cruises);
   const cabinsNeeded = Math.max(1, form.cabins_needed ?? request.cabins_needed ?? 1);
-  const reservations = normalizeCabinHoldReservationDrafts(request.cabin_hold_reservation_ids, cabinsNeeded);
 
   useEffect(() => {
     setChecklist(readEnterTripInCrmChecklist(task.result));
@@ -172,22 +171,15 @@ export default function CreateTripInCrmTaskPanel({
         Accepted or deposited cruises show every room, reservation ID, inclusion, and full passenger details.
       </p>
 
-      {!readOnly && !hasAcceptedCruise ? (
+      {!readOnly && proposedCruisesAwaitingAcceptance.length > 0 ? (
         <section className="crm-entry-section crm-entry-accept-cruise">
-          {proposedCruisesAwaitingAcceptance.length === 0 ? (
-            <p className="meta crm-entry-empty">
-              No proposed cruises are available to accept. Add proposed cruises on the request first, then return here
-              to mark one as accepted.
-            </p>
-          ) : (
-            <AcceptProposedCruiseChooser
-              requestId={requestId}
-              cruises={request.proposed_cruises}
-              disabled={readOnly || saving}
-              onChanged={onChanged}
-              onError={onError}
-            />
-          )}
+          <AcceptProposedCruiseChooser
+            requestId={requestId}
+            cruises={request.proposed_cruises}
+            disabled={readOnly || saving}
+            onChanged={onChanged}
+            onError={onError}
+          />
         </section>
       ) : null}
 
@@ -229,7 +221,7 @@ export default function CreateTripInCrmTaskPanel({
           <p className="meta crm-entry-empty">
             {hasAcceptedCruise
               ? "No accepted or deposited cruises are available to show."
-              : "Accept a proposed cruise above to populate booking details for CRM entry."}
+              : "Accept one or more proposed cruises to populate booking details for CRM entry."}
           </p>
         ) : (
           bookingCruises.map((cruise) => {
@@ -268,9 +260,9 @@ export default function CreateTripInCrmTaskPanel({
                 <div className="crm-entry-room-list">
                   {cabinRooms.map((room, cabinIndex) => {
                     const cabinLabel = proposedRoomLabel(cabinIndex, cabinsNeeded);
-                    const reservationIds = (reservations[cabinIndex] ?? [])
-                      .map((value) => value.trim())
-                      .filter(Boolean);
+                    const reservationIds = proposedCruiseReservationIds(cruise, cabinsNeeded)[cabinIndex]
+                      ?.map((value) => value.trim())
+                      .filter(Boolean) ?? [];
                     const roomPassengers = cruise.room_passengers?.[cabinIndex] ?? [];
 
                     return (

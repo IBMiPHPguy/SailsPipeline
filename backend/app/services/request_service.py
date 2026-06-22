@@ -14,6 +14,7 @@ from app.audit_helpers import (
     record_travel_request_field_changes,
 )
 from app.constants import (
+    ACTIVE_PIPELINE_QUOTE_STATUSES,
     PRIMARY_CLOSE_REASON,
     PROPOSED_CRUISE_STATUS_ACCEPTED,
     PROPOSED_CRUISE_STATUS_DEPOSITED,
@@ -63,6 +64,7 @@ from app.schemas import (
     UserAudit,
 )
 from app.services.agency_service import get_travel_request_for_agency
+from app.services.booked_cruise_metrics import calculate_open_pipeline_value as _calculate_open_pipeline_value
 from app.services.passenger_service import sync_primary_passenger_from_request
 from app.tenant_context import require_current_agency_id
 from app.services.proposed_cruise_service import proposed_cruise_to_read
@@ -306,28 +308,9 @@ def closed_requests_total_pages(total: int, page_size: int) -> int:
     return ceil(total / page_size)
 
 
-ACTIVE_PIPELINE_QUOTE_STATUSES = (
-    PROPOSED_CRUISE_STATUS_PROPOSED,
-    PROPOSED_CRUISE_STATUS_ACCEPTED,
-    PROPOSED_CRUISE_STATUS_DEPOSITED,
-)
-
-
 def calculate_open_pipeline_value(db: Session) -> float:
-    """Sum the highest active proposed-quote cost for each open request."""
-    per_request_max = (
-        db.query(
-            ProposedCruise.travel_request_id,
-            func.max(ProposedCruise.cost).label("max_cost"),
-        )
-        .join(TravelRequest, TravelRequest.id == ProposedCruise.travel_request_id)
-        .filter(TravelRequest.status == REQUEST_STATUS_OPEN)
-        .filter(ProposedCruise.status.in_(ACTIVE_PIPELINE_QUOTE_STATUSES))
-        .group_by(ProposedCruise.travel_request_id)
-        .subquery()
-    )
-    total = db.query(func.coalesce(func.sum(per_request_max.c.max_cost), 0)).scalar()
-    return float(total or 0)
+    """Sum booked cruise costs on open requests; otherwise the highest active quote per request."""
+    return _calculate_open_pipeline_value(db)
 
 
 def search_open_requests(
@@ -394,6 +377,9 @@ def reopen_request(db: Session, request_id: int, current_user: User) -> TravelRe
     apply_updates(request, updates)
     touch_request(request, current_user)
     db.commit()
+    from app.services.agency_rollup_service import schedule_agency_rollup_refresh
+
+    schedule_agency_rollup_refresh(current_user.agency_id)
     return request_query(db).filter(TravelRequest.id == request_id).one()
 
 
@@ -459,6 +445,9 @@ def create_request(db: Session, payload: TravelRequestCreate, current_user: User
             qualifiers=request_qualifiers,
         )
     db.commit()
+    from app.services.agency_rollup_service import schedule_agency_rollup_refresh
+
+    schedule_agency_rollup_refresh(current_user.agency_id)
     return request_query(db).filter(TravelRequest.id == request.id).one()
 
 
@@ -506,5 +495,9 @@ def update_request(
     sync_primary_passenger_from_request(request, db, current_user)
     touch_request(request, current_user)
     db.commit()
+    if "status" in updates:
+        from app.services.agency_rollup_service import schedule_agency_rollup_refresh
+
+        schedule_agency_rollup_refresh(current_user.agency_id)
     request = detail_query(db).filter(TravelRequest.id == request_id).one()
     return request_detail_to_read(request)

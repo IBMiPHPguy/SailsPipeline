@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from "react";
-import { addProposedCruise, updateProposedCruise, updateRequest } from "./api";
+import { addProposedCruise, updateProposedCruise } from "./api";
 import AcceptProposedCruiseChooser from "./AcceptProposedCruiseChooser";
 import {
   acceptProposedCruiseForRequest,
@@ -10,7 +10,7 @@ import {
   cabinHoldReservationDisplayLines,
 } from "./CabinHoldReservationFields";
 import {
-  normalizeCabinHoldReservationDrafts,
+  proposedCruiseReservationIds,
   sanitizeCabinHoldReservationIds,
   type CabinHoldReservationIds,
 } from "./cabinHoldReservations";
@@ -29,7 +29,6 @@ import type { ProposedCruise, ProposedCruiseInput, RequestPassenger } from "./ty
 type ProposedCruisesSectionProps = {
   requestId: number;
   cabinsNeeded: number;
-  cabinHoldReservationIds: CabinHoldReservationIds;
   cruises: ProposedCruise[];
   passengers: RequestPassenger[];
   requestPassengerCount: number;
@@ -66,7 +65,6 @@ export default forwardRef<ProposedCruisesSectionHandle, ProposedCruisesSectionPr
   {
   requestId,
   cabinsNeeded,
-  cabinHoldReservationIds,
   cruises,
   passengers,
   requestPassengerCount,
@@ -111,15 +109,9 @@ export default forwardRef<ProposedCruisesSectionHandle, ProposedCruisesSectionPr
 
   function applyOptimisticAccept(cruiseId: number) {
     setDisplayCruises((current) =>
-      current.map((cruise) => {
-        if (cruise.id === cruiseId) {
-          return { ...cruise, status: PROPOSED_CRUISE_STATUS_ACCEPTED };
-        }
-        if (cruise.status === PROPOSED_CRUISE_STATUS_PROPOSED) {
-          return { ...cruise, status: PROPOSED_CRUISE_STATUS_REJECTED };
-        }
-        return cruise;
-      }),
+      current.map((cruise) =>
+        cruise.id === cruiseId ? { ...cruise, status: PROPOSED_CRUISE_STATUS_ACCEPTED } : cruise,
+      ),
     );
   }
 
@@ -198,18 +190,21 @@ export default forwardRef<ProposedCruisesSectionHandle, ProposedCruisesSectionPr
     setSavingRoom(true);
     onError("");
     try {
-      const updated = await updateProposedCruise(requestId, editingCruise.id, payload);
-      if (roomReservationIds !== undefined) {
-        const nextReservations = normalizeCabinHoldReservationDrafts(
-          cabinHoldReservationIds,
-          cabinsNeeded,
-        ).map((cabinIds, index) =>
-          index === cabinIndex ? (roomReservationIds.length > 0 ? roomReservationIds : [""]) : cabinIds,
-        );
-        await updateRequest(requestId, {
-          cabin_hold_reservation_ids: sanitizeCabinHoldReservationIds(nextReservations, cabinsNeeded),
-        });
-      }
+      const currentReservations = proposedCruiseReservationIds(editingCruise, cabinsNeeded);
+      const nextReservations =
+        roomReservationIds !== undefined
+          ? currentReservations.map((cabinIds, index) =>
+              index === cabinIndex ? (roomReservationIds.length > 0 ? roomReservationIds : [""]) : cabinIds,
+            )
+          : currentReservations;
+      const updated = await updateProposedCruise(requestId, editingCruise.id, {
+        ...payload,
+        ...(roomReservationIds !== undefined
+          ? {
+              cabin_hold_reservation_ids: sanitizeCabinHoldReservationIds(nextReservations, cabinsNeeded),
+            }
+          : {}),
+      });
       setEditingCruise(updated);
       await onChanged();
       return updated;
@@ -230,15 +225,17 @@ export default forwardRef<ProposedCruisesSectionHandle, ProposedCruisesSectionPr
     onError("");
     try {
       if (editingCruise) {
-        await updateProposedCruise(requestId, editingCruise.id, payload);
-        if (nextCabinHoldReservationIds !== undefined) {
-          await updateRequest(requestId, {
-            cabin_hold_reservation_ids: sanitizeCabinHoldReservationIds(
-              nextCabinHoldReservationIds,
-              cabinsNeeded,
-            ),
-          });
-        }
+        await updateProposedCruise(requestId, editingCruise.id, {
+          ...payload,
+          ...(nextCabinHoldReservationIds !== undefined
+            ? {
+                cabin_hold_reservation_ids: sanitizeCabinHoldReservationIds(
+                  nextCabinHoldReservationIds,
+                  cabinsNeeded,
+                ),
+              }
+            : {}),
+        });
       } else {
         await addProposedCruise(requestId, payload);
       }
@@ -261,13 +258,10 @@ export default forwardRef<ProposedCruisesSectionHandle, ProposedCruisesSectionPr
 
     return cruiseList.map((cruise) => {
       const showCabinDetails = cruiseHasCabinDetails(cruise);
+      const normalizedReservations = proposedCruiseReservationIds(cruise, cabinsNeeded);
       const reservationLines = showCabinDetails
-        ? cabinHoldReservationDisplayLines(cabinHoldReservationIds)
+        ? cabinHoldReservationDisplayLines(normalizedReservations)
         : [];
-      const normalizedReservations = normalizeCabinHoldReservationDrafts(
-        cabinHoldReservationIds,
-        cabinsNeeded,
-      );
 
       return (
         <ProposedCruiseQuoteCard
@@ -399,7 +393,6 @@ export default forwardRef<ProposedCruisesSectionHandle, ProposedCruisesSectionPr
         cruise={editingCruise}
         passengers={passengers}
         cabinsNeeded={cabinsNeeded}
-        cabinHoldReservationIds={cabinHoldReservationIds}
         allCruises={cruises}
         allowAcceptProposedCruise={allowAcceptProposedCruise}
         saving={saving}

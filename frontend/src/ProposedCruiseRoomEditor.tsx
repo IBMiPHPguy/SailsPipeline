@@ -217,7 +217,7 @@ export default function ProposedCruiseRoomEditor({
                 {showReservationFields ? (
                   <label className="field-stack field-stack--narrow">
                     <span className="field-stack-label">Reservation ID</span>
-                    <span className="field-hint">Stored on the request with the accepted cruise.</span>
+                    <span className="field-hint">Stored on this proposed cruise for this room.</span>
                     <input
                       type="text"
                       disabled={disabled}

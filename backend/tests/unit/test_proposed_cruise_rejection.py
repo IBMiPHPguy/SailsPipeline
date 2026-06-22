@@ -52,3 +52,32 @@ def test_validate_proposed_cruise_rejection_accepts_other_with_detail():
     )
     assert reason == PROPOSED_CRUISE_REJECTION_REASON_OTHER
     assert detail == "Client wanted a balcony guarantee."
+
+
+def test_proposed_cruise_update_accepts_empty_rejection_reason_for_room_save():
+    from app.schemas import ProposedCruiseUpdate
+
+    payload = ProposedCruiseUpdate.model_validate(
+        {
+            "rejection_reason": "",
+            "rejection_reason_detail": "",
+            "room_number": "1234",
+        }
+    )
+    assert payload.rejection_reason is None
+    assert payload.rejection_reason_detail is None
+    assert payload.room_number == "1234"
+
+
+def test_proposed_cruise_update_normalizes_cabin_hold_reservation_ids():
+    from app.schemas import ProposedCruiseRead, ProposedCruiseUpdate
+
+    payload = ProposedCruiseUpdate.model_validate(
+        {
+            "cabin_hold_reservation_ids": [[" ABC123 ", ""], ["DEF456"]],
+        }
+    )
+    assert payload.cabin_hold_reservation_ids == [["ABC123"], ["DEF456"]]
+
+    assert ProposedCruiseRead.normalize_cabin_hold_reservation_ids(None) == []
+    assert ProposedCruiseRead.normalize_cabin_hold_reservation_ids([[" HOLD1 "]]) == [["HOLD1"]]

@@ -11,10 +11,10 @@ import {
 } from "./cabinRooms";
 import {
   normalizeCabinHoldReservationDrafts,
+  proposedCruiseReservationIds,
   type CabinHoldReservationIds,
 } from "./cabinHoldReservations";
 import { acceptProposedCruiseForRequest } from "./acceptProposedCruise";
-import { hasAcceptedOrDepositedProposedCruise } from "./crmEntrySummary";
 import {
   PROPOSED_CRUISE_STATUSES,
   PROPOSED_CRUISE_STATUS_ACCEPTED,
@@ -57,7 +57,6 @@ type ProposedCruiseModalProps = {
   cruise: ProposedCruise | null;
   passengers: RequestPassenger[];
   cabinsNeeded: number;
-  cabinHoldReservationIds: CabinHoldReservationIds;
   allCruises?: ProposedCruise[];
   allowAcceptProposedCruise?: boolean;
   saving: boolean;
@@ -80,7 +79,6 @@ export default function ProposedCruiseModal({
   cruise,
   passengers,
   cabinsNeeded,
-  cabinHoldReservationIds,
   allCruises = [],
   allowAcceptProposedCruise = false,
   saving,
@@ -103,8 +101,7 @@ export default function ProposedCruiseModal({
   const showAcceptThisCruise =
     allowAcceptProposedCruise &&
     Boolean(cruise) &&
-    effectiveStatus === PROPOSED_CRUISE_STATUS_PROPOSED &&
-    !hasAcceptedOrDepositedProposedCruise(allCruises);
+    effectiveStatus === PROPOSED_CRUISE_STATUS_PROPOSED;
   const showCabinHoldFields =
     effectiveStatus === PROPOSED_CRUISE_STATUS_ACCEPTED ||
     effectiveStatus === PROPOSED_CRUISE_STATUS_DEPOSITED;
@@ -168,14 +165,16 @@ export default function ProposedCruiseModal({
           room_passenger_ids: normalizeRoomPassengerIds([], cabinsNeeded),
           cabin_rooms: emptyCabinRooms(cabinsNeeded),
         };
-    const nextReservationDrafts = normalizeCabinHoldReservationDrafts(cabinHoldReservationIds, cabinsNeeded);
+    const nextReservationDrafts = cruise
+      ? proposedCruiseReservationIds(cruise, cabinsNeeded)
+      : normalizeCabinHoldReservationDrafts([], cabinsNeeded);
 
     setForm(nextForm);
     setReservationDrafts(nextReservationDrafts);
     syncPersistedFromForm(nextForm, nextReservationDrafts);
     setError("");
     setRoomSaveMessage("");
-  }, [open, cruise, cabinsNeeded, cabinHoldReservationIds]);
+  }, [open, cruise, cabinsNeeded]);
 
   if (!open) {
     return null;
@@ -529,7 +528,7 @@ export default function ProposedCruiseModal({
             {showAcceptThisCruise ? (
               <section className="modal-section-panel proposed-cruise-accept-section">
                 <p className="field-hint">
-                  Enter Trip in CRM is active. Mark this cruise as the accepted booking before continuing.
+                  Enter Trip in CRM is active. Mark this cruise as accepted to include it in the CRM entry summary.
                 </p>
                 <button
                   type="button"

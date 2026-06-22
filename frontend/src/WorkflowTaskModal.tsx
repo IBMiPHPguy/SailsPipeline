@@ -4,6 +4,7 @@ import CollectPassengerAddressesTaskPanel, {
   isCollectPassengerAddressesTask,
 } from "./CollectPassengerAddressesTaskPanel";
 import CreateTripInCrmTaskPanel from "./CreateTripInCrmTaskPanel";
+import { getCrmEntryProposedCruises } from "./crmEntrySummary";
 import DraftResearchCommunicationTaskPanel from "./DraftResearchCommunicationTaskPanel";
 import FollowUpResearchTaskPanel from "./FollowUpResearchTaskPanel";
 import ProposedCruisesTaskPanel from "./ProposedCruisesTaskPanel";
@@ -24,8 +25,6 @@ import {
   TASK_KEY_SEND_RESEARCH_COMMUNICATION,
   TASK_KEY_UPLOAD_RESEARCH_DOCUMENT,
   TASK_KEY_VERIFY_PASSENGER_DETAILS,
-  PROPOSED_CRUISE_STATUS_ACCEPTED,
-  PROPOSED_CRUISE_STATUS_DEPOSITED,
 } from "./formOptions";
 import type { RequestTask, TravelRequestDetail, TravelRequestInput } from "./types";
 import { formatTimestamp } from "./utils";
@@ -86,14 +85,7 @@ export default function WorkflowTaskModal({
   const isDone = task.status === TASK_STATUS_DONE;
   const workspaceHint = getTaskWorkspaceHint(task.task_key);
   const activeWorkflow = getActiveWorkflow(request.request_workflows);
-  const acceptedCruise =
-    request.proposed_cruises.find((cruise) => cruise.status === PROPOSED_CRUISE_STATUS_ACCEPTED) ?? null;
-  const bookingCruise =
-    request.proposed_cruises.find(
-      (cruise) =>
-        cruise.status === PROPOSED_CRUISE_STATUS_ACCEPTED ||
-        cruise.status === PROPOSED_CRUISE_STATUS_DEPOSITED,
-    ) ?? null;
+  const bookingCruises = getCrmEntryProposedCruises(request.proposed_cruises);
   const usesCustomSave =
     (task.task_key === TASK_KEY_CLIENT_RESPONSE ||
       task.task_key === TASK_KEY_VERIFY_PASSENGER_DETAILS ||
@@ -230,8 +222,7 @@ export default function WorkflowTaskModal({
             <CreateCabinHoldsTaskPanel
               requestId={request.id}
               cabinsNeeded={request.cabins_needed}
-              reservationIds={request.cabin_hold_reservation_ids}
-              bookingCruise={bookingCruise}
+              bookingCruises={bookingCruises}
               taskId={task.id}
               disabled={disabled}
               isDone={isDone}
@@ -245,8 +236,7 @@ export default function WorkflowTaskModal({
             <CollectPaymentAndBookingCommunicationTaskPanel
               requestId={request.id}
               cabinsNeeded={request.cabins_needed}
-              reservationIds={request.cabin_hold_reservation_ids}
-              acceptedCruise={acceptedCruise}
+              bookingCruises={bookingCruises}
               task={task}
               disabled={disabled}
               isDone={isDone}

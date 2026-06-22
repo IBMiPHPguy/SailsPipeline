@@ -180,7 +180,7 @@ def test_supplier_ledger_page_aggregates_deposited_volume(db):
     assert row.average_commission_rate_percent == 10.0
 
 
-def test_supplier_ledger_page_excludes_accepted_and_includes_closed_requests(db):
+def test_supplier_ledger_page_includes_accepted_and_deposited_cruises(db):
     user = _create_user(db, username="ledger-status-agent")
     open_request = _create_request(db, user=user)
     closed_request = _create_request(db, user=user, cruise_line="Celebrity Cruises")
@@ -230,13 +230,121 @@ def test_supplier_ledger_page_excludes_accepted_and_includes_closed_requests(db)
     db.commit()
 
     page = get_supplier_ledger_page(db, ReportQueryFilters(agency_id=DEFAULT_AGENCY_ID,))
-    assert page.total == 1
-    assert page.items[0].cruise_line == "Celebrity Cruises"
-    assert page.items[0].active_booking_count == 1
+    assert page.total == 2
+    lines = {row.cruise_line: row for row in page.items}
+    assert lines["Royal Caribbean International"].active_booking_count == 1
+    assert lines["Royal Caribbean International"].total_volume == 4000.0
+    assert lines["Celebrity Cruises"].active_booking_count == 1
+    assert lines["Celebrity Cruises"].total_volume == 5100.0
 
-    open_only = get_supplier_ledger_page(db, ReportQueryFilters(agency_id=DEFAULT_AGENCY_ID,pipeline_status="open"))
-    assert open_only.total == 1
-    assert open_only.items[0].cruise_line == "Celebrity Cruises"
+
+def test_supplier_ledger_page_splits_side_by_side_bookings_on_one_request(db):
+    user = _create_user(db, username="ledger-b2b-agent")
+    request = _create_request(db, user=user)
+    db.add_all(
+        [
+            ProposedCruise(
+                travel_request_id=request.id,
+                departure_date=date(2026, 3, 15),
+                cruise_line="Royal Caribbean International",
+                ship="Icon of the Seas",
+                number_of_nights=7,
+                itinerary_name="Western Caribbean",
+                room_category="Balcony",
+                room_number="1234",
+                passengers_in_room=2,
+                deposit_amount=500,
+                deposit_due_date=date(2026, 1, 15),
+                final_payment_due_date=date(2026, 2, 15),
+                cost=5000,
+                cabin_rooms=[{"commission": 500}],
+                status=PROPOSED_CRUISE_STATUS_ACCEPTED,
+                created_by_id=user.id,
+                updated_by_id=user.id,
+            ),
+            ProposedCruise(
+                travel_request_id=request.id,
+                departure_date=date(2026, 4, 10),
+                cruise_line="Celebrity Cruises",
+                ship="Ascent",
+                number_of_nights=7,
+                itinerary_name="Eastern Caribbean",
+                room_category="Balcony",
+                room_number="5678",
+                passengers_in_room=2,
+                deposit_amount=500,
+                deposit_due_date=date(2026, 2, 1),
+                final_payment_due_date=date(2026, 3, 1),
+                cost=4000,
+                cabin_rooms=[{"commission": 400}],
+                status=PROPOSED_CRUISE_STATUS_DEPOSITED,
+                created_by_id=user.id,
+                updated_by_id=user.id,
+            ),
+        ]
+    )
+    db.commit()
+
+    page = get_supplier_ledger_page(db, ReportQueryFilters(agency_id=DEFAULT_AGENCY_ID,))
+    assert page.total == 2
+    lines = {row.cruise_line: row for row in page.items}
+    assert lines["Royal Caribbean International"].active_booking_count == 1
+    assert lines["Royal Caribbean International"].total_volume == 5000.0
+    assert lines["Celebrity Cruises"].active_booking_count == 1
+    assert lines["Celebrity Cruises"].total_volume == 4000.0
+
+
+def test_sales_manifest_page_sums_back_to_back_booked_cruises(db):
+    user = _create_user(db, username="manifest-b2b-agent")
+    request = _create_request(db, user=user)
+    db.add_all(
+        [
+            ProposedCruise(
+                travel_request_id=request.id,
+                departure_date=date(2026, 3, 15),
+                cruise_line="Royal Caribbean International",
+                ship="Icon of the Seas",
+                number_of_nights=7,
+                itinerary_name="Western Caribbean",
+                room_category="Balcony",
+                room_number="1234",
+                passengers_in_room=2,
+                deposit_amount=500,
+                deposit_due_date=date(2026, 1, 15),
+                final_payment_due_date=date(2026, 2, 15),
+                cost=5000,
+                cabin_rooms=[{"commission": 500}],
+                status=PROPOSED_CRUISE_STATUS_ACCEPTED,
+                created_by_id=user.id,
+                updated_by_id=user.id,
+            ),
+            ProposedCruise(
+                travel_request_id=request.id,
+                departure_date=date(2026, 4, 10),
+                cruise_line="Celebrity Cruises",
+                ship="Ascent",
+                number_of_nights=7,
+                itinerary_name="Eastern Caribbean",
+                room_category="Balcony",
+                room_number="5678",
+                passengers_in_room=2,
+                deposit_amount=500,
+                deposit_due_date=date(2026, 2, 1),
+                final_payment_due_date=date(2026, 3, 1),
+                cost=4000,
+                cabin_rooms=[{"commission": 400}],
+                status=PROPOSED_CRUISE_STATUS_DEPOSITED,
+                created_by_id=user.id,
+                updated_by_id=user.id,
+            ),
+        ]
+    )
+    db.commit()
+
+    page = get_sales_manifest_page(db, ReportQueryFilters(agency_id=DEFAULT_AGENCY_ID,))
+    row = next(item for item in page.items if item.request_id == request.id)
+    assert row.estimated_gross_booking_total == 9000.0
+    assert row.projected_commission_target == 900.0
 
 
 def test_funnel_leak_page_includes_rejected_quotes(db):

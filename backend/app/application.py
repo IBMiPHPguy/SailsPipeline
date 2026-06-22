@@ -6,6 +6,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
+from app.agency_rollup_scheduler import start_agency_rollup_scheduler, stop_agency_rollup_scheduler
 from app.attachment_storage import migrate_legacy_attachment_content
 from app.branding import API_TITLE
 from app.config import settings
@@ -22,11 +23,23 @@ configure_tenant_session()
 def seed_admin_user(db) -> None:
     from app.models import User
     from app.security import hash_password
+    from app.services.agency_rollup_service import refresh_agency_rollups
     from app.services.agency_service import ensure_default_agency
     from app.tenant_constants import DEFAULT_AGENCY_ID
     from app.tenant_roles import USER_ROLE_TENANT_SUPER_USER
 
     default_agency = ensure_default_agency(db)
+
+    if settings.app_env != "test":
+        try:
+            refresh_agency_rollups(db, default_agency.id)
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "Initial agency rollup refresh skipped; apply db/migrate_multi_tenant_phase3_rollups.sql if needed."
+            )
+            db.rollback()
 
     if not settings.seed_admin_username or not settings.seed_admin_password:
         db.commit()
@@ -110,7 +123,9 @@ async def lifespan(_app: FastAPI):
             migrate_legacy_attachment_content(db, settings.attachments_dir)
     finally:
         db.close()
+    start_agency_rollup_scheduler()
     yield
+    stop_agency_rollup_scheduler()
 
 
 def create_app() -> FastAPI:

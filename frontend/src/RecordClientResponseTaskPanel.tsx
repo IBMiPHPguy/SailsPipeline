@@ -11,6 +11,7 @@ import ProposedCruiseRejectionReasonFields from "./ProposedCruiseRejectionReason
 import ResearchUploadPanel from "./ResearchUploadPanel";
 import {
   PROPOSED_CRUISE_STATUS_ACCEPTED,
+  PROPOSED_CRUISE_STATUS_DEPOSITED,
   PROPOSED_CRUISE_STATUS_PROPOSED,
   PROPOSED_CRUISE_STATUS_REJECTED,
   PRIMARY_CLOSE_REASON,
@@ -24,9 +25,11 @@ import type { ProposedCruise, RequestWorkflow } from "./types";
 import {
   buildProposedCruiseRejectionPayload,
   EMPTY_PROPOSED_CRUISE_REJECTION,
+  formatProposedCruiseRejectionReason,
   type ProposedCruiseRejectionInput,
   validateProposedCruiseRejectionInput,
 } from "./proposedCruiseRejection";
+import { proposedCruiseStatusClass } from "./proposedCruiseForm";
 import { formatDate } from "./utils";
 import { TASK_STATUS_OPEN } from "./workflowForm";
 
@@ -70,6 +73,24 @@ export default function RecordClientResponseTaskPanel({
     () => proposedCruises.filter((cruise) => cruise.status === PROPOSED_CRUISE_STATUS_PROPOSED),
     [proposedCruises],
   );
+  const decidedCruises = useMemo(
+    () => proposedCruises.filter((cruise) => cruise.status !== PROPOSED_CRUISE_STATUS_PROPOSED),
+    [proposedCruises],
+  );
+  const acceptedCruises = useMemo(
+    () =>
+      proposedCruises.filter(
+        (cruise) =>
+          cruise.status === PROPOSED_CRUISE_STATUS_ACCEPTED ||
+          cruise.status === PROPOSED_CRUISE_STATUS_DEPOSITED,
+      ),
+    [proposedCruises],
+  );
+  const responsesRecordedElsewhere =
+    activeProposedCruises.length === 0 && decidedCruises.length > 0;
+  const allDecidedRejected =
+    responsesRecordedElsewhere &&
+    decidedCruises.every((cruise) => cruise.status === PROPOSED_CRUISE_STATUS_REJECTED);
   const followUpTask = workflow.tasks.find((task) => task.task_key === TASK_KEY_FOLLOW_UP_RESEARCH) ?? null;
   const clientResponseTask = workflow.tasks.find((task) => task.task_key === TASK_KEY_CLIENT_RESPONSE) ?? null;
   const followUpOpen = followUpTask?.status === TASK_STATUS_OPEN;
@@ -125,27 +146,42 @@ export default function RecordClientResponseTaskPanel({
   }, [allRejected, rejectedOutcome, closeReason]);
 
   function setCruiseDecision(cruiseId: number, decision: CruiseDecision) {
-    setDecisions((current) => {
-      if (decision === PROPOSED_CRUISE_STATUS_ACCEPTED) {
-        const next: Record<number, CruiseDecision | typeof PROPOSED_CRUISE_STATUS_PROPOSED> = { ...current };
-        for (const cruise of activeProposedCruises) {
-          next[cruise.id] =
-            cruise.id === cruiseId ? PROPOSED_CRUISE_STATUS_ACCEPTED : PROPOSED_CRUISE_STATUS_REJECTED;
-        }
-        return next;
-      }
-
-      return {
-        ...current,
-        [cruiseId]: decision,
-      };
-    });
+    setDecisions((current) => ({
+      ...current,
+      [cruiseId]: decision,
+    }));
 
     if (decision === PROPOSED_CRUISE_STATUS_REJECTED) {
       setRejectionInputs((current) => ({
         ...current,
         [cruiseId]: current[cruiseId] ?? { ...EMPTY_PROPOSED_CRUISE_REJECTION },
       }));
+    }
+  }
+
+  async function completeClientResponseWorkflow() {
+    if (followUpOpen && markFollowUpDone && followUpTask) {
+      await updateTask(requestId, followUpTask.id, { status: TASK_STATUS_DONE });
+    }
+
+    if (clientResponseTask) {
+      await updateTask(requestId, clientResponseTask.id, { status: TASK_STATUS_DONE });
+    }
+
+    await updateWorkflow(requestId, workflow.id, { status: WORKFLOW_STATUS_COMPLETED });
+    await onChanged();
+    onSaved();
+  }
+
+  async function handleMarkRecordedComplete() {
+    setSaving(true);
+    onError("");
+    try {
+      await completeClientResponseWorkflow();
+    } catch (saveError) {
+      onError(saveError instanceof Error ? saveError.message : "Unable to complete client response task.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -183,12 +219,6 @@ export default function RecordClientResponseTaskPanel({
       if (decision !== PROPOSED_CRUISE_STATUS_REJECTED) {
         continue;
       }
-      const hasAcceptedOption = pendingDecisions.some(
-        ({ decision: otherDecision }) => otherDecision === PROPOSED_CRUISE_STATUS_ACCEPTED,
-      );
-      if (hasAcceptedOption) {
-        continue;
-      }
       const rejectionInput = rejectionInputs[cruise.id] ?? EMPTY_PROPOSED_CRUISE_REJECTION;
       const rejectionError = validateProposedCruiseRejectionInput(rejectionInput);
       if (rejectionError) {
@@ -216,14 +246,6 @@ export default function RecordClientResponseTaskPanel({
         }
         if (decision === PROPOSED_CRUISE_STATUS_REJECTED) {
           const rejectionInput = rejectionInputs[cruise.id] ?? EMPTY_PROPOSED_CRUISE_REJECTION;
-          const isAutoRejected =
-            pendingDecisions.some(
-              ({ decision: otherDecision }) => otherDecision === PROPOSED_CRUISE_STATUS_ACCEPTED,
-            ) && decision === PROPOSED_CRUISE_STATUS_REJECTED;
-          if (isAutoRejected) {
-            await updateProposedCruise(requestId, cruise.id, { status: decision });
-            continue;
-          }
           await updateProposedCruise(requestId, cruise.id, {
             status: decision,
             ...buildProposedCruiseRejectionPayload(rejectionInput),
@@ -258,10 +280,77 @@ export default function RecordClientResponseTaskPanel({
     }
   }
 
-  if (activeProposedCruises.length === 0) {
+  if (activeProposedCruises.length === 0 && !responsesRecordedElsewhere) {
     return (
       <div className="record-client-response-task-panel">
         <p className="status error">No proposed cruises are awaiting a client response.</p>
+      </div>
+    );
+  }
+
+  if (responsesRecordedElsewhere) {
+    return (
+      <div className="record-client-response-task-panel">
+        <p className="workflow-task-guidance">
+          {acceptedCruises.length > 0
+            ? "Client responses were already recorded on the proposed cruises. Review the accepted options below, then mark this task complete to finish the Communicate Research workflow."
+            : "Client responses were already recorded on the proposed cruises. Review the decisions below, then mark this task complete."}
+        </p>
+
+        <ul className="record-client-response-cruise-list">
+          {decidedCruises.map((cruise) => {
+            const rejectionReason = formatProposedCruiseRejectionReason(cruise);
+
+            return (
+              <li key={cruise.id}>
+                <div className="record-client-response-cruise-summary">
+                  <div className="record-client-response-cruise-summary-header">
+                    <strong>
+                      {cruise.cruise_line} · {cruise.ship}
+                    </strong>
+                    <span className={`proposed-cruise-status ${proposedCruiseStatusClass(cruise.status)}`}>
+                      {cruise.status}
+                    </span>
+                  </div>
+                  <div className="meta">
+                    Departs {formatDate(cruise.departure_date)} · {cruise.number_of_nights} nights ·{" "}
+                    {cruise.itinerary_name}
+                  </div>
+                  <div className="meta">
+                    {cruise.room_category} · Cost {formatMoney(Number(cruise.cost))}
+                  </div>
+                  {rejectionReason ? (
+                    <div className="meta">Rejected reason: {rejectionReason}</div>
+                  ) : null}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+
+        {followUpOpen ? (
+          <label className="record-client-response-follow-up">
+            <input
+              type="checkbox"
+              checked={markFollowUpDone}
+              disabled={disabled || saving}
+              onChange={(event) => setMarkFollowUpDone(event.target.checked)}
+            />
+            Mark follow-up task as done (client responded — no follow-up needed)
+          </label>
+        ) : null}
+
+        {allDecidedRejected ? (
+          <p className="field-hint">
+            All options were rejected. Close the request or start a new Research workflow from the request if needed.
+          </p>
+        ) : null}
+
+        {!disabled ? (
+          <button type="button" disabled={saving} onClick={() => void handleMarkRecordedComplete()}>
+            {saving ? "Saving..." : "Mark client response complete"}
+          </button>
+        ) : null}
       </div>
     );
   }
@@ -305,10 +394,7 @@ export default function RecordClientResponseTaskPanel({
                 Rejected
               </label>
             </fieldset>
-            {decision === PROPOSED_CRUISE_STATUS_REJECTED &&
-            !pendingDecisions.some(
-              ({ decision: otherDecision }) => otherDecision === PROPOSED_CRUISE_STATUS_ACCEPTED,
-            ) ? (
+            {decision === PROPOSED_CRUISE_STATUS_REJECTED ? (
               <ProposedCruiseRejectionReasonFields
                 idPrefix={`client-response-${cruise.id}`}
                 value={rejectionInputs[cruise.id] ?? EMPTY_PROPOSED_CRUISE_REJECTION}

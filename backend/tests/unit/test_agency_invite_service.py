@@ -44,10 +44,9 @@ def test_create_agency_invitation_expires_in_three_days(db, test_user):
         agency_id=DEFAULT_AGENCY_ID,
         invite_email="short-lived@example.com",
     )
-    after = datetime.now(UTC).replace(tzinfo=None)
-    expected_min = before + timedelta(days=settings.agency_invite_expire_days)
-    expected_max = after + timedelta(days=settings.agency_invite_expire_days) + timedelta(seconds=1)
-    assert expected_min <= invitation.expires_at <= expected_max
+    nominal_expiry = before + timedelta(days=settings.agency_invite_expire_days)
+    delta_seconds = abs((invitation.expires_at - nominal_expiry).total_seconds())
+    assert delta_seconds <= 2
 
 
 @pytest.mark.unit

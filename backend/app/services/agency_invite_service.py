@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models import Agency, AgencyInvitation, User
 from app.security import hash_password
+from app.services.agency_rollup_service import schedule_agency_rollup_refresh
 from app.services.bridge_service import build_username_from_full_name
 from app.tenant_roles import (
     DEFAULT_INVITATION_ROLE,
@@ -217,6 +218,7 @@ def update_agency_user(
 
     db.commit()
     db.refresh(user)
+    schedule_agency_rollup_refresh(agency_id)
     return user
 
 
