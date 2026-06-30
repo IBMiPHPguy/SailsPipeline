@@ -576,6 +576,20 @@ export type AgencyWorkflowTemplate = {
   task_templates: AgencyTaskTemplate[];
 };
 
+export type AgencyTaskCatalogItem = {
+  task_key: string;
+  task_title: string;
+  description: string;
+  action_type: string;
+  prerequisite_task_keys: string[];
+};
+
+export type AgencyTaskAvailability = {
+  available_tasks: AgencyTaskCatalogItem[];
+  placed_task_keys: string[];
+  available_count: number;
+};
+
 export type RequestCommunicationInput = {
   communication_type: string;
   subject: string;

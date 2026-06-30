@@ -8778,6 +8778,19 @@ button.modal-ghost:hover:not(:disabled) {
   word-break: break-word;
 }
 
+.workflows-settings-list-item-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.workflows-settings-list-item-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted, #64748b);
+}
+
 .workflows-settings-list-item-badge {
   font-size: 0.75rem;
   color: var(--text-muted, #64748b);
@@ -8843,11 +8856,133 @@ button.modal-ghost:hover:not(:disabled) {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 0.5rem;
-  align-items: center;
+  align-items: start;
   border: 1px solid var(--border-subtle, #d8dee8);
   border-radius: 8px;
   padding: 0.5rem;
   min-width: 0;
+}
+
+.workflows-settings-task-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.workflows-settings-task-type-badge {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.workflows-settings-task-type-badge-builtin {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.workflows-settings-task-type-badge-builtin.is-placed {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.workflows-settings-task-type-badge-checklist {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.workflows-settings-available-card .workflows-settings-section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.workflows-settings-available-summary {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.workflows-settings-available-count {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #102a43;
+  line-height: 1.1;
+}
+
+.workflows-settings-library-button {
+  align-self: flex-start;
+  border: 1px solid #bcccdc;
+  background: #fff;
+  color: #243b53;
+  border-radius: 8px;
+  padding: 0.45rem 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.workflows-settings-library-button:hover {
+  background: #f0f4f8;
+}
+
+.workflows-settings-ledger-empty {
+  margin: 0 0 1rem;
+}
+
+.workflows-task-library-modal {
+  width: min(100%, 36rem);
+  max-height: min(85vh, 40rem);
+  display: flex;
+  flex-direction: column;
+}
+
+.workflows-task-library-body {
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.workflows-task-library-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.workflows-task-library-row {
+  border: 1px solid var(--border-subtle, #d8dee8);
+  border-radius: 8px;
+  padding: 0.65rem 0.75rem;
+  min-width: 0;
+}
+
+.workflows-task-library-row-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+.workflows-task-library-title {
+  font-weight: 600;
+  color: #102a43;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.workflows-task-library-description {
+  margin: 0.35rem 0 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .workflows-settings-task-index {

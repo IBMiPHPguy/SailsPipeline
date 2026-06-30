@@ -48,6 +48,8 @@ import type {
   ResearchDocument,
   WorkflowTemplate,
   AgencyWorkflowTemplate,
+  AgencyTaskCatalogItem,
+  AgencyTaskAvailability,
 } from "./types";
 
 import { API_BASE } from "./apiClient";
@@ -804,6 +806,26 @@ export async function fetchAgencyWorkflowTemplates(): Promise<AgencyWorkflowTemp
   });
   if (!response.ok) {
     throw new Error(await parseApiError(response, "Unable to load workflow playbooks."));
+  }
+  return response.json();
+}
+
+export async function fetchAgencyTaskCatalog(): Promise<AgencyTaskCatalogItem[]> {
+  const response = await apiFetch(`${API_BASE}/agency-task-catalog`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to load task library."));
+  }
+  return response.json();
+}
+
+export async function fetchAgencyTaskAvailability(): Promise<AgencyTaskAvailability> {
+  const response = await apiFetch(`${API_BASE}/agency-task-catalog/availability`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to load available tasks."));
   }
   return response.json();
 }

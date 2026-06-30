@@ -1442,6 +1442,24 @@ class AgencyTaskTemplateUpdate(BaseModel):
     task_title: str | None = Field(default=None, min_length=1, max_length=255)
 
 
+class AgencyTaskCatalogItemRead(BaseModel):
+    task_key: str
+    task_title: str
+    description: str
+    action_type: str
+    prerequisite_task_keys: list[str] = Field(default_factory=list)
+
+
+class AgencyTaskAvailabilityRead(BaseModel):
+    available_tasks: list[AgencyTaskCatalogItemRead]
+    placed_task_keys: list[str]
+    available_count: int
+
+
+class AgencyTaskFromCatalogCreate(BaseModel):
+    task_key: str = Field(min_length=1, max_length=128)
+
+
 class DashboardNextOpenTaskRead(BaseModel):
     id: str
     task_key: str

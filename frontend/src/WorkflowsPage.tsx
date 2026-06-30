@@ -4,13 +4,16 @@ import {
   createAgencyWorkflowTemplate,
   deleteAgencyTaskTemplate,
   deleteAgencyWorkflowTemplate,
+  fetchAgencyTaskAvailability,
+  fetchAgencyTaskCatalog,
   fetchAgencyWorkflowTemplates,
   moveAgencyTaskTemplate,
   updateAgencyTaskTemplate,
 } from "./api";
 import EditIcon from "./EditIcon";
 import IconTooltip from "./IconTooltip";
-import type { AgencyTaskTemplate, AgencyWorkflowTemplate } from "./types";
+import TaskLibraryModal, { TaskTypeBadge } from "./TaskLibraryModal";
+import type { AgencyTaskCatalogItem, AgencyTaskTemplate, AgencyWorkflowTemplate } from "./types";
 import TopStatusBar from "./TopStatusBar";
 import WorkflowTemplateEditModal from "./WorkflowTemplateEditModal";
 import { useTopStatusBar } from "./useTopStatusBar";
@@ -33,10 +36,18 @@ function ArrowDownIcon() {
   );
 }
 
+function formatTaskCount(count: number): string {
+  return count === 1 ? "1 task" : `${count} tasks`;
+}
+
 export default function WorkflowsPage() {
   const [templates, setTemplates] = useState<AgencyWorkflowTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [catalog, setCatalog] = useState<AgencyTaskCatalogItem[]>([]);
+  const [availableCount, setAvailableCount] = useState(0);
+  const [placedTaskKeys, setPlacedTaskKeys] = useState<Set<string>>(new Set());
+  const [libraryOpen, setLibraryOpen] = useState(false);
   const { status, showStatus, clearStatus } = useTopStatusBar();
   const [newWorkflowName, setNewWorkflowName] = useState("");
   const [newWorkflowDescription, setNewWorkflowDescription] = useState("");
@@ -50,8 +61,13 @@ export default function WorkflowsPage() {
   const loadTemplates = useCallback(async () => {
     setLoading(true);
     try {
-      const items = await fetchAgencyWorkflowTemplates();
+      const [items, availability] = await Promise.all([
+        fetchAgencyWorkflowTemplates(),
+        fetchAgencyTaskAvailability(),
+      ]);
       setTemplates(items);
+      setAvailableCount(availability.available_count);
+      setPlacedTaskKeys(new Set(availability.placed_task_keys));
       setSelectedTemplateId((current) => {
         if (current && items.some((item) => item.id === current)) {
           return current;
@@ -71,6 +87,24 @@ export default function WorkflowsPage() {
   useEffect(() => {
     void loadTemplates();
   }, [loadTemplates]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchAgencyTaskCatalog()
+      .then((items) => {
+        if (!cancelled) {
+          setCatalog(items);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCatalog([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const selectedTemplate = useMemo(
     () => templates.find((template) => template.id === selectedTemplateId) ?? null,
@@ -248,6 +282,23 @@ export default function WorkflowsPage() {
               </div>
             </section>
 
+            <section className="section-card workflows-settings-section-card workflows-settings-available-card">
+              <div className="workflows-settings-section-header">
+                <h3>Available tasks</h3>
+              </div>
+              <div className="section-card-body workflows-settings-section-body">
+                <p className="workflows-settings-available-summary">
+                  <span className="workflows-settings-available-count">{availableCount}</span>
+                  <span>
+                    built-in {availableCount === 1 ? "task" : "tasks"} not on any playbook yet
+                  </span>
+                </p>
+                <button type="button" className="workflows-settings-library-button" onClick={() => setLibraryOpen(true)}>
+                  View library
+                </button>
+              </div>
+            </section>
+
             <section className="section-card workflows-settings-section-card workflows-settings-agency-card">
               <div className="workflows-settings-section-header">
                 <h3>Agency Workflows</h3>
@@ -266,7 +317,12 @@ export default function WorkflowsPage() {
                           className="workflows-settings-list-item"
                           onClick={() => setSelectedTemplateId(template.id)}
                         >
-                          <span className="workflows-settings-list-item-name">{template.workflow_name}</span>
+                          <span className="workflows-settings-list-item-text">
+                            <span className="workflows-settings-list-item-name">{template.workflow_name}</span>
+                            <span className="workflows-settings-list-item-meta">
+                              {formatTaskCount(template.task_templates.length)}
+                            </span>
+                          </span>
                           {template.workflow_type_key ? (
                             <span className="workflows-settings-list-item-badge">Recommended</span>
                           ) : null}
@@ -319,53 +375,62 @@ export default function WorkflowsPage() {
                   <div className="workflows-settings-detail-divider" aria-hidden="true" />
 
                   <h3 className="workflows-settings-ledger-title">Task Sequence Ledger</h3>
-                  <ol className="workflows-settings-task-list">
-                    {sortedTasks.map((task, index) => (
-                      <li key={task.id} className="workflows-settings-task-row">
-                        <span className="workflows-settings-task-index">{index + 1}.</span>
-                        <input
-                          className="workflows-settings-task-input"
-                          type="text"
-                          defaultValue={task.task_title}
-                          disabled={savingTaskId === task.id}
-                          onBlur={(event) => void handleRenameTask(task, event.target.value)}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter") {
-                              event.currentTarget.blur();
-                            }
-                          }}
-                        />
-                        <div className="workflows-settings-task-actions">
-                          <button
-                            type="button"
-                            className="icon-button"
-                            aria-label="Move task up"
-                            disabled={movingTaskId === task.id || index === 0}
-                            onClick={() => void handleMoveTask(task.id, "up")}
-                          >
-                            <ArrowUpIcon />
-                          </button>
-                          <button
-                            type="button"
-                            className="icon-button"
-                            aria-label="Move task down"
-                            disabled={movingTaskId === task.id || index === sortedTasks.length - 1}
-                            onClick={() => void handleMoveTask(task.id, "down")}
-                          >
-                            <ArrowDownIcon />
-                          </button>
-                          <button
-                            type="button"
-                            className="icon-button icon-button-danger"
-                            aria-label="Remove task from workflow"
-                            onClick={() => void handleDeleteTask(task.id)}
-                          >
-                            ×
-                          </button>
-                        </div>
-                      </li>
-                    ))}
-                  </ol>
+                  {sortedTasks.length === 0 ? (
+                    <p className="meta workflows-settings-ledger-empty">
+                      No tasks yet. Add a built-in step from the task library or create a checklist task.
+                    </p>
+                  ) : (
+                    <ol className="workflows-settings-task-list">
+                      {sortedTasks.map((task, index) => (
+                        <li key={task.id} className="workflows-settings-task-row">
+                          <span className="workflows-settings-task-index">{index + 1}.</span>
+                          <div className="workflows-settings-task-main">
+                            <input
+                              className="workflows-settings-task-input"
+                              type="text"
+                              defaultValue={task.task_title}
+                              disabled={savingTaskId === task.id}
+                              onBlur={(event) => void handleRenameTask(task, event.target.value)}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                  event.currentTarget.blur();
+                                }
+                              }}
+                            />
+                            <TaskTypeBadge task={task} />
+                          </div>
+                          <div className="workflows-settings-task-actions">
+                            <button
+                              type="button"
+                              className="icon-button"
+                              aria-label="Move task up"
+                              disabled={movingTaskId === task.id || index === 0}
+                              onClick={() => void handleMoveTask(task.id, "up")}
+                            >
+                              <ArrowUpIcon />
+                            </button>
+                            <button
+                              type="button"
+                              className="icon-button"
+                              aria-label="Move task down"
+                              disabled={movingTaskId === task.id || index === sortedTasks.length - 1}
+                              onClick={() => void handleMoveTask(task.id, "down")}
+                            >
+                              <ArrowDownIcon />
+                            </button>
+                            <button
+                              type="button"
+                              className="icon-button icon-button-danger"
+                              aria-label="Remove task from workflow"
+                              onClick={() => void handleDeleteTask(task.id)}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
 
                   <form className="workflows-settings-quick-add" onSubmit={handleQuickAddTask}>
                     <label>
@@ -399,6 +464,13 @@ export default function WorkflowsPage() {
           showStatus("Workflow updated.", "success");
           await loadTemplates();
         }}
+      />
+
+      <TaskLibraryModal
+        open={libraryOpen}
+        catalog={catalog}
+        placedTaskKeys={placedTaskKeys}
+        onClose={() => setLibraryOpen(false)}
       />
     </section>
   );
