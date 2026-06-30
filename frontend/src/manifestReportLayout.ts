@@ -2,7 +2,7 @@ import { formatMoney } from "./cabinPricing";
 import { PRIMARY_CLOSE_REASON } from "./formOptions";
 import {
   type ManifestExportRowStyle,
-  workflowStyleSuffix,
+  taskKeyStyleSuffix,
 } from "./manifestReportStyles";
 import type { ReportManifestRow } from "./types";
 export type ManifestRenderRow =
@@ -12,7 +12,7 @@ export type ManifestRenderRow =
       key: string;
       label: string;
       groupType: "workflow" | "task" | "closed-reason";
-      workflowType?: string;
+      taskKey?: string;
     }
   | { kind: "request"; key: string; row: ReportManifestRow };
 
@@ -50,70 +50,41 @@ export function buildManifestRenderRows(rows: ReportManifestRow[]): ManifestRend
   if (openRows.length > 0) {
     renderRows.push({ kind: "status", key: "status-open", label: "Open Requests", statusType: "open" });
 
-    const workflowOrder = new Map<string, number>();
+    const taskOrder = new Map<string, number>();
     openRows.forEach((row, index) => {
-      const workflowName = row.current_task?.workflow_name ?? "No Active Workflow";
-      if (!workflowOrder.has(workflowName)) {
-        workflowOrder.set(workflowName, index);
+      const taskKey = row.current_task?.task_key || `title:${row.current_task?.title ?? "none"}`;
+      if (!taskOrder.has(taskKey)) {
+        taskOrder.set(taskKey, index);
       }
     });
 
-    const groupedByWorkflow = new Map<string, ReportManifestRow[]>();
+    const groupedByTask = new Map<string, ReportManifestRow[]>();
     openRows.forEach((row) => {
-      const workflowName = row.current_task?.workflow_name ?? "No Active Workflow";
-      if (!groupedByWorkflow.has(workflowName)) {
-        groupedByWorkflow.set(workflowName, []);
+      const taskKey = row.current_task?.task_key || `title:${row.current_task?.title ?? "none"}`;
+      if (!groupedByTask.has(taskKey)) {
+        groupedByTask.set(taskKey, []);
       }
-      groupedByWorkflow.get(workflowName)?.push(row);
+      groupedByTask.get(taskKey)?.push(row);
     });
 
-    [...groupedByWorkflow.entries()]
-      .sort((left, right) => (workflowOrder.get(left[0]) ?? 0) - (workflowOrder.get(right[0]) ?? 0))
-      .forEach(([workflowName, workflowRows]) => {
-        const workflowType = workflowRows[0]?.current_task?.workflow_type;
+    [...groupedByTask.entries()]
+      .sort((left, right) => (taskOrder.get(left[0]) ?? 0) - (taskOrder.get(right[0]) ?? 0))
+      .forEach(([taskKey, taskRows]) => {
+        const taskLabel = taskRows[0]?.current_task?.title ?? "No Open Workflow Task";
         renderRows.push({
           kind: "group",
-          key: `workflow-${workflowName}`,
-          label: `${workflowName} Workflow`,
-          groupType: "workflow",
-          workflowType,
+          key: `task-${taskKey}`,
+          label: taskLabel,
+          groupType: "task",
+          taskKey: taskRows[0]?.current_task?.task_key ?? undefined,
         });
-
-        const taskOrder = new Map<string, number>();
-        workflowRows.forEach((row, index) => {
-          const taskName = row.current_task?.title ?? "No Open Workflow Task";
-          if (!taskOrder.has(taskName)) {
-            taskOrder.set(taskName, index);
-          }
-        });
-
-        const groupedByTask = new Map<string, ReportManifestRow[]>();
-        workflowRows.forEach((row) => {
-          const taskName = row.current_task?.title ?? "No Open Workflow Task";
-          if (!groupedByTask.has(taskName)) {
-            groupedByTask.set(taskName, []);
-          }
-          groupedByTask.get(taskName)?.push(row);
-        });
-
-        [...groupedByTask.entries()]
-          .sort((left, right) => (taskOrder.get(left[0]) ?? 0) - (taskOrder.get(right[0]) ?? 0))
-          .forEach(([taskName, taskRows]) => {
-            renderRows.push({
-              kind: "group",
-              key: `task-${workflowName}-${taskName}`,
-              label: taskName,
-              groupType: "task",
-              workflowType,
-            });
-            taskRows.forEach((row) =>
-              renderRows.push({
-                kind: "request",
-                key: `request-${row.request_id}`,
-                row,
-              }),
-            );
-          });
+        taskRows.forEach((row) =>
+          renderRows.push({
+            kind: "request",
+            key: `request-${row.request_id}`,
+            row,
+          }),
+        );
       });
   }
 
@@ -169,7 +140,7 @@ function exportStyleForRenderRow(entry: ManifestRenderRow): ManifestExportRowSty
       return entry.label === PRIMARY_CLOSE_REASON ? "closed-reason-purchased" : "closed-reason";
     }
 
-    const suffix = workflowStyleSuffix(entry.workflowType);
+    const suffix = taskKeyStyleSuffix(entry.taskKey);
     return entry.groupType === "workflow" ? `workflow-${suffix}` : `task-${suffix}`;
   }
 
@@ -187,7 +158,7 @@ function manifestRenderRowToExportRow(entry: ManifestRenderRow): string[] {  if 
   }
 
   if (entry.kind === "group") {
-    const label = entry.groupType === "task" ? `  ${entry.label}` : entry.label;
+    const label = entry.groupType === "task" ? entry.label : entry.label;
     return [label, ...emptyManifestExportCells()];
   }
 

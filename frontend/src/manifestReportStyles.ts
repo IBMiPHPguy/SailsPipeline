@@ -128,6 +128,58 @@ export const MANIFEST_ROW_STYLES: Record<ManifestExportRowStyle, ManifestRowStyl
   },
 };
 
+import {
+  TASK_KEY_CLIENT_RESPONSE,
+  TASK_KEY_COLLECT_PASSENGER_ADDRESSES,
+  TASK_KEY_COLLECT_PAYMENT_AND_SEND_BOOKING,
+  TASK_KEY_CREATE_CABIN_HOLDS,
+  TASK_KEY_CREATE_PROPOSED_CRUISES,
+  TASK_KEY_CREATE_TRIP_IN_CRM,
+  TASK_KEY_DRAFT_RESEARCH_COMMUNICATION,
+  TASK_KEY_FOLLOW_UP_RESEARCH,
+  TASK_KEY_RESEARCH_CRUISE_OPTIONS,
+  TASK_KEY_SEND_RESEARCH_COMMUNICATION,
+  TASK_KEY_UPLOAD_RESEARCH_DOCUMENT,
+  TASK_KEY_VERIFY_PASSENGER_DETAILS,
+} from "./formOptions";
+
+const RESEARCH_TASK_KEYS = new Set([
+  TASK_KEY_RESEARCH_CRUISE_OPTIONS,
+  TASK_KEY_UPLOAD_RESEARCH_DOCUMENT,
+  TASK_KEY_CREATE_PROPOSED_CRUISES,
+  TASK_KEY_DRAFT_RESEARCH_COMMUNICATION,
+]);
+
+const COMMUNICATE_TASK_KEYS = new Set([
+  TASK_KEY_SEND_RESEARCH_COMMUNICATION,
+  TASK_KEY_FOLLOW_UP_RESEARCH,
+  TASK_KEY_CLIENT_RESPONSE,
+]);
+
+const CRM_TASK_KEYS = new Set([
+  TASK_KEY_VERIFY_PASSENGER_DETAILS,
+  TASK_KEY_COLLECT_PASSENGER_ADDRESSES,
+  TASK_KEY_CREATE_CABIN_HOLDS,
+  TASK_KEY_COLLECT_PAYMENT_AND_SEND_BOOKING,
+  TASK_KEY_CREATE_TRIP_IN_CRM,
+]);
+
+export function taskKeyStyleSuffix(taskKey?: string): "research" | "communicate" | "crm" | "default" {
+  if (!taskKey) {
+    return "default";
+  }
+  if (RESEARCH_TASK_KEYS.has(taskKey)) {
+    return "research";
+  }
+  if (COMMUNICATE_TASK_KEYS.has(taskKey)) {
+    return "communicate";
+  }
+  if (CRM_TASK_KEYS.has(taskKey)) {
+    return "crm";
+  }
+  return "default";
+}
+
 export function workflowStyleSuffix(workflowType?: string): "research" | "communicate" | "crm" | "default" {
   if (workflowType === "research") {
     return "research";

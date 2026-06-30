@@ -354,7 +354,7 @@ def search_open_requests(
             cast(TravelRequest.cruise_lines, String).ilike(pattern),
             User.username.ilike(pattern),
             RequestTaskLive.task_title.ilike(pattern),
-            RequestWorkflowLive.workflow_type_key.ilike(pattern),
+            RequestTaskLive.task_key.ilike(pattern),
             RequestWorkflowLive.workflow_name.ilike(pattern),
         ]
         if phone_digits:

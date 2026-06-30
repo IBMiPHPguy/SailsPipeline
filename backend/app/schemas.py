@@ -1467,6 +1467,9 @@ class AgencyTaskCatalogItemRead(BaseModel):
     description: str
     action_type: str
     prerequisite_task_keys: list[str] = Field(default_factory=list)
+    on_complete_schedule_follow_up_task_key: str | None = None
+    follow_up_due_days: int | None = None
+    allows_reached_out: bool = False
 
 
 class AgencyCustomTaskDefinitionRead(BaseModel):

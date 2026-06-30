@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import type { ReportWorkflowTaskGroup } from "./types";
 import { QUALIFIERS } from "./formOptions";
 import { qualifierBadgeClass } from "./qualifierDisplay";
@@ -44,6 +45,20 @@ export default function ReportControlBar({
   const showAdvisorFilter = variant === "advisor-scorecard";
   const showQualifierFilter = variant === "passenger-demographics";
   const showTimeframeFilter = variant !== "passenger-demographics";
+
+  const workflowTaskOptions = useMemo(() => {
+    const options = new Map<string, string>();
+    for (const group of workflowTaskGroups) {
+      for (const task of group.tasks) {
+        if (!options.has(task.value)) {
+          options.set(task.value, task.label);
+        }
+      }
+    }
+    return [...options.entries()]
+      .sort((left, right) => left[1].localeCompare(right[1], undefined, { sensitivity: "base" }))
+      .map(([value, label]) => ({ value, label }));
+  }, [workflowTaskGroups]);
 
   function toggleQualifier(qualifier: string) {
     const selected = filters.qualifiers.includes(qualifier);
@@ -195,20 +210,16 @@ export default function ReportControlBar({
           </label>
 
           <label className="report-control-field">
-            <span>Workflow Task</span>
+            <span>Open task</span>
             <select
               value={filters.workflowTask}
               onChange={(event) => onChange({ workflowTask: event.target.value, page: 1 })}
             >
-              <option value="all">All workflow tasks</option>
-              {workflowTaskGroups.map((group) => (
-                <optgroup key={group.workflow_type} label={group.workflow_name}>
-                  {group.tasks.map((task) => (
-                    <option key={task.value} value={task.value}>
-                      {task.label}
-                    </option>
-                  ))}
-                </optgroup>
+              <option value="all">All open tasks</option>
+              {workflowTaskOptions.map((task) => (
+                <option key={task.value} value={task.value}>
+                  {task.label}
+                </option>
               ))}
             </select>
           </label>
