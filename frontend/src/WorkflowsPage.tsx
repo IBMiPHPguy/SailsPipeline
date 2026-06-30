@@ -290,7 +290,7 @@ export default function WorkflowsPage() {
                 <p className="workflows-settings-available-summary">
                   <span className="workflows-settings-available-count">{availableCount}</span>
                   <span>
-                    built-in {availableCount === 1 ? "task" : "tasks"} not on any playbook yet
+                    built-in {availableCount === 1 ? "task" : "tasks"} not on any workflow yet
                   </span>
                 </p>
                 <button type="button" className="workflows-settings-library-button" onClick={() => setLibraryOpen(true)}>
@@ -470,6 +470,7 @@ export default function WorkflowsPage() {
         open={libraryOpen}
         catalog={catalog}
         placedTaskKeys={placedTaskKeys}
+        availableCount={availableCount}
         onClose={() => setLibraryOpen(false)}
       />
     </section>

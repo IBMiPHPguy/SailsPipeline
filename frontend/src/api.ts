@@ -805,7 +805,7 @@ export async function fetchAgencyWorkflowTemplates(): Promise<AgencyWorkflowTemp
     headers: authHeaders(),
   });
   if (!response.ok) {
-    throw new Error(await parseApiError(response, "Unable to load workflow playbooks."));
+    throw new Error(await parseApiError(response, "Unable to load workflows."));
   }
   return response.json();
 }
@@ -840,7 +840,7 @@ export async function createAgencyWorkflowTemplate(payload: {
     body: JSON.stringify(payload),
   });
   if (!response.ok) {
-    throw new Error(await parseApiError(response, "Unable to create workflow playbook."));
+    throw new Error(await parseApiError(response, "Unable to create workflow."));
   }
   return response.json();
 }
@@ -855,7 +855,7 @@ export async function updateAgencyWorkflowTemplate(
     body: JSON.stringify(payload),
   });
   if (!response.ok) {
-    throw new Error(await parseApiError(response, "Unable to update workflow playbook."));
+    throw new Error(await parseApiError(response, "Unable to update workflow."));
   }
   return response.json();
 }
@@ -866,7 +866,7 @@ export async function deleteAgencyWorkflowTemplate(templateId: string): Promise<
     headers: authHeaders(),
   });
   if (!response.ok) {
-    throw new Error(await parseApiError(response, "Unable to delete workflow playbook."));
+    throw new Error(await parseApiError(response, "Unable to delete workflow."));
   }
 }
 

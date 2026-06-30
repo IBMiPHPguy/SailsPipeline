@@ -8936,53 +8936,75 @@ button.modal-ghost:hover:not(:disabled) {
   margin: 0 0 1rem;
 }
 
-.workflows-task-library-modal {
-  width: min(100%, 36rem);
-  max-height: min(85vh, 40rem);
+.task-library-modal {
+  width: min(100%, 640px);
+}
+
+.task-library-modal-body {
   display: flex;
   flex-direction: column;
+  gap: 0.85rem;
 }
 
-.workflows-task-library-body {
-  overflow-y: auto;
-  min-height: 0;
+.task-library-modal-intro {
+  margin: 0;
 }
 
-.workflows-task-library-list {
+.task-library-modal-list {
   list-style: none;
-  margin: 0.75rem 0 0;
+  margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
 }
 
-.workflows-task-library-row {
-  border: 1px solid var(--border-subtle, #d8dee8);
-  border-radius: 8px;
-  padding: 0.65rem 0.75rem;
+.task-library-modal-item {
+  margin: 0;
   min-width: 0;
 }
 
-.workflows-task-library-row-main {
+.task-library-modal-item-header {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
   justify-content: space-between;
+  gap: 0.5rem;
 }
 
-.workflows-task-library-title {
+.task-library-modal-item-title {
+  margin: 0;
+  font-size: 0.95rem;
   font-weight: 600;
   color: #102a43;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 
-.workflows-task-library-description {
+.task-library-modal-item-description {
   margin: 0.35rem 0 0;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.task-library-modal-status {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.task-library-modal-status-available {
+  background: #e3f2fd;
+  color: #1864ab;
+}
+
+.task-library-modal-status-placed {
+  background: #f0f4f8;
+  color: #627d98;
 }
 
 .workflows-settings-task-index {

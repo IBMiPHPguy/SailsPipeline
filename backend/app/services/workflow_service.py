@@ -79,10 +79,10 @@ def _resolve_template(
             AgencyWorkflowTemplate.workflow_type_key == workflow_type,
         ).first()
     else:
-        raise HTTPException(status_code=400, detail="Select a workflow playbook.")
+        raise HTTPException(status_code=400, detail="Select a workflow.")
 
     if template is None or not template.task_templates:
-        raise HTTPException(status_code=404, detail="Workflow playbook not found.")
+        raise HTTPException(status_code=404, detail="Workflow not found.")
     require_record_for_agency(template, agency_id=agency_id)
     return template
 

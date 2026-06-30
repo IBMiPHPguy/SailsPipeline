@@ -1244,7 +1244,7 @@ class RequestWorkflowCreate(BaseModel):
     @model_validator(mode="after")
     def validate_selector(self):
         if not self.template_id and not self.workflow_type:
-            raise ValueError("Select a workflow playbook.")
+            raise ValueError("Select a workflow.")
         return self
 
 

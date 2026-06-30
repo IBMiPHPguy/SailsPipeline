@@ -84,7 +84,7 @@ def update_agency_workflow_template(
 def delete_agency_workflow_template(db: Session, *, template_id: str) -> None:
     template = load_workflow_template(db, template_id)
     if template.workflow_type_key is not None:
-        raise HTTPException(status_code=400, detail="System playbooks cannot be deleted.")
+        raise HTTPException(status_code=400, detail="System workflows cannot be deleted.")
     db.delete(template)
     db.commit()
 

@@ -74,7 +74,7 @@ def assert_task_key_available_for_agency(
     if query.first() is not None:
         raise HTTPException(
             status_code=400,
-            detail=f"Built-in task '{task_key}' is already on a playbook for this agency.",
+            detail=f"Built-in task '{task_key}' is already on a workflow for this agency.",
         )
 
 

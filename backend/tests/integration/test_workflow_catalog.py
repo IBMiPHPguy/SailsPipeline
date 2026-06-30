@@ -69,7 +69,7 @@ def test_create_catalog_task_rejects_duplicate(client, auth_headers, db):
         json={"task_key": "research_cruise_options"},
     )
     assert response.status_code == 400
-    assert "already on a playbook" in response.json()["detail"]
+    assert "already on a workflow" in response.json()["detail"]
 
 
 @pytest.mark.integration
