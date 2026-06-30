@@ -25,10 +25,9 @@ from app.services.request_service import get_open_request, touch_request
 from app.services.workflow_template_seed import seed_agency_workflow_templates
 from app.tenant_context import require_current_agency_id
 from app.workflow_helpers import (
+    apply_task_completion_side_effects,
     ensure_follow_up_due_date,
     record_follow_up_reached_out,
-    schedule_follow_up_due_date,
-    TASK_KEY_SEND_RESEARCH_COMMUNICATION,
 )
 
 
@@ -312,13 +311,13 @@ def update_task(
 
     if payload.is_completed is not None:
         _apply_task_status(task, TASK_STATUS_DONE if payload.is_completed else TASK_STATUS_OPEN, current_user)
-        if payload.is_completed and task.task_key == TASK_KEY_SEND_RESEARCH_COMMUNICATION and task.completed_at:
-            schedule_follow_up_due_date(workflow, task.completed_at)
+        if payload.is_completed and task.completed_at:
+            apply_task_completion_side_effects(workflow, task)
 
     if payload.status is not None:
         _apply_task_status(task, payload.status, current_user)
-        if payload.status == TASK_STATUS_DONE and task.task_key == TASK_KEY_SEND_RESEARCH_COMMUNICATION and task.completed_at:
-            schedule_follow_up_due_date(workflow, task.completed_at)
+        if payload.status == TASK_STATUS_DONE and task.completed_at:
+            apply_task_completion_side_effects(workflow, task)
 
     payload_data = payload.model_dump(exclude_unset=True)
     if payload_data.get("reached_out"):

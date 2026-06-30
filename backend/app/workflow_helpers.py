@@ -8,6 +8,7 @@ from app.constants import (
     WORKFLOW_TYPE_ENTER_TRIP_CRM,
     WORKFLOW_TYPE_RESEARCH,
 )
+from app.task_behavior import get_task_behavior
 
 FOLLOW_UP_DUE_DAYS = 3
 
@@ -157,30 +158,61 @@ def get_workflow_type_key(workflow) -> str | None:
     return getattr(workflow, "workflow_type_key", None) or getattr(workflow, "workflow_type", None)
 
 
-def schedule_follow_up_due_date(workflow, send_completed_at: datetime) -> None:
-    follow_up = _task_by_key(workflow.tasks, TASK_KEY_FOLLOW_UP_RESEARCH)
+def schedule_follow_up_due_date(
+    workflow,
+    completed_at: datetime,
+    *,
+    completed_task_key: str = TASK_KEY_SEND_RESEARCH_COMMUNICATION,
+) -> None:
+    behavior = get_task_behavior(completed_task_key)
+    if behavior is None or not behavior.on_complete_schedule_follow_up_task_key:
+        return
+
+    follow_up = _task_by_key(workflow.tasks, behavior.on_complete_schedule_follow_up_task_key)
     if follow_up is None or follow_up.status != TASK_STATUS_OPEN:
         return
 
-    follow_up.due_at = send_completed_at + timedelta(days=FOLLOW_UP_DUE_DAYS)
+    follow_up.due_at = completed_at + timedelta(days=behavior.follow_up_due_days)
+
+
+def apply_task_completion_side_effects(workflow, completed_task) -> None:
+    behavior = get_task_behavior(getattr(completed_task, "task_key", None))
+    if behavior is None or not behavior.on_complete_schedule_follow_up_task_key:
+        return
+    if getattr(completed_task, "status", None) != TASK_STATUS_DONE:
+        return
+    completed_at = getattr(completed_task, "completed_at", None)
+    if completed_at is None:
+        return
+
+    follow_up = _task_by_key(workflow.tasks, behavior.on_complete_schedule_follow_up_task_key)
+    if follow_up is None or follow_up.status != TASK_STATUS_OPEN:
+        return
+
+    follow_up.due_at = completed_at + timedelta(days=behavior.follow_up_due_days)
 
 
 def ensure_follow_up_due_date(workflow) -> None:
-    send_task = _task_by_key(workflow.tasks, TASK_KEY_SEND_RESEARCH_COMMUNICATION)
-    follow_up = _task_by_key(workflow.tasks, TASK_KEY_FOLLOW_UP_RESEARCH)
-    if send_task is None or follow_up is None:
-        return
-    if send_task.status != TASK_STATUS_DONE or follow_up.status != TASK_STATUS_OPEN or follow_up.due_at is not None:
-        return
-    if send_task.completed_at is None:
-        return
+    for task in workflow.tasks:
+        if task.status != TASK_STATUS_DONE or task.completed_at is None:
+            continue
+        behavior = get_task_behavior(task.task_key)
+        if behavior is None or not behavior.on_complete_schedule_follow_up_task_key:
+            continue
 
-    follow_up.due_at = send_task.completed_at + timedelta(days=FOLLOW_UP_DUE_DAYS)
+        follow_up = _task_by_key(workflow.tasks, behavior.on_complete_schedule_follow_up_task_key)
+        if follow_up is None:
+            continue
+        if follow_up.status != TASK_STATUS_OPEN or follow_up.due_at is not None:
+            continue
+
+        follow_up.due_at = task.completed_at + timedelta(days=behavior.follow_up_due_days)
 
 
 def record_follow_up_reached_out(task, *, now: datetime) -> None:
-    if task.task_key != TASK_KEY_FOLLOW_UP_RESEARCH:
-        raise ValueError("Reached out can only be recorded on follow-up tasks.")
+    behavior = get_task_behavior(task.task_key)
+    if behavior is None or not behavior.allows_reached_out:
+        raise ValueError("Reached out can only be recorded on tasks that support follow-up outreach.")
     if task.status != TASK_STATUS_OPEN:
         raise ValueError("Reached out can only be recorded on open tasks.")
 

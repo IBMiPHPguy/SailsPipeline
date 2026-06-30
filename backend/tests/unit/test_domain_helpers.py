@@ -111,7 +111,7 @@ def test_record_follow_up_reached_out_rejects_wrong_task_key():
         status = "Open"
         result = {}
 
-    with pytest.raises(ValueError, match="follow-up tasks"):
+    with pytest.raises(ValueError, match="follow-up outreach"):
         record_follow_up_reached_out(Task(), now=datetime.now(timezone.utc))
 
 

@@ -23,13 +23,13 @@ function manifestRow(overrides: Partial<ReportManifestRow> & Pick<ReportManifest
 }
 
 describe("buildManifestRenderRows", () => {
-  it("groups open requests by workflow and task, then closed requests by reason", () => {
+  it("groups open requests by open task, then closed requests by reason", () => {
     const rows = buildManifestRenderRows([
       manifestRow({
         request_id: 1,
         current_task: {
-          id: 1,
-          task_key: "research_cruise",
+          id: "1",
+          task_key: "research_cruise_options",
           title: "Research Cruise",
           workflow_name: "Research",
           workflow_type: "research",
@@ -44,7 +44,6 @@ describe("buildManifestRenderRows", () => {
 
     expect(rows.map((entry) => (entry.kind === "request" ? entry.row.request_id : entry.label))).toEqual([
       "Open Requests",
-      "Research Workflow",
       "Research Cruise",
       1,
       "Closed Requests",
@@ -60,8 +59,8 @@ describe("buildManifestExportModel", () => {
       manifestRow({
         request_id: 10,
         current_task: {
-          id: 2,
-          task_key: "send_proposal",
+          id: "2",
+          task_key: "send_research_communication",
           title: "Send Proposal",
           workflow_name: "Communicate",
           workflow_type: "communicate_research",
@@ -75,19 +74,14 @@ describe("buildManifestExportModel", () => {
       merge: true,
     });
     expect(exportRows[1]).toEqual({
-      cells: ["Communicate Workflow", "", "", "", "", "", "", ""],
-      style: "workflow-communicate",
-      merge: true,
-    });
-    expect(exportRows[2]).toEqual({
-      cells: ["  Send Proposal", "", "", "", "", "", "", ""],
+      cells: ["Send Proposal", "", "", "", "", "", "", ""],
       style: "task-communicate",
       merge: true,
     });
-    expect(exportRows[3]?.cells[0]).toBe("#10");
-    expect(exportRows[3]?.cells[5]).toBe("$5,000.00");
-    expect(exportRows[3]?.style).toBe("request");
-    expect(exportRows[3]?.merge).toBe(false);
+    expect(exportRows[2]?.cells[0]).toBe("#10");
+    expect(exportRows[2]?.cells[5]).toBe("$5,000.00");
+    expect(exportRows[2]?.style).toBe("request");
+    expect(exportRows[2]?.merge).toBe(false);
   });
 
   it("returns the empty-state row when no records match", () => {

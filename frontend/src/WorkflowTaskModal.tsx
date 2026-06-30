@@ -1,34 +1,13 @@
-import CollectPaymentAndBookingCommunicationTaskPanel from "./CollectPaymentAndBookingCommunicationTaskPanel";
-import CreateCabinHoldsTaskPanel from "./CreateCabinHoldsTaskPanel";
-import CollectPassengerAddressesTaskPanel, {
-  isCollectPassengerAddressesTask,
-} from "./CollectPassengerAddressesTaskPanel";
-import CreateTripInCrmTaskPanel from "./CreateTripInCrmTaskPanel";
 import { getCrmEntryProposedCruises } from "./crmEntrySummary";
-import DraftResearchCommunicationTaskPanel from "./DraftResearchCommunicationTaskPanel";
-import FollowUpResearchTaskPanel from "./FollowUpResearchTaskPanel";
-import ProposedCruisesTaskPanel from "./ProposedCruisesTaskPanel";
-import RecordClientResponseTaskPanel from "./RecordClientResponseTaskPanel";
-import ResearchTaskBriefPanel from "./ResearchTaskBriefPanel";
-import ResearchUploadPanel from "./ResearchUploadPanel";
-import SendResearchCommunicationTaskPanel from "./SendResearchCommunicationTaskPanel";
-import VerifyPassengerDetailsTaskPanel from "./VerifyPassengerDetailsTaskPanel";
-import {
-  TASK_KEY_CLIENT_RESPONSE,
-  TASK_KEY_COLLECT_PAYMENT_AND_SEND_BOOKING,
-  TASK_KEY_CREATE_CABIN_HOLDS,
-  TASK_KEY_CREATE_PROPOSED_CRUISES,
-  TASK_KEY_CREATE_TRIP_IN_CRM,
-  TASK_KEY_DRAFT_RESEARCH_COMMUNICATION,
-  TASK_KEY_FOLLOW_UP_RESEARCH,
-  TASK_KEY_RESEARCH_CRUISE_OPTIONS,
-  TASK_KEY_SEND_RESEARCH_COMMUNICATION,
-  TASK_KEY_UPLOAD_RESEARCH_DOCUMENT,
-  TASK_KEY_VERIFY_PASSENGER_DETAILS,
-} from "./formOptions";
 import type { RequestTask, TravelRequestDetail, TravelRequestInput } from "./types";
+import { getActiveWorkflow, getTaskDisplayStatus, getTaskWorkspaceHint, taskDisplayStatusClass } from "./workflowForm";
+import {
+  getWorkflowTaskPanelDefinition,
+  taskUsesCustomSave,
+  type WorkflowTaskPanelContext,
+} from "./workflowTaskPanelRegistry";
+import { TASK_STATUS_DONE } from "./formOptions";
 import { formatTimestamp } from "./utils";
-import { TASK_STATUS_DONE, getActiveWorkflow, getTaskDisplayStatus, getTaskWorkspaceHint, taskDisplayStatusClass } from "./workflowForm";
 
 type WorkflowTaskModalProps = {
   open: boolean;
@@ -86,17 +65,35 @@ export default function WorkflowTaskModal({
   const workspaceHint = getTaskWorkspaceHint(task.task_key);
   const activeWorkflow = getActiveWorkflow(request.request_workflows);
   const bookingCruises = getCrmEntryProposedCruises(request.proposed_cruises);
-  const usesCustomSave =
-    (task.task_key === TASK_KEY_CLIENT_RESPONSE ||
-      task.task_key === TASK_KEY_VERIFY_PASSENGER_DETAILS ||
-      task.task_key === TASK_KEY_CREATE_CABIN_HOLDS ||
-      task.task_key === TASK_KEY_COLLECT_PAYMENT_AND_SEND_BOOKING ||
-      task.task_key === TASK_KEY_CREATE_TRIP_IN_CRM ||
-      isCollectPassengerAddressesTask(task.task_key)) &&
-    !isDone &&
-    !disabled;
+  const panelDefinition = getWorkflowTaskPanelDefinition(task);
+  const usesCustomSave = taskUsesCustomSave(task) && !isDone && !disabled;
   const displayStatus = activeWorkflow ? getTaskDisplayStatus(task, activeWorkflow) : task.status;
-  const displayStatusClass = activeWorkflow ? taskDisplayStatusClass(task, activeWorkflow) : task.status === TASK_STATUS_DONE ? "task-status-done" : "task-status-open";
+  const displayStatusClass = activeWorkflow
+    ? taskDisplayStatusClass(task, activeWorkflow)
+    : task.status === TASK_STATUS_DONE
+      ? "task-status-done"
+      : "task-status-open";
+
+  const panelContext: WorkflowTaskPanelContext = {
+    task,
+    request,
+    form,
+    disabled,
+    isDone,
+    uploadingResearch,
+    uploadSuccessMessage,
+    activeWorkflow,
+    bookingCruises,
+    onChanged,
+    onError,
+    onCloseRequest,
+    onUploadResearch,
+    onSaved: onClose,
+  };
+
+  const showFallbackGuidance =
+    workspaceHint &&
+    (panelDefinition === null || (panelDefinition.showGuidanceWhenReadOnly && (isDone || disabled)));
 
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
@@ -132,200 +129,8 @@ export default function WorkflowTaskModal({
             </p>
           ) : null}
 
-          {task.task_key === TASK_KEY_RESEARCH_CRUISE_OPTIONS ? (
-            <ResearchTaskBriefPanel request={request} form={form} />
-          ) : null}
-
-          {task.task_key === TASK_KEY_UPLOAD_RESEARCH_DOCUMENT && !isDone && !disabled ? (
-            <>
-              {uploadSuccessMessage ? (
-                <p className="status success workflow-task-upload-success">{uploadSuccessMessage}</p>
-              ) : null}
-              <ResearchUploadPanel
-                disabled={disabled}
-                uploading={uploadingResearch}
-                onUpload={onUploadResearch}
-              />
-            </>
-          ) : null}
-
-          {task.task_key === TASK_KEY_UPLOAD_RESEARCH_DOCUMENT && request.research_documents.length > 0 ? (
-            <div className="modal-section-panel workflow-task-guidance">
-              <p>
-                {request.research_documents.length} research document
-                {request.research_documents.length === 1 ? "" : "s"} on file. View them in Research Documents on the
-                right.
-              </p>
-            </div>
-          ) : null}
-
-          {task.task_key === TASK_KEY_SEND_RESEARCH_COMMUNICATION && (isDone || disabled) && workspaceHint ? (
-            <TaskGuidance taskKey={task.task_key} />
-          ) : null}
-
-          {task.task_key === TASK_KEY_SEND_RESEARCH_COMMUNICATION && !disabled ? (
-            <SendResearchCommunicationTaskPanel
-              requestId={request.id}
-              communications={request.request_communications}
-              disabled={isDone}
-              onChanged={onChanged}
-              onError={onError}
-            />
-          ) : null}
-
-          {task.task_key === TASK_KEY_FOLLOW_UP_RESEARCH && !disabled && activeWorkflow ? (
-            <FollowUpResearchTaskPanel
-              requestId={request.id}
-              task={task}
-              workflow={activeWorkflow}
-              disabled={isDone}
-              onChanged={onChanged}
-              onError={onError}
-            />
-          ) : null}
-
-          {task.task_key === TASK_KEY_FOLLOW_UP_RESEARCH && (isDone || disabled) && workspaceHint ? (
-            <TaskGuidance taskKey={task.task_key} />
-          ) : null}
-
-          {task.task_key === TASK_KEY_CLIENT_RESPONSE && (isDone || disabled) && workspaceHint ? (
-            <TaskGuidance taskKey={task.task_key} />
-          ) : null}
-
-          {task.task_key === TASK_KEY_CLIENT_RESPONSE && !isDone && !disabled && activeWorkflow ? (
-            <RecordClientResponseTaskPanel
-              requestId={request.id}
-              proposedCruises={request.proposed_cruises}
-              workflow={activeWorkflow}
-              disabled={disabled}
-              onChanged={onChanged}
-              onError={onError}
-              onCloseRequest={onCloseRequest}
-              onSaved={onClose}
-            />
-          ) : null}
-
-          {task.task_key === TASK_KEY_VERIFY_PASSENGER_DETAILS ? (
-            <VerifyPassengerDetailsTaskPanel
-              requestId={request.id}
-              passengers={request.request_passengers}
-              taskId={task.id}
-              disabled={disabled}
-              isDone={isDone}
-              onChanged={onChanged}
-              onError={onError}
-              onSaved={onClose}
-            />
-          ) : null}
-
-          {task.task_key === TASK_KEY_CREATE_CABIN_HOLDS ? (
-            <CreateCabinHoldsTaskPanel
-              requestId={request.id}
-              cabinsNeeded={request.cabins_needed}
-              bookingCruises={bookingCruises}
-              taskId={task.id}
-              disabled={disabled}
-              isDone={isDone}
-              onChanged={onChanged}
-              onError={onError}
-              onSaved={onClose}
-            />
-          ) : null}
-
-          {task.task_key === TASK_KEY_COLLECT_PAYMENT_AND_SEND_BOOKING ? (
-            <CollectPaymentAndBookingCommunicationTaskPanel
-              requestId={request.id}
-              cabinsNeeded={request.cabins_needed}
-              bookingCruises={bookingCruises}
-              task={task}
-              disabled={disabled}
-              isDone={isDone}
-              onChanged={onChanged}
-              onError={onError}
-              onSaved={onClose}
-            />
-          ) : null}
-
-          {isCollectPassengerAddressesTask(task.task_key) ? (
-            <CollectPassengerAddressesTaskPanel
-              requestId={request.id}
-              passengers={request.request_passengers}
-              taskId={task.id}
-              disabled={disabled}
-              isDone={isDone}
-              onChanged={onChanged}
-              onError={onError}
-              onSaved={onClose}
-            />
-          ) : null}
-
-          {task.task_key === TASK_KEY_CREATE_TRIP_IN_CRM ? (
-            <CreateTripInCrmTaskPanel
-              requestId={request.id}
-              request={request}
-              form={form}
-              task={task}
-              disabled={disabled}
-              isDone={isDone}
-              onChanged={onChanged}
-              onError={onError}
-              onSaved={onClose}
-            />
-          ) : null}
-
-          {task.task_key !== TASK_KEY_RESEARCH_CRUISE_OPTIONS &&
-          task.task_key !== TASK_KEY_UPLOAD_RESEARCH_DOCUMENT &&
-          task.task_key !== TASK_KEY_CREATE_PROPOSED_CRUISES &&
-          task.task_key !== TASK_KEY_DRAFT_RESEARCH_COMMUNICATION &&
-          task.task_key !== TASK_KEY_SEND_RESEARCH_COMMUNICATION &&
-          task.task_key !== TASK_KEY_FOLLOW_UP_RESEARCH &&
-          task.task_key !== TASK_KEY_CLIENT_RESPONSE &&
-          task.task_key !== TASK_KEY_VERIFY_PASSENGER_DETAILS &&
-          task.task_key !== TASK_KEY_CREATE_CABIN_HOLDS &&
-          task.task_key !== TASK_KEY_COLLECT_PAYMENT_AND_SEND_BOOKING &&
-          task.task_key !== TASK_KEY_CREATE_TRIP_IN_CRM &&
-          !isCollectPassengerAddressesTask(task.task_key) &&
-          workspaceHint ? (
-            <TaskGuidance taskKey={task.task_key} />
-          ) : null}
-
-          {task.task_key === TASK_KEY_CREATE_PROPOSED_CRUISES && !isDone && !disabled ? (
-            <ProposedCruisesTaskPanel
-              requestId={request.id}
-              researchDocuments={request.research_documents}
-              disabled={disabled}
-              onChanged={onChanged}
-              onError={onError}
-            />
-          ) : null}
-
-          {task.task_key === TASK_KEY_CREATE_PROPOSED_CRUISES && request.proposed_cruises.length > 0 ? (
-            <div className="modal-section-panel workflow-task-guidance">
-              <p>
-                {request.proposed_cruises.length} proposed cruise
-                {request.proposed_cruises.length === 1 ? "" : "s"} on the request.
-              </p>
-            </div>
-          ) : null}
-
-          {task.task_key === TASK_KEY_DRAFT_RESEARCH_COMMUNICATION && !isDone && !disabled ? (
-            <DraftResearchCommunicationTaskPanel
-              requestId={request.id}
-              requestWorkflowId={activeWorkflow?.id ?? null}
-              proposedCruises={request.proposed_cruises}
-              disabled={disabled}
-              onChanged={onChanged}
-              onError={onError}
-            />
-          ) : null}
-
-          {task.task_key === TASK_KEY_DRAFT_RESEARCH_COMMUNICATION &&
-          request.request_communications.length > 0 ? (
-            <p className="meta workflow-task-context">
-              {request.request_communications.length} communication
-              {request.request_communications.length === 1 ? "" : "s"} saved so far.
-            </p>
-          ) : null}
+          {panelDefinition ? panelDefinition.render(panelContext) : null}
+          {showFallbackGuidance ? <TaskGuidance taskKey={task.task_key} /> : null}
         </div>
 
         <div className="modal-actions modal-actions-footer">
@@ -338,7 +143,12 @@ export default function WorkflowTaskModal({
             </button>
           ) : null}
           {!disabled && !isDone && !usesCustomSave ? (
-            <button type="button" className="modal-primary" disabled={saving || uploadingResearch} onClick={() => void onMarkDone()}>
+            <button
+              type="button"
+              className="modal-primary"
+              disabled={saving || uploadingResearch}
+              onClick={() => void onMarkDone()}
+            >
               {saving ? "Saving..." : "Mark task done"}
             </button>
           ) : null}

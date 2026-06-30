@@ -155,16 +155,18 @@ export default function RecordClientResponseTaskPanel({
     }
   }
 
-  async function completeClientResponseWorkflow() {
-    if (followUpOpen && markFollowUpDone && followUpTask) {
+  async function markOpenWorkflowTasksDone() {
+    if (markFollowUpDone && followUpTask?.status === TASK_STATUS_OPEN) {
       await updateTask(requestId, followUpTask.id, { status: TASK_STATUS_DONE });
     }
 
-    if (clientResponseTask) {
+    if (clientResponseTask?.status === TASK_STATUS_OPEN) {
       await updateTask(requestId, clientResponseTask.id, { status: TASK_STATUS_DONE });
     }
+  }
 
-    await updateWorkflow(requestId, workflow.id, { status: WORKFLOW_STATUS_COMPLETED });
+  async function completeClientResponseWorkflow() {
+    await markOpenWorkflowTasksDone();
     await onChanged();
     onSaved();
   }
@@ -251,13 +253,7 @@ export default function RecordClientResponseTaskPanel({
         await updateProposedCruise(requestId, cruise.id, { status: decision });
       }
 
-      if (followUpOpen && markFollowUpDone && followUpTask) {
-        await updateTask(requestId, followUpTask.id, { status: TASK_STATUS_DONE });
-      }
-
-      if (clientResponseTask) {
-        await updateTask(requestId, clientResponseTask.id, { status: TASK_STATUS_DONE });
-      }
+      await markOpenWorkflowTasksDone();
 
       if (allRejected && rejectedOutcome === "close_request") {
         await onCloseRequest(closeReason);

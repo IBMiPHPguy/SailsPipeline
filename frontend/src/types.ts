@@ -584,6 +584,9 @@ export type AgencyTaskCatalogItem = {
   description: string;
   action_type: string;
   prerequisite_task_keys: string[];
+  on_complete_schedule_follow_up_task_key?: string | null;
+  follow_up_due_days?: number | null;
+  allows_reached_out?: boolean;
 };
 
 export type AgencyTaskAvailability = {

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.constants import TASK_ACTION_CUSTOM_PANEL
 from app.models import AgencyTaskTemplate, AgencyWorkflowTemplate
 from app.workflow_helpers import COMMUNICATE_RESEARCH_PREREQUISITE_KEYS, WORKFLOW_TASK_TEMPLATES
+from app.task_behavior import task_behavior_to_catalog_fields
 
 
 def build_system_task_catalog() -> list[dict]:
@@ -22,6 +23,7 @@ def build_system_task_catalog() -> list[dict]:
                 "description": template.description,
                 "action_type": TASK_ACTION_CUSTOM_PANEL,
                 "prerequisite_task_keys": list(prerequisite_keys) if prerequisite_keys else [],
+                **task_behavior_to_catalog_fields(template.task_key),
             }
     return [catalog_by_key[key] for key in sorted(catalog_by_key)]
 
