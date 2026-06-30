@@ -171,6 +171,7 @@ def list_workflow_templates(db: Session, *, agency_id: str) -> list[WorkflowTemp
     db.flush()
     templates = (
         db.query(AgencyWorkflowTemplate)
+        .options(joinedload(AgencyWorkflowTemplate.task_templates))
         .filter(
             AgencyWorkflowTemplate.agency_id == agency_id,
             AgencyWorkflowTemplate.archived_at.is_(None),
@@ -184,6 +185,8 @@ def list_workflow_templates(db: Session, *, agency_id: str) -> list[WorkflowTemp
             workflow_type=template.workflow_type_key or template.id,
             name=template.workflow_name,
             description=template.description or "",
+            task_count=len(template.task_templates),
+            is_recommended=template.workflow_type_key is not None,
         )
         for template in templates
     ]

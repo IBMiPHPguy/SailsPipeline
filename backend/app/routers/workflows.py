@@ -20,6 +20,7 @@ from app.schemas import (
     AgencyTaskTemplateUpdate,
     AgencyWorkflowTemplateCreate,
     AgencyWorkflowTemplateRead,
+    AgencyWorkflowTemplateResetRead,
     AgencyWorkflowTemplateUpdate,
     RequestTaskUpdate,
     RequestWorkflowCreate,
@@ -55,6 +56,7 @@ from app.services.workflow_template_service import (
     list_agency_workflow_templates,
     load_workflow_template,
     move_agency_task_template,
+    reset_agency_workflow_template_to_default,
     transfer_agency_task_to_workflow,
     update_agency_task_template,
     update_agency_workflow_template,
@@ -173,6 +175,19 @@ def delete_agency_workflow_template_route(
     current_user: User = Depends(require_tenant_super_user),
 ) -> None:
     delete_agency_workflow_template(db, template_id=template_id, current_user=current_user)
+
+
+@settings_router.post("/{template_id}/reset-to-default", response_model=AgencyWorkflowTemplateResetRead)
+def reset_agency_workflow_template_route(
+    template_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_tenant_super_user),
+) -> AgencyWorkflowTemplateResetRead:
+    template, message = reset_agency_workflow_template_to_default(db, template_id=template_id)
+    return AgencyWorkflowTemplateResetRead(
+        template=AgencyWorkflowTemplateRead.model_validate(template),
+        message=message,
+    )
 
 
 @catalog_router.get("", response_model=list[AgencyTaskCatalogItemRead])
@@ -330,6 +345,7 @@ def update_agency_task_template_route(
         task_id=task_id,
         task_title=payload.task_title,
         description=payload.description,
+        sequence_order=payload.sequence_order,
     )
     template = load_workflow_template(db, task.workflow_template_id)
     return AgencyWorkflowTemplateRead.model_validate(template)

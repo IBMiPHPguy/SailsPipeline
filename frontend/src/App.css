@@ -5070,6 +5070,34 @@ button.modal-secondary:hover:not(:disabled) {
   gap: 0.75rem;
 }
 
+.workflow-start-template-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.65rem;
+  min-width: 0;
+}
+
+.workflow-start-template-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  background: #e0f2fe;
+  color: #0c4a6e;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.workflow-start-template-count {
+  margin: 0;
+}
+
+.workflow-start-template-empty {
+  margin: 0;
+  color: #9b2c2c;
+}
+
 .workflow-active {
   display: grid;
   gap: 0.75rem;
@@ -8642,6 +8670,27 @@ button.modal-ghost:hover:not(:disabled) {
   margin-bottom: 0;
 }
 
+.workflows-summary-lead {
+  margin-bottom: 0.5rem;
+}
+
+.workflows-summary-help {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: #486581;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.workflows-summary-help li + li {
+  margin-top: 0.35rem;
+}
+
+.workflows-summary-help strong {
+  color: #243b53;
+  font-weight: 600;
+}
+
 .workflows-settings-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
@@ -9683,6 +9732,21 @@ button.modal-ghost:hover:not(:disabled) {
 
 .tasks-table-sequence-actions {
   flex-wrap: nowrap;
+}
+
+.tasks-inventory-section-workflow .tasks-table-row[draggable="true"] {
+  cursor: grab;
+}
+
+.tasks-inventory-section-workflow .tasks-table-row.is-dragging {
+  opacity: 0.55;
+  cursor: grabbing;
+}
+
+.tasks-inventory-section-workflow .tasks-table-row.is-drop-target {
+  outline: 2px dashed #3b82f6;
+  outline-offset: -2px;
+  background: #eff6ff;
 }
 
 .task-inventory-edit-note {

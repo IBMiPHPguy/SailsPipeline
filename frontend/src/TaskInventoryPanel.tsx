@@ -4,6 +4,7 @@ import {
   deleteAgencyTaskTemplate,
   fetchAgencyTaskInventory,
   moveAgencyTaskTemplate,
+  updateAgencyTaskTemplate,
 } from "./api";
 import AddTaskToWorkflowModal from "./AddTaskToWorkflowModal";
 import ArrowDownIcon from "./ArrowDownIcon";
@@ -41,6 +42,8 @@ export default function TaskInventoryPanel({ workflows, onDataChange, showStatus
   const [addingToWorkflowItem, setAddingToWorkflowItem] = useState<AgencyTaskInventoryItem | null>(null);
   const [editingItem, setEditingItem] = useState<AgencyTaskInventoryItem | null>(null);
   const [movingTaskId, setMovingTaskId] = useState<string | null>(null);
+  const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
+  const [dropTargetKey, setDropTargetKey] = useState<string | null>(null);
   const skipWorkflowSyncRef = useRef(true);
 
   const workflowSyncKey = useMemo(
@@ -177,6 +180,20 @@ export default function TaskInventoryPanel({ workflows, onDataChange, showStatus
     }
   }
 
+  async function handleReorderTask(taskTemplateId: string, sequenceOrder: number) {
+    setMovingTaskId(taskTemplateId);
+    try {
+      await updateAgencyTaskTemplate(taskTemplateId, { sequence_order: sequenceOrder });
+      await loadInventory({ silent: true });
+    } catch (moveError) {
+      showStatus(moveError instanceof Error ? moveError.message : "Unable to reorder task.", "error");
+    } finally {
+      setMovingTaskId(null);
+      setDraggingTaskId(null);
+      setDropTargetKey(null);
+    }
+  }
+
   return (
     <>
       <section className="open-requests-table-card tasks-table-card">
@@ -255,8 +272,55 @@ export default function TaskInventoryPanel({ workflows, onDataChange, showStatus
                           const canMoveDown =
                             isWorkflowSection && index < section.tasks.length - 1 && taskTemplateId !== null;
 
+                          const rowDropKey = `${section.key}:${item.task_key}`;
+                          const isDragging = draggingTaskId === taskTemplateId;
+                          const isDropTarget = dropTargetKey === rowDropKey && draggingTaskId !== null;
+
                           return (
-                            <tr key={item.task_key}>
+                            <tr
+                              key={item.task_key}
+                              className={`tasks-table-row${isDragging ? " is-dragging" : ""}${
+                                isDropTarget ? " is-drop-target" : ""
+                              }`}
+                              draggable={isWorkflowSection && taskTemplateId !== null}
+                              onDragStart={(event) => {
+                                if (!taskTemplateId) {
+                                  return;
+                                }
+                                setDraggingTaskId(taskTemplateId);
+                                event.dataTransfer.effectAllowed = "move";
+                                event.dataTransfer.setData("text/plain", taskTemplateId);
+                              }}
+                              onDragOver={(event) => {
+                                if (!isWorkflowSection || draggingTaskId === null || !taskTemplateId) {
+                                  return;
+                                }
+                                event.preventDefault();
+                                event.dataTransfer.dropEffect = "move";
+                                setDropTargetKey(rowDropKey);
+                              }}
+                              onDragLeave={() => {
+                                if (dropTargetKey === rowDropKey) {
+                                  setDropTargetKey(null);
+                                }
+                              }}
+                              onDrop={(event) => {
+                                event.preventDefault();
+                                if (!isWorkflowSection || !taskTemplateId || draggingTaskId === null) {
+                                  return;
+                                }
+                                if (draggingTaskId !== taskTemplateId) {
+                                  void handleReorderTask(draggingTaskId, index + 1);
+                                } else {
+                                  setDraggingTaskId(null);
+                                  setDropTargetKey(null);
+                                }
+                              }}
+                              onDragEnd={() => {
+                                setDraggingTaskId(null);
+                                setDropTargetKey(null);
+                              }}
+                            >
                               <td>
                                 <span className="tasks-table-task-title">{item.task_title}</span>
                               </td>

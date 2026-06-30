@@ -41,6 +41,10 @@ type WorkflowsSectionProps = {
   embeddedInWorkspace?: boolean;
 };
 
+function formatTemplateTaskCount(count: number): string {
+  return count === 1 ? "1 task" : `${count} tasks`;
+}
+
 function ChevronIcon() {
   return (
     <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2">
@@ -79,6 +83,7 @@ export default function WorkflowsSection({
       return rightTime.localeCompare(leftTime);
     });
   const selectedTemplate = templates.find((template) => template.id === selectedTemplateId);
+  const selectedTemplateIsStartable = selectedTemplate ? selectedTemplate.task_count > 0 : false;
 
   const sortedTasks = activeWorkflow
     ? [...activeWorkflow.tasks].sort((left, right) => left.sort_order - right.sort_order)
@@ -347,18 +352,43 @@ export default function WorkflowsSection({
                       onChange={(event) => setSelectedTemplateId(event.target.value)}
                     >
                       <option value="">--- Select ---</option>
-                      {templates.map((template) => (
-                        <option key={template.id} value={template.id}>
-                          {template.name}
-                        </option>
-                      ))}
+                      {templates.map((template) => {
+                        const hasTasks = template.task_count > 0;
+                        const optionLabel = `${template.name} · ${formatTemplateTaskCount(template.task_count)}${
+                          hasTasks ? "" : " · Add tasks before use"
+                        }`;
+
+                        return (
+                          <option key={template.id} value={template.id} disabled={!hasTasks}>
+                            {optionLabel}
+                          </option>
+                        );
+                      })}
                     </select>
                   </label>
-                  {selectedTemplate?.description ? (
-                    <p className="field-hint">{selectedTemplate.description}</p>
+                  {selectedTemplate ? (
+                    <div className="workflow-start-template-meta">
+                      {selectedTemplate.is_recommended ? (
+                        <span className="workflow-start-template-badge">Recommended</span>
+                      ) : null}
+                      <p className="field-hint workflow-start-template-count">
+                        {formatTemplateTaskCount(selectedTemplate.task_count)}
+                      </p>
+                      {selectedTemplate.description ? (
+                        <p className="field-hint">{selectedTemplate.description}</p>
+                      ) : null}
+                      {!selectedTemplateIsStartable ? (
+                        <p className="field-hint workflow-start-template-empty">
+                          Add tasks before use.
+                        </p>
+                      ) : null}
+                    </div>
                   ) : null}
                   <p className="field-hint">Starting a workflow snapshots its tasks onto this request.</p>
-                  <button type="submit" disabled={starting || !selectedTemplateId}>
+                  <button
+                    type="submit"
+                    disabled={starting || !selectedTemplateId || !selectedTemplateIsStartable}
+                  >
                     {starting ? "Starting workflow..." : "Start workflow"}
                   </button>
                 </form>

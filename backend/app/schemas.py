@@ -1397,6 +1397,8 @@ class WorkflowTemplateRead(BaseModel):
     workflow_type: str
     name: str
     description: str
+    task_count: int = 0
+    is_recommended: bool = False
 
 
 class AgencyTaskTemplateRead(BaseModel):
@@ -1441,6 +1443,12 @@ class AgencyTaskTemplateCreate(BaseModel):
 class AgencyTaskTemplateUpdate(BaseModel):
     task_title: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = None
+    sequence_order: int | None = Field(default=None, ge=1)
+
+
+class AgencyWorkflowTemplateResetRead(BaseModel):
+    template: AgencyWorkflowTemplateRead
+    message: str
 
 
 class AgencyTaskTemplateMove(BaseModel):

@@ -14,7 +14,12 @@ from app.services.workflow_task_catalog_service import (
     get_catalog_item,
 )
 from app.services.workflow_service import terminate_active_live_workflows_for_template
+from app.services.workflow_template_seed import (
+    replace_workflow_template_tasks_with_defaults,
+    wire_default_successor_link,
+)
 from app.tenant_context import require_current_agency_id
+from app.workflow_helpers import WORKFLOW_DEFINITIONS
 
 
 def _new_id() -> str:
@@ -134,6 +139,51 @@ def delete_agency_workflow_template(db: Session, *, template_id: str, current_us
     archive_agency_workflow_template(db, template_id=template_id, current_user=current_user)
 
 
+RESET_TO_DEFAULT_MESSAGE = (
+    "Workflow restored to the product default title, description, successor link, and task sequence. "
+    "Prior template task customizations were replaced."
+)
+
+
+def reset_agency_workflow_template_to_default(
+    db: Session,
+    *,
+    template_id: str,
+) -> tuple[AgencyWorkflowTemplate, str]:
+    template = load_workflow_template(db, template_id)
+    workflow_type = template.workflow_type_key
+    if not workflow_type:
+        raise HTTPException(status_code=400, detail="Only recommended workflows can be reset to default.")
+
+    definition = WORKFLOW_DEFINITIONS.get(workflow_type)
+    if definition is None:
+        raise HTTPException(status_code=400, detail="Unknown recommended workflow type.")
+
+    template.workflow_name = definition["name"]
+    template.description = definition.get("description")
+
+    task_ids = [task.id for task in template.task_templates]
+    if task_ids:
+        db.query(RequestTaskLive).filter(RequestTaskLive.template_task_id.in_(task_ids)).update(
+            {RequestTaskLive.template_task_id: None},
+            synchronize_session=False,
+        )
+
+    for task in list(template.task_templates):
+        db.delete(task)
+    db.flush()
+
+    replace_workflow_template_tasks_with_defaults(db, template, workflow_type)
+    wire_default_successor_link(
+        db,
+        agency_id=template.agency_id,
+        workflow_template=template,
+        workflow_type=workflow_type,
+    )
+    db.commit()
+    return load_workflow_template(db, template.id), RESET_TO_DEFAULT_MESSAGE
+
+
 def create_agency_task_from_catalog(
     db: Session,
     *,
@@ -215,11 +265,12 @@ def update_agency_task_template(
     task_id: str,
     task_title: str | None = None,
     description: str | None = None,
+    sequence_order: int | None = None,
 ) -> AgencyTaskTemplate:
     task = db.get(AgencyTaskTemplate, task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="Task template not found.")
-    load_workflow_template(db, task.workflow_template_id)
+    template = load_workflow_template(db, task.workflow_template_id)
 
     if task_title is not None:
         title = task_title.strip()
@@ -230,9 +281,36 @@ def update_agency_task_template(
     if description is not None:
         task.description = description.strip() or None
 
+    if sequence_order is not None:
+        _set_task_sequence_order(db, template=template, task=task, sequence_order=sequence_order)
+
     db.commit()
     db.refresh(task)
     return task
+
+
+def _set_task_sequence_order(
+    db: Session,
+    *,
+    template: AgencyWorkflowTemplate,
+    task: AgencyTaskTemplate,
+    sequence_order: int,
+) -> None:
+    ordered = sorted(template.task_templates, key=lambda row: row.sequence_order)
+    current_index = next((idx for idx, row in enumerate(ordered) if row.id == task.id), None)
+    if current_index is None:
+        raise HTTPException(status_code=404, detail="Task template not found.")
+
+    if sequence_order < 1 or sequence_order > len(ordered):
+        raise HTTPException(status_code=400, detail="Sequence order is out of range.")
+
+    if current_index == sequence_order - 1:
+        return
+
+    ordered.pop(current_index)
+    ordered.insert(sequence_order - 1, task)
+    for index, row in enumerate(ordered, start=1):
+        row.sequence_order = index
 
 
 def delete_agency_task_template(db: Session, *, task_id: str) -> AgencyWorkflowTemplate:

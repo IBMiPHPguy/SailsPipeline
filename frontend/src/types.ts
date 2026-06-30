@@ -553,6 +553,8 @@ export type WorkflowTemplate = {
   workflow_type: string;
   name: string;
   description: string;
+  task_count: number;
+  is_recommended: boolean;
 };
 
 export type AgencyTaskTemplate = {

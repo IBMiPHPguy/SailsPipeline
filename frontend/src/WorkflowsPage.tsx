@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { deleteAgencyWorkflowTemplate, fetchAgencyWorkflowTemplates } from "./api";
+import { deleteAgencyWorkflowTemplate, fetchAgencyWorkflowTemplates, resetAgencyWorkflowTemplateToDefault } from "./api";
+import { BRAND_NAME } from "./branding";
 import ChickenSwitchModal from "./ChickenSwitchModal";
 import CreateWorkflowModal from "./CreateWorkflowModal";
 import EditIcon from "./EditIcon";
@@ -21,6 +22,8 @@ export default function WorkflowsPage() {
   const [editingTemplate, setEditingTemplate] = useState<AgencyWorkflowTemplate | null>(null);
   const [deletingTemplate, setDeletingTemplate] = useState<AgencyWorkflowTemplate | null>(null);
   const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
+  const [resettingTemplate, setResettingTemplate] = useState<AgencyWorkflowTemplate | null>(null);
+  const [resettingTemplateId, setResettingTemplateId] = useState<string | null>(null);
   const { status, showStatus, clearStatus } = useTopStatusBar();
 
   const loadWorkflows = useCallback(
@@ -69,6 +72,24 @@ export default function WorkflowsPage() {
     }
   }
 
+  async function confirmResetWorkflow() {
+    if (!resettingTemplate) {
+      return;
+    }
+
+    setResettingTemplateId(resettingTemplate.id);
+    try {
+      const result = await resetAgencyWorkflowTemplateToDefault(resettingTemplate.id);
+      showStatus(result.message, "success");
+      setResettingTemplate(null);
+      await loadWorkflows({ silent: true });
+    } catch (resetError) {
+      showStatus(resetError instanceof Error ? resetError.message : "Unable to reset workflow.", "error");
+    } finally {
+      setResettingTemplateId(null);
+    }
+  }
+
   return (
     <section className="workflows-settings-page workflows-tasks-page">
       <TopStatusBar status={status} onDismiss={clearStatus} />
@@ -76,9 +97,22 @@ export default function WorkflowsPage() {
       <header className="request-summary-card request-summary-card-compact workflows-summary-card">
         <div className="request-summary-compact-main">
           <h1>Workflows &amp; Tasks</h1>
-          <p className="meta">
-            Manage agency workflows and the built-in and library checklist tasks assigned to them.
+          <p className="meta workflows-summary-lead">
+            Manage agency workflows and assign built-in guided tasks or library checklist tasks to them.
           </p>
+          <ul className="workflows-summary-help">
+            <li>
+              <strong>Recommended</strong> workflows are {BRAND_NAME} starting points with built-in guided task panels on
+              requests.
+            </li>
+            <li>
+              <strong>Custom</strong> workflows use your agency checklist tasks from the library below.
+            </li>
+            <li>
+              Removing a workflow archives it and releases its tasks; resetting a recommended workflow restores the
+              product default layout.
+            </li>
+          </ul>
         </div>
       </header>
 
@@ -132,6 +166,19 @@ export default function WorkflowsPage() {
                         </td>
                         <td className="dashboard-table-actions-cell">
                           <div className="dashboard-table-actions">
+                            {isRecommended ? (
+                              <IconTooltip label="Reset to default">
+                                <button
+                                  type="button"
+                                  className="icon-button"
+                                  aria-label="Reset to default"
+                                  disabled={resettingTemplateId === workflow.id}
+                                  onClick={() => setResettingTemplate(workflow)}
+                                >
+                                  ↺
+                                </button>
+                              </IconTooltip>
+                            ) : null}
                             <IconTooltip label="Edit Workflow">
                               <button
                                 type="button"
@@ -188,6 +235,19 @@ export default function WorkflowsPage() {
           showStatus("Workflow updated.", "success");
           await loadWorkflows({ silent: true });
         }}
+      />
+
+      <ChickenSwitchModal
+        open={resettingTemplate !== null}
+        title="Reset to default?"
+        description={`"${resettingTemplate?.workflow_name ?? "This workflow"}" will revert to the ${BRAND_NAME} default title, description, successor link, and task sequence. Customizations on this template will be replaced.`}
+        switchLabel={`Yes, reset ${resettingTemplate?.workflow_name ?? "this workflow"}`}
+        confirmLabel="Reset to default"
+        confirmingLabel="Resetting..."
+        hint="Active request workflows are not changed. Only the template used for future starts is restored."
+        confirming={resettingTemplate !== null && resettingTemplateId === resettingTemplate.id}
+        onCancel={() => setResettingTemplate(null)}
+        onConfirm={() => void confirmResetWorkflow()}
       />
 
       <ChickenSwitchModal

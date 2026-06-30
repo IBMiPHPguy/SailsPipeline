@@ -20,6 +20,52 @@ def _new_id() -> str:
     return str(uuid.uuid4())
 
 
+def replace_workflow_template_tasks_with_defaults(
+    db: Session,
+    workflow_template: AgencyWorkflowTemplate,
+    workflow_type: str,
+) -> None:
+    task_templates = WORKFLOW_TASK_TEMPLATES.get(workflow_type, [])
+    for template in task_templates:
+        prerequisite_keys = COMMUNICATE_RESEARCH_PREREQUISITE_KEYS.get(template.task_key)
+        db.add(
+            AgencyTaskTemplate(
+                id=_new_id(),
+                workflow_template_id=workflow_template.id,
+                task_title=template.title,
+                sequence_order=template.sort_order,
+                action_type=TASK_ACTION_CUSTOM_PANEL,
+                task_key=template.task_key,
+                description=template.description,
+                prerequisite_task_keys=list(prerequisite_keys) if prerequisite_keys else None,
+            )
+        )
+
+
+def wire_default_successor_link(
+    db: Session,
+    *,
+    agency_id: str,
+    workflow_template: AgencyWorkflowTemplate,
+    workflow_type: str,
+) -> None:
+    successor_type = WORKFLOW_SUCCESSORS.get(workflow_type)
+    if successor_type is None:
+        workflow_template.successor_template_id = None
+        return
+
+    successor = (
+        db.query(AgencyWorkflowTemplate)
+        .filter(
+            AgencyWorkflowTemplate.agency_id == agency_id,
+            AgencyWorkflowTemplate.workflow_type_key == successor_type,
+            AgencyWorkflowTemplate.archived_at.is_(None),
+        )
+        .first()
+    )
+    workflow_template.successor_template_id = successor.id if successor else None
+
+
 def seed_agency_workflow_templates(db: Session, agency_id: str) -> None:
     template_by_type: dict[str, tuple[AgencyWorkflowTemplate, bool]] = {}
     for workflow_type, definition in WORKFLOW_DEFINITIONS.items():
@@ -75,20 +121,7 @@ def seed_agency_workflow_templates(db: Session, agency_id: str) -> None:
         if existing_tasks > 0:
             continue
 
-        for template in task_templates:
-            prerequisite_keys = COMMUNICATE_RESEARCH_PREREQUISITE_KEYS.get(template.task_key)
-            db.add(
-                AgencyTaskTemplate(
-                    id=_new_id(),
-                    workflow_template_id=workflow_template.id,
-                    task_title=template.title,
-                    sequence_order=template.sort_order,
-                    action_type=TASK_ACTION_CUSTOM_PANEL,
-                    task_key=template.task_key,
-                    description=template.description,
-                    prerequisite_task_keys=list(prerequisite_keys) if prerequisite_keys else None,
-                )
-            )
+        replace_workflow_template_tasks_with_defaults(db, workflow_template, workflow_type)
 
 
 def seed_all_agency_workflow_templates(db: Session) -> None:

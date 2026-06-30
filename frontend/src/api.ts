@@ -882,6 +882,24 @@ export async function deleteAgencyWorkflowTemplate(templateId: string): Promise<
   }
 }
 
+export type AgencyWorkflowTemplateResetResult = {
+  template: AgencyWorkflowTemplate;
+  message: string;
+};
+
+export async function resetAgencyWorkflowTemplateToDefault(
+  templateId: string,
+): Promise<AgencyWorkflowTemplateResetResult> {
+  const response = await apiFetch(`${API_BASE}/agency-workflow-templates/${templateId}/reset-to-default`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to reset workflow."));
+  }
+  return response.json();
+}
+
 export async function createAgencyTaskFromCatalog(
   templateId: string,
   taskKey: string,
@@ -989,14 +1007,15 @@ export async function createAgencyTaskTemplate(
 
 export async function updateAgencyTaskTemplate(
   taskId: string,
-  payload: { task_title: string; description?: string | null },
+  payload: { task_title?: string; description?: string | null; sequence_order?: number },
 ): Promise<AgencyWorkflowTemplate> {
   const response = await apiFetch(`${API_BASE}/agency-workflow-templates/tasks/${taskId}`, {
     method: "PATCH",
     headers: authHeaders(true),
     body: JSON.stringify({
-      task_title: payload.task_title,
+      ...(payload.task_title !== undefined ? { task_title: payload.task_title } : {}),
       ...(payload.description !== undefined ? { description: payload.description } : {}),
+      ...(payload.sequence_order !== undefined ? { sequence_order: payload.sequence_order } : {}),
     }),
   });
   if (!response.ok) {
