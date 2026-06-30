@@ -18,5 +18,6 @@ def register_routers(application: FastAPI) -> None:
     application.include_router(communications.router)
     application.include_router(workflows.templates_router)
     application.include_router(workflows.settings_router)
+    application.include_router(workflows.catalog_router)
     application.include_router(workflows.router)
     application.include_router(requests.router)

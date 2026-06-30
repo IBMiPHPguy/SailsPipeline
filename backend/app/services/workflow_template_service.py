@@ -8,6 +8,10 @@ from sqlalchemy.orm import Session, joinedload
 from app.constants import TASK_ACTION_MANUAL_CHECK
 from app.models import AgencyTaskTemplate, AgencyWorkflowTemplate, User
 from app.services.agency_service import require_record_for_agency
+from app.services.workflow_task_catalog_service import (
+    assert_task_key_available_for_agency,
+    get_catalog_item,
+)
 from app.tenant_context import require_current_agency_id
 
 
@@ -80,9 +84,43 @@ def update_agency_workflow_template(
 def delete_agency_workflow_template(db: Session, *, template_id: str) -> None:
     template = load_workflow_template(db, template_id)
     if template.workflow_type_key is not None:
-        raise HTTPException(status_code=400, detail="System playbooks cannot be deleted.")
+        raise HTTPException(status_code=400, detail="System workflows cannot be deleted.")
     db.delete(template)
     db.commit()
+
+
+def create_agency_task_from_catalog(
+    db: Session,
+    *,
+    template_id: str,
+    task_key: str,
+) -> AgencyTaskTemplate:
+    workflow_template = load_workflow_template(db, template_id)
+    catalog_item = get_catalog_item(task_key)
+    if catalog_item is None:
+        raise HTTPException(status_code=400, detail="Unknown built-in task.")
+
+    assert_task_key_available_for_agency(
+        db,
+        agency_id=workflow_template.agency_id,
+        task_key=task_key,
+    )
+
+    max_order = max((task.sequence_order for task in workflow_template.task_templates), default=0)
+    task = AgencyTaskTemplate(
+        id=_new_id(),
+        workflow_template_id=workflow_template.id,
+        task_title=catalog_item["task_title"],
+        sequence_order=max_order + 1,
+        action_type=catalog_item["action_type"],
+        task_key=catalog_item["task_key"],
+        description=catalog_item["description"],
+        prerequisite_task_keys=catalog_item["prerequisite_task_keys"] or None,
+    )
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+    return task
 
 
 def create_agency_task_template(

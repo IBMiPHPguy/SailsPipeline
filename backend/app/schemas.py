@@ -1244,7 +1244,7 @@ class RequestWorkflowCreate(BaseModel):
     @model_validator(mode="after")
     def validate_selector(self):
         if not self.template_id and not self.workflow_type:
-            raise ValueError("Select a workflow playbook.")
+            raise ValueError("Select a workflow.")
         return self
 
 
@@ -1440,6 +1440,24 @@ class AgencyTaskTemplateCreate(BaseModel):
 
 class AgencyTaskTemplateUpdate(BaseModel):
     task_title: str | None = Field(default=None, min_length=1, max_length=255)
+
+
+class AgencyTaskCatalogItemRead(BaseModel):
+    task_key: str
+    task_title: str
+    description: str
+    action_type: str
+    prerequisite_task_keys: list[str] = Field(default_factory=list)
+
+
+class AgencyTaskAvailabilityRead(BaseModel):
+    available_tasks: list[AgencyTaskCatalogItemRead]
+    placed_task_keys: list[str]
+    available_count: int
+
+
+class AgencyTaskFromCatalogCreate(BaseModel):
+    task_key: str = Field(min_length=1, max_length=128)
 
 
 class DashboardNextOpenTaskRead(BaseModel):

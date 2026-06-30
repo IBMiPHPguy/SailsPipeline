@@ -5,6 +5,9 @@ from app.database import get_db
 from app.deps import get_current_user, require_tenant_super_user
 from app.models import AgencyTaskTemplate, User
 from app.schemas import (
+    AgencyTaskAvailabilityRead,
+    AgencyTaskCatalogItemRead,
+    AgencyTaskFromCatalogCreate,
     AgencyTaskTemplateCreate,
     AgencyTaskTemplateRead,
     AgencyTaskTemplateUpdate,
@@ -17,6 +20,10 @@ from app.schemas import (
     RequestWorkflowUpdate,
     WorkflowTemplateRead,
 )
+from app.services.workflow_task_catalog_service import (
+    build_system_task_catalog,
+    get_agency_task_availability,
+)
 from app.services.workflow_read import workflow_to_read
 from app.services.workflow_service import (
     list_workflow_templates,
@@ -25,6 +32,7 @@ from app.services.workflow_service import (
     update_workflow,
 )
 from app.services.workflow_template_service import (
+    create_agency_task_from_catalog,
     create_agency_task_template,
     create_agency_workflow_template,
     delete_agency_task_template,
@@ -39,6 +47,7 @@ from app.services.workflow_template_service import (
 templates_router = APIRouter(prefix="/api/workflow-templates", tags=["workflow-templates"])
 router = APIRouter(prefix="/api/requests", tags=["workflows"])
 settings_router = APIRouter(prefix="/api/agency-workflow-templates", tags=["agency-workflow-templates"])
+catalog_router = APIRouter(prefix="/api/agency-task-catalog", tags=["agency-task-catalog"])
 
 
 @templates_router.get("", response_model=list[WorkflowTemplateRead])
@@ -147,6 +156,22 @@ def delete_agency_workflow_template_route(
     delete_agency_workflow_template(db, template_id=template_id)
 
 
+@catalog_router.get("", response_model=list[AgencyTaskCatalogItemRead])
+def list_agency_task_catalog_route(
+    _current_user: User = Depends(require_tenant_super_user),
+) -> list[AgencyTaskCatalogItemRead]:
+    return [AgencyTaskCatalogItemRead.model_validate(item) for item in build_system_task_catalog()]
+
+
+@catalog_router.get("/availability", response_model=AgencyTaskAvailabilityRead)
+def get_agency_task_availability_route(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_tenant_super_user),
+) -> AgencyTaskAvailabilityRead:
+    payload = get_agency_task_availability(db, agency_id=current_user.agency_id)
+    return AgencyTaskAvailabilityRead.model_validate(payload)
+
+
 @settings_router.post("/{template_id}/tasks", response_model=AgencyWorkflowTemplateRead, status_code=201)
 def create_agency_task_template_route(
     template_id: str,
@@ -155,6 +180,18 @@ def create_agency_task_template_route(
     current_user: User = Depends(require_tenant_super_user),
 ) -> AgencyWorkflowTemplateRead:
     create_agency_task_template(db, template_id=template_id, task_title=payload.task_title)
+    template = load_workflow_template(db, template_id)
+    return AgencyWorkflowTemplateRead.model_validate(template)
+
+
+@settings_router.post("/{template_id}/catalog-tasks", response_model=AgencyWorkflowTemplateRead, status_code=201)
+def create_agency_task_from_catalog_route(
+    template_id: str,
+    payload: AgencyTaskFromCatalogCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_tenant_super_user),
+) -> AgencyWorkflowTemplateRead:
+    create_agency_task_from_catalog(db, template_id=template_id, task_key=payload.task_key)
     template = load_workflow_template(db, template_id)
     return AgencyWorkflowTemplateRead.model_validate(template)
 

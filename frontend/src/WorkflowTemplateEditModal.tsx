@@ -61,7 +61,7 @@ export default function WorkflowTemplateEditModal({
       onSaved();
       onClose();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Unable to update workflow playbook.");
+      setError(submitError instanceof Error ? submitError.message : "Unable to update workflow.");
     } finally {
       setSubmitting(false);
     }
