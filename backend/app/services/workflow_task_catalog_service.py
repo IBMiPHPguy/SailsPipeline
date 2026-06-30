@@ -32,6 +32,7 @@ def list_placed_task_keys(db: Session, *, agency_id: str) -> list[str]:
         .join(AgencyWorkflowTemplate)
         .filter(
             AgencyWorkflowTemplate.agency_id == agency_id,
+            AgencyWorkflowTemplate.archived_at.is_(None),
             AgencyTaskTemplate.task_key.isnot(None),
         )
         .all()
@@ -40,13 +41,26 @@ def list_placed_task_keys(db: Session, *, agency_id: str) -> list[str]:
 
 
 def get_agency_task_availability(db: Session, *, agency_id: str) -> dict:
+    from app.services.agency_custom_task_service import (
+        custom_definition_to_catalog_item,
+        list_agency_custom_task_definitions,
+    )
+
     catalog = build_system_task_catalog()
     placed_keys = set(list_placed_task_keys(db, agency_id=agency_id))
     available_tasks = [item for item in catalog if item["task_key"] not in placed_keys]
+    custom_definitions = list_agency_custom_task_definitions(db, agency_id=agency_id)
+    available_custom_tasks = [
+        custom_definition_to_catalog_item(definition)
+        for definition in custom_definitions
+        if definition.task_key not in placed_keys
+    ]
     return {
         "available_tasks": available_tasks,
+        "available_custom_tasks": available_custom_tasks,
+        "custom_task_definitions": custom_definitions,
         "placed_task_keys": sorted(placed_keys),
-        "available_count": len(available_tasks),
+        "available_count": len(available_tasks) + len(available_custom_tasks),
     }
 
 
@@ -65,6 +79,7 @@ def assert_task_key_available_for_agency(
         .join(AgencyWorkflowTemplate)
         .filter(
             AgencyWorkflowTemplate.agency_id == agency_id,
+            AgencyWorkflowTemplate.archived_at.is_(None),
             AgencyTaskTemplate.task_key == task_key,
         )
     )
@@ -74,7 +89,7 @@ def assert_task_key_available_for_agency(
     if query.first() is not None:
         raise HTTPException(
             status_code=400,
-            detail=f"Built-in task '{task_key}' is already on a workflow for this agency.",
+            detail=f"Task '{task_key}' is already on a workflow for this agency.",
         )
 
 

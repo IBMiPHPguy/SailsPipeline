@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { transferAgencyTaskToWorkflow } from "./api";
+import WorkflowSequencePositionFieldset, { type InsertPosition } from "./WorkflowSequencePositionFieldset";
 import type { AgencyTaskTemplate, AgencyWorkflowTemplate } from "./types";
 
 type MoveStep = "destination" | "position";
-
-/** null means append at end of the destination sequence. */
-type InsertPosition = number | null;
 
 type WorkflowTaskMoveModalProps = {
   open: boolean;
@@ -184,65 +182,12 @@ export default function WorkflowTaskMoveModal({
               </fieldset>
             )
           ) : (
-            <fieldset className="workflow-task-move-fieldset">
-              <legend className="workflow-task-move-legend">Insert task at</legend>
-              <ul className="workflow-task-move-list">
-                {targetTasks.length === 0 ? (
-                  <li className="modal-section-panel workflow-task-move-option">
-                    <label className="workflow-task-move-option-label">
-                      <input
-                        type="radio"
-                        name="workflow-task-move-position"
-                        checked={insertPosition === 1}
-                        disabled={moving}
-                        onChange={() => setInsertPosition(1)}
-                      />
-                      <span className="workflow-task-move-option-text">
-                        <span className="workflow-task-move-option-name">As the first task</span>
-                      </span>
-                    </label>
-                  </li>
-                ) : (
-                  <>
-                    {targetTasks.map((targetTask, index) => (
-                      <li key={targetTask.id} className="modal-section-panel workflow-task-move-option">
-                        <label className="workflow-task-move-option-label">
-                          <input
-                            type="radio"
-                            name="workflow-task-move-position"
-                            checked={insertPosition === index + 1}
-                            disabled={moving}
-                            onChange={() => setInsertPosition(index + 1)}
-                          />
-                          <span className="workflow-task-move-option-text">
-                            <span className="workflow-task-move-option-name">
-                              Before step {index + 1}: {targetTask.task_title}
-                            </span>
-                          </span>
-                        </label>
-                      </li>
-                    ))}
-                    <li className="modal-section-panel workflow-task-move-option">
-                      <label className="workflow-task-move-option-label">
-                        <input
-                          type="radio"
-                          name="workflow-task-move-position"
-                          checked={insertPosition === null}
-                          disabled={moving}
-                          onChange={() => setInsertPosition(null)}
-                        />
-                        <span className="workflow-task-move-option-text">
-                          <span className="workflow-task-move-option-name">At end of sequence</span>
-                          <span className="meta workflow-task-move-option-meta">
-                            After step {targetTasks.length}: {targetTasks[targetTasks.length - 1]?.task_title}
-                          </span>
-                        </span>
-                      </label>
-                    </li>
-                  </>
-                )}
-              </ul>
-            </fieldset>
+            <WorkflowSequencePositionFieldset
+              tasks={targetTasks}
+              insertPosition={insertPosition}
+              disabled={moving}
+              onChange={setInsertPosition}
+            />
           )}
 
           {error ? <p className="status error">{error}</p> : null}

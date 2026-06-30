@@ -1,52 +1,36 @@
 import { FormEvent, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { updateAgencyWorkflowTemplate } from "./api";
-import type { AgencyWorkflowTemplate } from "./types";
+import { createAgencyWorkflowTemplate } from "./api";
 
-type WorkflowTemplateEditModalProps = {
+type CreateWorkflowModalProps = {
   open: boolean;
-  template: AgencyWorkflowTemplate | null;
   onClose: () => void;
-  onSaved: () => void;
+  onCreated: () => void | Promise<void>;
 };
 
-function templateToForm(template: AgencyWorkflowTemplate) {
-  return {
-    workflow_name: template.workflow_name,
-    description: template.description ?? "",
-  };
-}
-
-export default function WorkflowTemplateEditModal({
-  open,
-  template,
-  onClose,
-  onSaved,
-}: WorkflowTemplateEditModalProps) {
-  const [form, setForm] = useState({ workflow_name: "", description: "" });
+export default function CreateWorkflowModal({ open, onClose, onCreated }: CreateWorkflowModalProps) {
+  const [workflowName, setWorkflowName] = useState("");
+  const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!open || !template) {
-      setForm({ workflow_name: "", description: "" });
+    if (!open) {
+      setWorkflowName("");
+      setDescription("");
       setError("");
       setSubmitting(false);
-      return;
     }
+  }, [open]);
 
-    setForm(templateToForm(template));
-    setError("");
-  }, [open, template]);
-
-  if (!open || !template) {
+  if (!open) {
     return null;
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const workflowName = form.workflow_name.trim();
-    if (!workflowName) {
+    const name = workflowName.trim();
+    if (!name) {
       setError("Workflow name is required.");
       return;
     }
@@ -54,37 +38,39 @@ export default function WorkflowTemplateEditModal({
     setSubmitting(true);
     setError("");
     try {
-      await updateAgencyWorkflowTemplate(template.id, {
-        workflow_name: workflowName,
-        description: form.description.trim() || null,
+      await createAgencyWorkflowTemplate({
+        workflow_name: name,
+        description: description.trim() || null,
       });
-      onSaved();
+      await onCreated();
       onClose();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Unable to update workflow.");
+      setError(submitError instanceof Error ? submitError.message : "Unable to create workflow.");
     } finally {
       setSubmitting(false);
     }
   }
 
   return createPortal(
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+    <div className="modal-backdrop modal-backdrop-scroll" role="presentation" onClick={onClose}>
       <div
         className="modal-card workflow-template-edit-modal"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="workflow-template-edit-title"
+        aria-labelledby="create-workflow-title"
         onClick={(event) => event.stopPropagation()}
       >
         <header className="modal-card-header">
-          <h3 id="workflow-template-edit-title">Edit Workflow</h3>
+          <h3 id="create-workflow-title">Create workflow</h3>
         </header>
 
         <form
-          id="workflow-template-edit-form"
+          id="create-workflow-form"
           className="modal-scroll-body workflow-template-edit-form"
           onSubmit={(event) => void handleSubmit(event)}
         >
+          <p className="meta">Custom workflows can be deleted later. Tasks can be added from the task inventory below.</p>
+
           {error ? <p className="status error">{error}</p> : null}
 
           <label>
@@ -92,9 +78,10 @@ export default function WorkflowTemplateEditModal({
             <input
               required
               type="text"
-              value={form.workflow_name}
+              value={workflowName}
+              placeholder="Enter workflow name..."
               disabled={submitting}
-              onChange={(event) => setForm({ ...form, workflow_name: event.target.value })}
+              onChange={(event) => setWorkflowName(event.target.value)}
             />
           </label>
 
@@ -104,10 +91,10 @@ export default function WorkflowTemplateEditModal({
             </span>
             <textarea
               rows={3}
-              value={form.description}
-              disabled={submitting}
+              value={description}
               placeholder="Short summary for your agency"
-              onChange={(event) => setForm({ ...form, description: event.target.value })}
+              disabled={submitting}
+              onChange={(event) => setDescription(event.target.value)}
             />
           </label>
         </form>
@@ -116,8 +103,8 @@ export default function WorkflowTemplateEditModal({
           <button type="button" className="modal-secondary" disabled={submitting} onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" form="workflow-template-edit-form" disabled={submitting}>
-            {submitting ? "Saving..." : "Save changes"}
+          <button type="submit" form="create-workflow-form" className="modal-primary" disabled={submitting}>
+            {submitting ? "Creating..." : "Create workflow"}
           </button>
         </div>
       </div>

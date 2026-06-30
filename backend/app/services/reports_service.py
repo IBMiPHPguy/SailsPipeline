@@ -383,7 +383,10 @@ def get_report_meta(db: Session, agency_id: str) -> ReportMetaResponse:
 
     templates = (
         db.query(AgencyWorkflowTemplate)
-        .filter(AgencyWorkflowTemplate.agency_id == agency_id)
+        .filter(
+            AgencyWorkflowTemplate.agency_id == agency_id,
+            AgencyWorkflowTemplate.archived_at.is_(None),
+        )
         .order_by(AgencyWorkflowTemplate.workflow_name.asc())
         .all()
     )

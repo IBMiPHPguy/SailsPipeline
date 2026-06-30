@@ -52,6 +52,8 @@ def seed_agency_workflow_templates(db: Session, agency_id: str) -> None:
             continue
         parent, parent_is_new = parent_entry
         successor, _ = successor_entry
+        if parent.archived_at is not None or successor.archived_at is not None:
+            continue
         if parent_is_new and parent.successor_template_id is None:
             parent.successor_template_id = successor.id
 
@@ -60,6 +62,8 @@ def seed_agency_workflow_templates(db: Session, agency_id: str) -> None:
         if workflow_entry is None:
             continue
         workflow_template, workflow_is_new = workflow_entry
+        if workflow_template.archived_at is not None:
+            continue
         if not workflow_is_new:
             continue
 

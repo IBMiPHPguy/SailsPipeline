@@ -5,9 +5,14 @@ from app.database import get_db
 from app.deps import get_current_user, require_tenant_super_user
 from app.models import AgencyTaskTemplate, User
 from app.schemas import (
+    AgencyCustomTaskDefinitionCreate,
+    AgencyCustomTaskDefinitionRead,
+    AgencyCustomTaskDefinitionUpdate,
     AgencyTaskAvailabilityRead,
     AgencyTaskCatalogItemRead,
     AgencyTaskFromCatalogCreate,
+    AgencyTaskFromCustomDefinitionCreate,
+    AgencyTaskInventoryItemRead,
     AgencyTaskTemplateCreate,
     AgencyTaskTemplateMove,
     AgencyTaskTemplateMoveResult,
@@ -22,6 +27,14 @@ from app.schemas import (
     RequestWorkflowUpdate,
     WorkflowTemplateRead,
 )
+from app.services.agency_custom_task_service import (
+    create_agency_custom_task_definition,
+    create_agency_task_from_custom_definition,
+    delete_agency_custom_task_definition,
+    list_agency_custom_task_definitions,
+    update_agency_custom_task_definition,
+)
+from app.services.agency_task_inventory_service import list_agency_task_inventory
 from app.services.workflow_task_catalog_service import (
     build_system_task_catalog,
     get_agency_task_availability,
@@ -51,6 +64,9 @@ templates_router = APIRouter(prefix="/api/workflow-templates", tags=["workflow-t
 router = APIRouter(prefix="/api/requests", tags=["workflows"])
 settings_router = APIRouter(prefix="/api/agency-workflow-templates", tags=["agency-workflow-templates"])
 catalog_router = APIRouter(prefix="/api/agency-task-catalog", tags=["agency-task-catalog"])
+custom_tasks_router = APIRouter(
+    prefix="/api/agency-custom-task-definitions", tags=["agency-custom-task-definitions"]
+)
 
 
 @templates_router.get("", response_model=list[WorkflowTemplateRead])
@@ -156,7 +172,7 @@ def delete_agency_workflow_template_route(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_tenant_super_user),
 ) -> None:
-    delete_agency_workflow_template(db, template_id=template_id)
+    delete_agency_workflow_template(db, template_id=template_id, current_user=current_user)
 
 
 @catalog_router.get("", response_model=list[AgencyTaskCatalogItemRead])
@@ -175,6 +191,15 @@ def get_agency_task_availability_route(
     return AgencyTaskAvailabilityRead.model_validate(payload)
 
 
+@catalog_router.get("/inventory", response_model=list[AgencyTaskInventoryItemRead])
+def list_agency_task_inventory_route(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_tenant_super_user),
+) -> list[AgencyTaskInventoryItemRead]:
+    items = list_agency_task_inventory(db, agency_id=current_user.agency_id)
+    return [AgencyTaskInventoryItemRead.model_validate(item) for item in items]
+
+
 @settings_router.post("/{template_id}/tasks", response_model=AgencyWorkflowTemplateRead, status_code=201)
 def create_agency_task_template_route(
     template_id: str,
@@ -185,6 +210,72 @@ def create_agency_task_template_route(
     create_agency_task_template(db, template_id=template_id, task_title=payload.task_title)
     template = load_workflow_template(db, template_id)
     return AgencyWorkflowTemplateRead.model_validate(template)
+
+
+@settings_router.post("/{template_id}/custom-tasks", response_model=AgencyWorkflowTemplateRead, status_code=201)
+def create_agency_task_from_custom_definition_route(
+    template_id: str,
+    payload: AgencyTaskFromCustomDefinitionCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_tenant_super_user),
+) -> AgencyWorkflowTemplateRead:
+    create_agency_task_from_custom_definition(
+        db,
+        template_id=template_id,
+        task_key=payload.task_key,
+        sequence_order=payload.sequence_order,
+    )
+    template = load_workflow_template(db, template_id)
+    return AgencyWorkflowTemplateRead.model_validate(template)
+
+
+@custom_tasks_router.get("", response_model=list[AgencyCustomTaskDefinitionRead])
+def list_agency_custom_task_definitions_route(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_tenant_super_user),
+) -> list[AgencyCustomTaskDefinitionRead]:
+    definitions = list_agency_custom_task_definitions(db, agency_id=current_user.agency_id)
+    return [AgencyCustomTaskDefinitionRead.model_validate(item) for item in definitions]
+
+
+@custom_tasks_router.post("", response_model=AgencyCustomTaskDefinitionRead, status_code=201)
+def create_agency_custom_task_definition_route(
+    payload: AgencyCustomTaskDefinitionCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_tenant_super_user),
+) -> AgencyCustomTaskDefinitionRead:
+    definition = create_agency_custom_task_definition(
+        db,
+        agency_id=current_user.agency_id,
+        task_title=payload.task_title,
+        description=payload.description,
+    )
+    return AgencyCustomTaskDefinitionRead.model_validate(definition)
+
+
+@custom_tasks_router.patch("/{definition_id}", response_model=AgencyCustomTaskDefinitionRead)
+def update_agency_custom_task_definition_route(
+    definition_id: str,
+    payload: AgencyCustomTaskDefinitionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_tenant_super_user),
+) -> AgencyCustomTaskDefinitionRead:
+    definition = update_agency_custom_task_definition(
+        db,
+        definition_id=definition_id,
+        task_title=payload.task_title,
+        description=payload.description,
+    )
+    return AgencyCustomTaskDefinitionRead.model_validate(definition)
+
+
+@custom_tasks_router.delete("/{definition_id}", status_code=204)
+def delete_agency_custom_task_definition_route(
+    definition_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_tenant_super_user),
+) -> None:
+    delete_agency_custom_task_definition(db, definition_id=definition_id)
 
 
 @settings_router.post("/{template_id}/catalog-tasks", response_model=AgencyWorkflowTemplateRead, status_code=201)
@@ -199,6 +290,7 @@ def create_agency_task_from_catalog_route(
         template_id=template_id,
         task_key=payload.task_key,
         task_title=payload.task_title,
+        sequence_order=payload.sequence_order,
     )
     template = load_workflow_template(db, template_id)
     return AgencyWorkflowTemplateRead.model_validate(template)
@@ -233,7 +325,12 @@ def update_agency_task_template_route(
     task = db.get(AgencyTaskTemplate, task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="Task template not found.")
-    update_agency_task_template(db, task_id=task_id, task_title=payload.task_title)
+    update_agency_task_template(
+        db,
+        task_id=task_id,
+        task_title=payload.task_title,
+        description=payload.description,
+    )
     template = load_workflow_template(db, task.workflow_template_id)
     return AgencyWorkflowTemplateRead.model_validate(template)
 

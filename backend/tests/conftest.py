@@ -58,9 +58,26 @@ def _ensure_workflow_engine_schema(engine) -> None:
 
     inspector = inspect(engine)
     if "agency_workflow_templates" in inspector.get_table_names():
+        workflow_columns = {column["name"] for column in inspector.get_columns("agency_workflow_templates")}
+        if "archived_at" not in workflow_columns:
+            with engine.begin() as connection:
+                connection.execute(
+                    text(
+                        "ALTER TABLE agency_workflow_templates "
+                        "ADD COLUMN archived_at TIMESTAMP NULL DEFAULT NULL AFTER created_at"
+                    )
+                )
+        if "agency_custom_task_definitions" not in inspector.get_table_names():
+            from app.models import AgencyCustomTaskDefinition  # noqa: WPS433
+
+            Base.metadata.create_all(
+                bind=engine,
+                tables=[AgencyCustomTaskDefinition.__table__],
+            )
         return
 
     from app.models import (  # noqa: WPS433
+        AgencyCustomTaskDefinition,
         AgencyTaskTemplate,
         AgencyWorkflowTemplate,
         RequestTaskLive,
@@ -72,6 +89,7 @@ def _ensure_workflow_engine_schema(engine) -> None:
         tables=[
             AgencyWorkflowTemplate.__table__,
             AgencyTaskTemplate.__table__,
+            AgencyCustomTaskDefinition.__table__,
             RequestWorkflowLive.__table__,
             RequestTaskLive.__table__,
         ],

@@ -38,7 +38,7 @@ const TEAM_NAV_ITEM = {
 
 const WORKFLOWS_NAV_ITEM = {
   id: "workflows" as const,
-  label: "Workflows",
+  label: "Workflows & Tasks",
   icon: WorkflowsNavIcon,
 };
 
@@ -92,7 +92,7 @@ export function activeNavItemForView(viewType: string): AppNavItem | null {
   if (viewType === "team") {
     return "team";
   }
-  if (viewType === "workflows") {
+  if (viewType === "workflows" || viewType === "tasks") {
     return "workflows";
   }
   return null;

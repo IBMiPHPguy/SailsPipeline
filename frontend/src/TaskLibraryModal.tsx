@@ -92,7 +92,10 @@ export default function TaskLibraryModal({
   );
 }
 
-function taskTypeLabel(task: { task_key: string | null; action_type: string }): "Built-in" | "Checklist" {
+function taskTypeLabel(task: { task_key: string | null; action_type: string }): "Built-in" | "Checklist" | "Library" {
+  if (task.task_key?.startsWith("custom_")) {
+    return "Library";
+  }
   if (task.task_key) {
     return "Built-in";
   }
@@ -102,11 +105,28 @@ function taskTypeLabel(task: { task_key: string | null; action_type: string }): 
   return "Built-in";
 }
 
-export function TaskTypeBadge({ task }: { task: { task_key: string | null; action_type: string } }) {
+export function TaskTypeBadge({
+  task,
+  onLibraryClick,
+}: {
+  task: { task_key: string | null; action_type: string };
+  onLibraryClick?: () => void;
+}) {
   const label = taskTypeLabel(task);
   const className =
     label === "Checklist"
       ? "workflows-settings-task-type-badge workflows-settings-task-type-badge-checklist"
-      : "workflows-settings-task-type-badge workflows-settings-task-type-badge-builtin";
+      : label === "Library"
+        ? "workflows-settings-task-type-badge workflows-settings-task-type-badge-library"
+        : "workflows-settings-task-type-badge workflows-settings-task-type-badge-builtin";
+
+  if (label === "Library" && onLibraryClick) {
+    return (
+      <button type="button" className={`${className} workflows-settings-task-type-badge-button`} onClick={onLibraryClick}>
+        {label}
+      </button>
+    );
+  }
+
   return <span className={className}>{label}</span>;
 }

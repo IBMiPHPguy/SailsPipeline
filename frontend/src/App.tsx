@@ -103,6 +103,12 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (view.type === "tasks") {
+      setView({ type: "workflows" });
+    }
+  }, [view.type]);
+
+  useEffect(() => {
     if (
       (view.type === "team" || view.type === "workflows") &&
       currentUser &&
@@ -130,7 +136,7 @@ function App() {
       return;
     }
     if (view.type === "workflows") {
-      document.title = brandedDocumentTitle("Workflows and Tasks");
+      document.title = brandedDocumentTitle("Workflows & Tasks");
       return;
     }
     if (view.type === "marketing-campaigns") {

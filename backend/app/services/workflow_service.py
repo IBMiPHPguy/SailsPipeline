@@ -36,6 +36,40 @@ def _new_id() -> str:
     return str(uuid.uuid4())
 
 
+def terminate_active_live_workflows_for_template(
+    db: Session,
+    *,
+    template_id: str,
+    agency_id: str,
+    current_user: User,
+) -> int:
+    """End in-flight request workflows that were started from this agency template."""
+    from app.services.request_service import touch_request
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    active_workflows = (
+        db.query(RequestWorkflowLive)
+        .options(joinedload(RequestWorkflowLive.travel_request))
+        .filter(
+            RequestWorkflowLive.template_id == template_id,
+            RequestWorkflowLive.agency_id == agency_id,
+            RequestWorkflowLive.status == WORKFLOW_STATUS_ACTIVE,
+        )
+        .all()
+    )
+
+    touched_request_ids: set[int] = set()
+    for workflow in active_workflows:
+        workflow.status = WORKFLOW_STATUS_TERMINATED
+        workflow.ended_at = now
+        workflow.completed_by_id = current_user.id
+        if workflow.travel_request_id not in touched_request_ids:
+            touch_request(workflow.travel_request, current_user)
+            touched_request_ids.add(workflow.travel_request_id)
+
+    return len(active_workflows)
+
+
 def load_workflow(db: Session, workflow_id: str) -> RequestWorkflowLive:
     workflow = (
         db.query(RequestWorkflowLive)
@@ -71,6 +105,7 @@ def _resolve_template(
 ) -> AgencyWorkflowTemplate:
     seed_agency_workflow_templates(db, agency_id)
     query = db.query(AgencyWorkflowTemplate).options(joinedload(AgencyWorkflowTemplate.task_templates))
+    query = query.filter(AgencyWorkflowTemplate.archived_at.is_(None))
     if template_id is not None:
         template = query.filter(AgencyWorkflowTemplate.id == template_id).first()
     elif workflow_type is not None:
@@ -136,7 +171,10 @@ def list_workflow_templates(db: Session, *, agency_id: str) -> list[WorkflowTemp
     db.flush()
     templates = (
         db.query(AgencyWorkflowTemplate)
-        .filter(AgencyWorkflowTemplate.agency_id == agency_id)
+        .filter(
+            AgencyWorkflowTemplate.agency_id == agency_id,
+            AgencyWorkflowTemplate.archived_at.is_(None),
+        )
         .order_by(AgencyWorkflowTemplate.workflow_name.asc())
         .all()
     )

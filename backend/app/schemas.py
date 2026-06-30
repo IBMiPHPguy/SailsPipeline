@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
@@ -1440,6 +1440,7 @@ class AgencyTaskTemplateCreate(BaseModel):
 
 class AgencyTaskTemplateUpdate(BaseModel):
     task_title: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = None
 
 
 class AgencyTaskTemplateMove(BaseModel):
@@ -1460,15 +1461,59 @@ class AgencyTaskCatalogItemRead(BaseModel):
     prerequisite_task_keys: list[str] = Field(default_factory=list)
 
 
+class AgencyCustomTaskDefinitionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    task_key: str
+    task_title: str
+    description: str | None = None
+    action_type: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class AgencyCustomTaskDefinitionCreate(BaseModel):
+    task_title: str = Field(min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=4000)
+
+
+class AgencyCustomTaskDefinitionUpdate(BaseModel):
+    task_title: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=4000)
+
+
+class AgencyTaskFromCustomDefinitionCreate(BaseModel):
+    task_key: str = Field(min_length=1, max_length=128)
+    sequence_order: int | None = Field(default=None, ge=1)
+
+
 class AgencyTaskAvailabilityRead(BaseModel):
     available_tasks: list[AgencyTaskCatalogItemRead]
+    available_custom_tasks: list[AgencyTaskCatalogItemRead] = Field(default_factory=list)
+    custom_task_definitions: list[AgencyCustomTaskDefinitionRead] = Field(default_factory=list)
     placed_task_keys: list[str]
     available_count: int
+
+
+class AgencyTaskInventoryItemRead(BaseModel):
+    task_key: str
+    task_title: str
+    description: str
+    task_type: Literal["builtin", "library"]
+    definition_id: str | None = None
+    task_template_id: str | None = None
+    workflow_template_id: str | None = None
+    workflow_name: str | None = None
+    sequence_order: int | None = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AgencyTaskFromCatalogCreate(BaseModel):
     task_key: str = Field(min_length=1, max_length=128)
     task_title: str | None = Field(default=None, min_length=1, max_length=255)
+    sequence_order: int | None = Field(default=None, ge=1)
 
 
 class DashboardNextOpenTaskRead(BaseModel):

@@ -50,6 +50,8 @@ import type {
   AgencyWorkflowTemplate,
   AgencyTaskCatalogItem,
   AgencyTaskAvailability,
+  AgencyTaskInventoryItem,
+  AgencyCustomTaskDefinition,
 } from "./types";
 
 import { API_BASE } from "./apiClient";
@@ -830,6 +832,16 @@ export async function fetchAgencyTaskAvailability(): Promise<AgencyTaskAvailabil
   return response.json();
 }
 
+export async function fetchAgencyTaskInventory(): Promise<AgencyTaskInventoryItem[]> {
+  const response = await apiFetch(`${API_BASE}/agency-task-catalog/inventory`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to load tasks."));
+  }
+  return response.json();
+}
+
 export async function createAgencyWorkflowTemplate(payload: {
   workflow_name: string;
   description?: string | null;
@@ -866,7 +878,7 @@ export async function deleteAgencyWorkflowTemplate(templateId: string): Promise<
     headers: authHeaders(),
   });
   if (!response.ok) {
-    throw new Error(await parseApiError(response, "Unable to delete workflow."));
+    throw new Error(await parseApiError(response, "Unable to remove workflow."));
   }
 }
 
@@ -874,6 +886,7 @@ export async function createAgencyTaskFromCatalog(
   templateId: string,
   taskKey: string,
   taskTitle?: string | null,
+  sequenceOrder?: number | null,
 ): Promise<AgencyWorkflowTemplate> {
   const response = await apiFetch(`${API_BASE}/agency-workflow-templates/${templateId}/catalog-tasks`, {
     method: "POST",
@@ -881,10 +894,80 @@ export async function createAgencyTaskFromCatalog(
     body: JSON.stringify({
       task_key: taskKey,
       ...(taskTitle?.trim() ? { task_title: taskTitle.trim() } : {}),
+      ...(sequenceOrder != null ? { sequence_order: sequenceOrder } : {}),
     }),
   });
   if (!response.ok) {
     throw new Error(await parseApiError(response, "Unable to add task to workflow."));
+  }
+  return response.json();
+}
+
+export async function fetchAgencyCustomTaskDefinitions(): Promise<AgencyCustomTaskDefinition[]> {
+  const response = await apiFetch(`${API_BASE}/agency-custom-task-definitions`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to load custom checklist tasks."));
+  }
+  return response.json();
+}
+
+export async function createAgencyCustomTaskDefinition(payload: {
+  task_title: string;
+  description?: string | null;
+}): Promise<AgencyCustomTaskDefinition> {
+  const response = await apiFetch(`${API_BASE}/agency-custom-task-definitions`, {
+    method: "POST",
+    headers: authHeaders(true),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to create checklist task."));
+  }
+  return response.json();
+}
+
+export async function updateAgencyCustomTaskDefinition(
+  definitionId: string,
+  payload: { task_title?: string; description?: string | null },
+): Promise<AgencyCustomTaskDefinition> {
+  const response = await apiFetch(`${API_BASE}/agency-custom-task-definitions/${definitionId}`, {
+    method: "PATCH",
+    headers: authHeaders(true),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to update checklist task."));
+  }
+  return response.json();
+}
+
+export async function deleteAgencyCustomTaskDefinition(definitionId: string): Promise<void> {
+  const response = await apiFetch(`${API_BASE}/agency-custom-task-definitions/${definitionId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to delete checklist task."));
+  }
+}
+
+export async function createAgencyTaskFromCustomDefinition(
+  templateId: string,
+  taskKey: string,
+  sequenceOrder?: number | null,
+): Promise<AgencyWorkflowTemplate> {
+  const response = await apiFetch(`${API_BASE}/agency-workflow-templates/${templateId}/custom-tasks`, {
+    method: "POST",
+    headers: authHeaders(true),
+    body: JSON.stringify({
+      task_key: taskKey,
+      ...(sequenceOrder != null ? { sequence_order: sequenceOrder } : {}),
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to add checklist task to workflow."));
   }
   return response.json();
 }
@@ -904,14 +987,20 @@ export async function createAgencyTaskTemplate(
   return response.json();
 }
 
-export async function updateAgencyTaskTemplate(taskId: string, taskTitle: string): Promise<AgencyWorkflowTemplate> {
+export async function updateAgencyTaskTemplate(
+  taskId: string,
+  payload: { task_title: string; description?: string | null },
+): Promise<AgencyWorkflowTemplate> {
   const response = await apiFetch(`${API_BASE}/agency-workflow-templates/tasks/${taskId}`, {
     method: "PATCH",
     headers: authHeaders(true),
-    body: JSON.stringify({ task_title: taskTitle }),
+    body: JSON.stringify({
+      task_title: payload.task_title,
+      ...(payload.description !== undefined ? { description: payload.description } : {}),
+    }),
   });
   if (!response.ok) {
-    throw new Error(await parseApiError(response, "Unable to rename workflow task."));
+    throw new Error(await parseApiError(response, "Unable to update workflow task."));
   }
   return response.json();
 }

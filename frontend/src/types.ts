@@ -586,8 +586,32 @@ export type AgencyTaskCatalogItem = {
 
 export type AgencyTaskAvailability = {
   available_tasks: AgencyTaskCatalogItem[];
+  available_custom_tasks: AgencyTaskCatalogItem[];
+  custom_task_definitions: AgencyCustomTaskDefinition[];
   placed_task_keys: string[];
   available_count: number;
+};
+
+export type AgencyTaskInventoryItem = {
+  task_key: string;
+  task_title: string;
+  description: string;
+  task_type: "builtin" | "library";
+  definition_id: string | null;
+  task_template_id: string | null;
+  workflow_template_id: string | null;
+  workflow_name: string | null;
+  sequence_order: number | null;
+};
+
+export type AgencyCustomTaskDefinition = {
+  id: string;
+  task_key: string;
+  task_title: string;
+  description: string | null;
+  action_type: string;
+  created_at: string;
+  updated_at: string;
 };
 
 export type AgencyTaskTemplateMoveResult = {
@@ -699,6 +723,7 @@ export type AppView =
   | { type: "sales-analytics" }
   | { type: "marketing-campaigns" }
   | { type: "workflows" }
+  | { type: "tasks" }
   | { type: "clients" }
   | { type: "reports" }
   | { type: "report"; reportId: ReportId }

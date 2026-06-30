@@ -92,6 +92,17 @@ export function FunnelNavIcon() {
   );
 }
 
+export function CheckNavIcon() {
+  return (
+    <SidebarIcon>
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.75">
+        <path d="M9 6.5 11 8.5 15.5 4" strokeLinecap="round" strokeLinejoin="round" />
+        <rect x="4" y="4" width="16" height="16" rx="2.5" />
+      </svg>
+    </SidebarIcon>
+  );
+}
+
 export function WorkflowsNavIcon() {
   return (
     <SidebarIcon>

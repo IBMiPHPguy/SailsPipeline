@@ -739,6 +739,7 @@ class AgencyWorkflowTemplate(Base):
         String(36), ForeignKey("agency_workflow_templates.id"), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     agency: Mapped[Agency] = relationship()
     successor_template: Mapped["AgencyWorkflowTemplate | None"] = relationship(
@@ -768,6 +769,28 @@ class AgencyTaskTemplate(Base):
     prerequisite_task_keys: Mapped[list | None] = mapped_column(JSON, nullable=True)
 
     workflow_template: Mapped[AgencyWorkflowTemplate] = relationship(back_populates="task_templates")
+
+
+class AgencyCustomTaskDefinition(Base):
+    __tablename__ = "agency_custom_task_definitions"
+    __table_args__ = (
+        UniqueConstraint("agency_id", "task_key", name="uq_agency_custom_task_definitions_key"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    agency_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("agencies.id"), nullable=False, index=True
+    )
+    task_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    task_title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    action_type: Mapped[str] = mapped_column(String(100), nullable=False, default="manual_check")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    agency: Mapped[Agency] = relationship()
 
 
 class RequestWorkflowLive(Base):
