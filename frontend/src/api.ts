@@ -47,6 +47,7 @@ import type {
   RequestWorkflow,
   ResearchDocument,
   WorkflowTemplate,
+  AgencyWorkflowTemplate,
 } from "./types";
 
 import { API_BASE } from "./apiClient";
@@ -731,16 +732,22 @@ export async function fetchWorkflowTemplates(): Promise<WorkflowTemplate[]> {
   return response.json();
 }
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+}
+
 export async function startWorkflow(
   requestId: number,
-  workflowType: string,
-  parentWorkflowId?: number | null,
+  templateIdOrType: string,
+  parentWorkflowId?: string | null,
 ): Promise<RequestWorkflow> {
   const response = await apiFetch(`${API_BASE}/requests/${requestId}/workflows`, {
     method: "POST",
     headers: authHeaders(true),
     body: JSON.stringify({
-      workflow_type: workflowType,
+      ...(isUuid(templateIdOrType)
+        ? { template_id: templateIdOrType }
+        : { workflow_type: templateIdOrType }),
       parent_workflow_id: parentWorkflowId ?? null,
     }),
   });
@@ -752,7 +759,7 @@ export async function startWorkflow(
 
 export async function updateWorkflow(
   requestId: number,
-  workflowId: number,
+  workflowId: string,
   payload: {
     status: string;
     close_reason?: string;
@@ -771,9 +778,10 @@ export async function updateWorkflow(
 
 export async function updateTask(
   requestId: number,
-  taskId: number,
+  taskId: string,
   payload: {
     status?: string;
+    is_completed?: boolean;
     due_at?: string | null;
     result?: Record<string, unknown> | null;
     reached_out?: boolean;
@@ -786,6 +794,108 @@ export async function updateTask(
   });
   if (!response.ok) {
     throw new Error(await parseApiError(response, "Unable to update task."));
+  }
+  return response.json();
+}
+
+export async function fetchAgencyWorkflowTemplates(): Promise<AgencyWorkflowTemplate[]> {
+  const response = await apiFetch(`${API_BASE}/agency-workflow-templates`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to load workflow playbooks."));
+  }
+  return response.json();
+}
+
+export async function createAgencyWorkflowTemplate(payload: {
+  workflow_name: string;
+  description?: string | null;
+}): Promise<AgencyWorkflowTemplate> {
+  const response = await apiFetch(`${API_BASE}/agency-workflow-templates`, {
+    method: "POST",
+    headers: authHeaders(true),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to create workflow playbook."));
+  }
+  return response.json();
+}
+
+export async function updateAgencyWorkflowTemplate(
+  templateId: string,
+  payload: { workflow_name?: string; description?: string | null },
+): Promise<AgencyWorkflowTemplate> {
+  const response = await apiFetch(`${API_BASE}/agency-workflow-templates/${templateId}`, {
+    method: "PATCH",
+    headers: authHeaders(true),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to update workflow playbook."));
+  }
+  return response.json();
+}
+
+export async function deleteAgencyWorkflowTemplate(templateId: string): Promise<void> {
+  const response = await apiFetch(`${API_BASE}/agency-workflow-templates/${templateId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to delete workflow playbook."));
+  }
+}
+
+export async function createAgencyTaskTemplate(
+  templateId: string,
+  taskTitle: string,
+): Promise<AgencyWorkflowTemplate> {
+  const response = await apiFetch(`${API_BASE}/agency-workflow-templates/${templateId}/tasks`, {
+    method: "POST",
+    headers: authHeaders(true),
+    body: JSON.stringify({ task_title: taskTitle }),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to add workflow task."));
+  }
+  return response.json();
+}
+
+export async function updateAgencyTaskTemplate(taskId: string, taskTitle: string): Promise<AgencyWorkflowTemplate> {
+  const response = await apiFetch(`${API_BASE}/agency-workflow-templates/tasks/${taskId}`, {
+    method: "PATCH",
+    headers: authHeaders(true),
+    body: JSON.stringify({ task_title: taskTitle }),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to rename workflow task."));
+  }
+  return response.json();
+}
+
+export async function deleteAgencyTaskTemplate(taskId: string): Promise<AgencyWorkflowTemplate> {
+  const response = await apiFetch(`${API_BASE}/agency-workflow-templates/tasks/${taskId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to delete workflow task."));
+  }
+  return response.json();
+}
+
+export async function moveAgencyTaskTemplate(
+  taskId: string,
+  direction: "up" | "down",
+): Promise<AgencyWorkflowTemplate> {
+  const response = await apiFetch(`${API_BASE}/agency-workflow-templates/tasks/${taskId}/move/${direction}`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to reorder workflow task."));
   }
   return response.json();
 }

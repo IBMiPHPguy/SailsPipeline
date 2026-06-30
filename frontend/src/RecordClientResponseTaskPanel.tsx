@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  startWorkflow,
   updateProposedCruise,
   updateTask,
-  updateWorkflow,
   uploadResearchDocument,
 } from "./api";
 import CloseReasonPicker from "./CloseReasonPicker";
@@ -18,8 +16,6 @@ import {
   TASK_KEY_CLIENT_RESPONSE,
   TASK_KEY_FOLLOW_UP_RESEARCH,
   TASK_STATUS_DONE,
-  WORKFLOW_STATUS_COMPLETED,
-  WORKFLOW_TYPE_RESEARCH,
 } from "./formOptions";
 import type { ProposedCruise, RequestWorkflow } from "./types";
 import {
@@ -263,12 +259,8 @@ export default function RecordClientResponseTaskPanel({
         await updateTask(requestId, clientResponseTask.id, { status: TASK_STATUS_DONE });
       }
 
-      await updateWorkflow(requestId, workflow.id, { status: WORKFLOW_STATUS_COMPLETED });
-
       if (allRejected && rejectedOutcome === "close_request") {
         await onCloseRequest(closeReason);
-      } else if (allRejected && rejectedOutcome === "new_research") {
-        await startWorkflow(requestId, WORKFLOW_TYPE_RESEARCH, workflow.id);
       }
 
       await onChanged();
@@ -293,8 +285,8 @@ export default function RecordClientResponseTaskPanel({
       <div className="record-client-response-task-panel">
         <p className="workflow-task-guidance">
           {acceptedCruises.length > 0
-            ? "Client responses were already recorded on the proposed cruises. Review the accepted options below, then mark this task complete to finish the Communicate Research workflow."
-            : "Client responses were already recorded on the proposed cruises. Review the decisions below, then mark this task complete."}
+            ? "Client responses were already recorded on the proposed cruises. Review the accepted options below, then mark this task complete when you are ready."
+            : "Client responses were already recorded on the proposed cruises. Review the decisions below, then mark this task complete when you are ready."}
         </p>
 
         <ul className="record-client-response-cruise-list">
@@ -426,7 +418,7 @@ export default function RecordClientResponseTaskPanel({
       {allRejected ? (
         <div className="record-client-response-rejected-outcome">
           <p className="workflow-task-guidance">
-            <strong>All options were rejected.</strong> Close the request or start a new Research workflow.
+            <strong>All options were rejected.</strong> Upload new research if needed, then start a Research workflow from the Workflows tab — or close the request.
           </p>
           <fieldset className="record-client-response-outcome-options">
             <legend className="sr-only">Next step after all options rejected</legend>
@@ -438,7 +430,7 @@ export default function RecordClientResponseTaskPanel({
                 disabled={disabled || saving}
                 onChange={() => setRejectedOutcome("new_research")}
               />
-              Start a new Research workflow
+              Start a new Research workflow after saving
             </label>
             <label>
               <input

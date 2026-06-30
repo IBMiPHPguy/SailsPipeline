@@ -264,6 +264,7 @@ export const WORKFLOW_TYPE_ENTER_TRIP_CRM = "enter_trip_crm";
 export const WORKFLOW_STATUS_ACTIVE = "Active";
 export const WORKFLOW_STATUS_COMPLETED = "Completed";
 export const WORKFLOW_STATUS_CANCELLED = "Cancelled";
+export const WORKFLOW_STATUS_TERMINATED = "Terminated";
 
 export const TASK_STATUS_OPEN = "Open";
 export const TASK_STATUS_DONE = "Done";

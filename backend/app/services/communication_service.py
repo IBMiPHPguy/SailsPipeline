@@ -15,7 +15,7 @@ from app.gemini_service import (
     GeminiParseError,
     generate_research_communication_from_proposals,
 )
-from app.models import ProposedCruise, RequestCommunication, RequestWorkflow, TravelRequest, User
+from app.models import ProposedCruise, RequestCommunication, RequestWorkflowLive, TravelRequest, User
 from app.research_proposal_email import build_research_proposal_email_html
 from app.schemas import GenerateResearchCommunicationResponse
 from app.services.agency_service import assert_child_belongs_to_request, require_record_for_agency
@@ -45,20 +45,38 @@ def build_research_proposal_communication_subject(request: TravelRequest, option
     return f"Cruise Proposal – {destination} ({option_count} {option_label})"[:255]
 
 
+def _assert_workflow_belongs_to_request(
+    db: Session,
+    *,
+    request: TravelRequest,
+    request_workflow_live_id: str | None,
+) -> None:
+    if request_workflow_live_id is None:
+        return
+    workflow = db.get(RequestWorkflowLive, request_workflow_live_id)
+    require_record_for_agency(workflow, agency_id=request.agency_id)
+    assert_child_belongs_to_request(
+        child_agency_id=workflow.agency_id,
+        child_travel_request_id=workflow.travel_request_id,
+        request_id=request.id,
+        agency_id=request.agency_id,
+    )
+
+
 def find_draft_research_proposal_communication(
     db: Session,
     request_id: int,
-    request_workflow_id: int | None,
+    request_workflow_live_id: str | None,
 ) -> RequestCommunication | None:
     query = db.query(RequestCommunication).filter(
         RequestCommunication.travel_request_id == request_id,
         RequestCommunication.communication_type == COMMUNICATION_TYPE_RESEARCH_PROPOSAL,
         RequestCommunication.status == COMMUNICATION_STATUS_DRAFT,
     )
-    if request_workflow_id is None:
-        query = query.filter(RequestCommunication.request_workflow_id.is_(None))
+    if request_workflow_live_id is None:
+        query = query.filter(RequestCommunication.request_workflow_live_id.is_(None))
     else:
-        query = query.filter(RequestCommunication.request_workflow_id == request_workflow_id)
+        query = query.filter(RequestCommunication.request_workflow_live_id == request_workflow_live_id)
     return query.order_by(RequestCommunication.updated_at.desc()).first()
 
 
@@ -69,24 +87,20 @@ def save_research_proposal_communication(
     current_user: User,
     subject: str,
     body: str,
-    request_workflow_id: int | None,
+    request_workflow_live_id: str | None,
 ) -> RequestCommunication:
-    if request_workflow_id is not None:
-        workflow = db.get(RequestWorkflow, request_workflow_id)
-        require_record_for_agency(workflow, agency_id=request.agency_id)
-        assert_child_belongs_to_request(
-            child_agency_id=workflow.agency_id,
-            child_travel_request_id=workflow.travel_request_id,
-            request_id=request.id,
-            agency_id=request.agency_id,
-        )
+    _assert_workflow_belongs_to_request(
+        db,
+        request=request,
+        request_workflow_live_id=request_workflow_live_id,
+    )
 
-    communication = find_draft_research_proposal_communication(db, request.id, request_workflow_id)
+    communication = find_draft_research_proposal_communication(db, request.id, request_workflow_live_id)
     if communication is None:
         communication = RequestCommunication(
             agency_id=request.agency_id,
             travel_request_id=request.id,
-            request_workflow_id=request_workflow_id,
+            request_workflow_live_id=request_workflow_live_id,
             communication_type=COMMUNICATION_TYPE_RESEARCH_PROPOSAL,
             subject=subject.strip(),
             body=body,
@@ -110,7 +124,7 @@ def generate_research_communication_from_proposed_cruises(
     *,
     request: TravelRequest,
     current_user: User,
-    request_workflow_id: int | None,
+    request_workflow_live_id: str | None,
 ) -> GenerateResearchCommunicationResponse:
     proposed_cruises = (
         db.query(ProposedCruise)
@@ -155,7 +169,7 @@ def generate_research_communication_from_proposed_cruises(
         current_user=current_user,
         subject=communication_subject,
         body=body,
-        request_workflow_id=request_workflow_id,
+        request_workflow_live_id=request_workflow_live_id,
     )
 
     return GenerateResearchCommunicationResponse(
@@ -174,26 +188,22 @@ def create_communication(
     request: TravelRequest,
     current_user: User,
     request_id: int,
-    request_workflow_id: int | None,
+    request_workflow_live_id: str | None,
     communication_type: str,
     subject: str,
     body: str,
     status: str,
 ) -> RequestCommunication:
-    if request_workflow_id is not None:
-        workflow = db.get(RequestWorkflow, request_workflow_id)
-        require_record_for_agency(workflow, agency_id=request.agency_id)
-        assert_child_belongs_to_request(
-            child_agency_id=workflow.agency_id,
-            child_travel_request_id=workflow.travel_request_id,
-            request_id=request_id,
-            agency_id=request.agency_id,
-        )
+    _assert_workflow_belongs_to_request(
+        db,
+        request=request,
+        request_workflow_live_id=request_workflow_live_id,
+    )
 
     communication = RequestCommunication(
         agency_id=request.agency_id,
         travel_request_id=request_id,
-        request_workflow_id=request_workflow_id,
+        request_workflow_live_id=request_workflow_live_id,
         communication_type=communication_type,
         subject=subject.strip(),
         body=body,

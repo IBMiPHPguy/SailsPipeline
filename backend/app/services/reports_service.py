@@ -20,7 +20,16 @@ from app.constants import (
     TASK_STATUS_OPEN,
     WORKFLOW_STATUS_ACTIVE,
 )
-from app.models import Passenger, ProposedCruise, RequestTask, RequestWorkflow, TravelRequest, User
+from app.models import (
+    AgencyTaskTemplate,
+    AgencyWorkflowTemplate,
+    Passenger,
+    ProposedCruise,
+    RequestTaskLive,
+    RequestWorkflowLive,
+    TravelRequest,
+    User,
+)
 from app.schemas import (
     AdvisorScorecardPageRead,
     AdvisorScorecardRowRead,
@@ -39,7 +48,7 @@ from app.schemas import (
 from app.services.agency_rollup_service import get_or_refresh_report_metadata_cache
 from app.services.booked_cruise_metrics import cruise_total_commission, sum_booked_cruise_financials
 from app.services.request_service import resolve_next_open_task
-from app.workflow_helpers import WORKFLOW_DEFINITIONS, WORKFLOW_TASK_TEMPLATES, get_workflow_label
+from app.services.request_service import resolve_next_open_task
 
 REPORTS_PAGE_SIZE_DEFAULT = 25
 REPORTS_PAGE_SIZE_MAX = 100
@@ -101,7 +110,7 @@ def _reports_query(db: Session, filters: ReportQueryFilters | None = None):
         joinedload(TravelRequest.created_by),
         joinedload(TravelRequest.updated_by),
         selectinload(TravelRequest.proposed_cruises),
-        selectinload(TravelRequest.request_workflows).selectinload(RequestWorkflow.tasks),
+        selectinload(TravelRequest.request_workflows_live).selectinload(RequestWorkflowLive.tasks),
     )
     if agency_id is not None:
         query = query.filter(TravelRequest.agency_id == agency_id)
@@ -166,17 +175,17 @@ def _parse_workflow_task_key(workflow_task: str) -> str | None:
 
 def _first_open_task_key_subquery(agency_id: str):
     return (
-        select(RequestTask.task_key)
-        .select_from(RequestTask)
-        .join(RequestWorkflow, RequestTask.request_workflow_id == RequestWorkflow.id)
+        select(RequestTaskLive.task_key)
+        .select_from(RequestTaskLive)
+        .join(RequestWorkflowLive, RequestTaskLive.request_workflow_live_id == RequestWorkflowLive.id)
         .where(
-            RequestTask.agency_id == agency_id,
-            RequestWorkflow.agency_id == agency_id,
-            RequestWorkflow.travel_request_id == TravelRequest.id,
-            RequestWorkflow.status == WORKFLOW_STATUS_ACTIVE,
-            RequestTask.status == TASK_STATUS_OPEN,
+            RequestTaskLive.agency_id == agency_id,
+            RequestWorkflowLive.agency_id == agency_id,
+            RequestWorkflowLive.travel_request_id == TravelRequest.id,
+            RequestWorkflowLive.status == WORKFLOW_STATUS_ACTIVE,
+            RequestTaskLive.status == TASK_STATUS_OPEN,
         )
-        .order_by(RequestTask.sort_order.asc())
+        .order_by(RequestTaskLive.sequence_order.asc())
         .limit(1)
         .correlate(TravelRequest)
         .scalar_subquery()
@@ -367,22 +376,36 @@ def _paginate[T](items: list[T], page: int, page_size: int) -> tuple[list[T], in
 
 
 def get_report_meta(db: Session, agency_id: str) -> ReportMetaResponse:
+    from app.services.workflow_template_seed import seed_agency_workflow_templates
+
+    seed_agency_workflow_templates(db, agency_id)
+    db.flush()
+
+    templates = (
+        db.query(AgencyWorkflowTemplate)
+        .filter(AgencyWorkflowTemplate.agency_id == agency_id)
+        .order_by(AgencyWorkflowTemplate.workflow_name.asc())
+        .all()
+    )
     workflow_task_groups: list[ReportWorkflowTaskGroup] = []
-    for workflow_type in WORKFLOW_DEFINITIONS:
-        templates = sorted(
-            WORKFLOW_TASK_TEMPLATES.get(workflow_type, []),
-            key=lambda template: template.sort_order,
+    for template in templates:
+        task_templates = (
+            db.query(AgencyTaskTemplate)
+            .filter(AgencyTaskTemplate.workflow_template_id == template.id)
+            .order_by(AgencyTaskTemplate.sequence_order.asc())
+            .all()
         )
+        workflow_type = template.workflow_type_key or template.id
         workflow_task_groups.append(
             ReportWorkflowTaskGroup(
                 workflow_type=workflow_type,
-                workflow_name=get_workflow_label(workflow_type),
+                workflow_name=template.workflow_name,
                 tasks=[
                     ReportWorkflowTaskOption(
-                        value=f"task:{template.task_key}",
-                        label=template.title,
+                        value=f"task:{task_template.task_key}" if task_template.task_key else f"title:{task_template.task_title}",
+                        label=task_template.task_title,
                     )
-                    for template in templates
+                    for task_template in task_templates
                 ],
             )
         )

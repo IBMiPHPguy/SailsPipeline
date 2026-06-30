@@ -17,7 +17,7 @@ type CreateCabinHoldsTaskPanelProps = {
   requestId: number;
   cabinsNeeded: number;
   bookingCruises: ProposedCruise[];
-  taskId: number;
+  taskId: string;
   disabled: boolean;
   isDone: boolean;
   onChanged: () => Promise<void>;

@@ -239,6 +239,11 @@ class TravelRequest(Base):
         cascade="all, delete-orphan",
         order_by="RequestWorkflow.id.desc()",
     )
+    request_workflows_live: Mapped[list["RequestWorkflowLive"]] = relationship(
+        back_populates="travel_request",
+        cascade="all, delete-orphan",
+        order_by="RequestWorkflowLive.started_at.desc()",
+    )
     request_communications: Mapped[list["RequestCommunication"]] = relationship(
         back_populates="travel_request",
         cascade="all, delete-orphan",
@@ -680,6 +685,9 @@ class RequestCommunication(Base):
     )
     travel_request_id: Mapped[int] = mapped_column(ForeignKey("travel_requests.id"), nullable=False)
     request_workflow_id: Mapped[int | None] = mapped_column(ForeignKey("request_workflows.id"), nullable=True)
+    request_workflow_live_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("request_workflows_live.id"), nullable=True
+    )
     communication_type: Mapped[str] = mapped_column(String(40), nullable=False)
     subject: Mapped[str] = mapped_column(String(255), nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False)
@@ -715,3 +723,125 @@ class RequestResearchDocument(Base):
 
     travel_request: Mapped[TravelRequest] = relationship(back_populates="research_documents")
     uploaded_by: Mapped[User] = relationship(foreign_keys=[uploaded_by_id])
+
+
+class AgencyWorkflowTemplate(Base):
+    __tablename__ = "agency_workflow_templates"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    agency_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("agencies.id"), nullable=False, index=True
+    )
+    workflow_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    workflow_type_key: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
+    successor_template_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("agency_workflow_templates.id"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    agency: Mapped[Agency] = relationship()
+    successor_template: Mapped["AgencyWorkflowTemplate | None"] = relationship(
+        remote_side="AgencyWorkflowTemplate.id",
+        foreign_keys=[successor_template_id],
+    )
+    task_templates: Mapped[list["AgencyTaskTemplate"]] = relationship(
+        back_populates="workflow_template",
+        cascade="all, delete-orphan",
+        order_by="AgencyTaskTemplate.sequence_order.asc()",
+    )
+
+
+class AgencyTaskTemplate(Base):
+    __tablename__ = "agency_task_templates"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    workflow_template_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("agency_workflow_templates.id"), nullable=False, index=True
+    )
+    task_title: Mapped[str] = mapped_column(String(255), nullable=False)
+    sequence_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    action_type: Mapped[str] = mapped_column(String(100), nullable=False, default="manual_check")
+    target_field: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    task_key: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    prerequisite_task_keys: Mapped[list | None] = mapped_column(JSON, nullable=True)
+
+    workflow_template: Mapped[AgencyWorkflowTemplate] = relationship(back_populates="task_templates")
+
+
+class RequestWorkflowLive(Base):
+    __tablename__ = "request_workflows_live"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    agency_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("agencies.id"), nullable=False, index=True
+    )
+    travel_request_id: Mapped[int] = mapped_column(ForeignKey("travel_requests.id"), nullable=False, index=True)
+    template_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("agency_workflow_templates.id"), nullable=True
+    )
+    workflow_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    workflow_type_key: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="Active")
+    parent_workflow_live_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("request_workflows_live.id"), nullable=True
+    )
+    context: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    started_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    completed_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    legacy_workflow_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    travel_request: Mapped[TravelRequest] = relationship(back_populates="request_workflows_live")
+    template: Mapped[AgencyWorkflowTemplate | None] = relationship()
+    started_by: Mapped[User] = relationship(foreign_keys=[started_by_id])
+    completed_by: Mapped[User | None] = relationship(foreign_keys=[completed_by_id])
+    parent_workflow: Mapped["RequestWorkflowLive | None"] = relationship(
+        remote_side="RequestWorkflowLive.id",
+        foreign_keys=[parent_workflow_live_id],
+    )
+    tasks: Mapped[list["RequestTaskLive"]] = relationship(
+        back_populates="workflow",
+        cascade="all, delete-orphan",
+        order_by="RequestTaskLive.sequence_order.asc()",
+    )
+
+
+class RequestTaskLive(Base):
+    __tablename__ = "request_tasks_live"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    agency_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("agencies.id"), nullable=False, index=True
+    )
+    request_workflow_live_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("request_workflows_live.id"), nullable=False, index=True
+    )
+    travel_request_id: Mapped[int] = mapped_column(ForeignKey("travel_requests.id"), nullable=False, index=True)
+    template_task_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("agency_task_templates.id"), nullable=True
+    )
+    task_key: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    task_title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sequence_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    action_type: Mapped[str] = mapped_column(String(100), nullable=False, default="manual_check")
+    target_field: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    is_completed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    status: Mapped[str] = mapped_column(String(40), nullable=False, default="Open")
+    due_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    completed_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    legacy_task_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    workflow: Mapped[RequestWorkflowLive] = relationship(back_populates="tasks")
+    travel_request: Mapped[TravelRequest] = relationship()
+    completed_by: Mapped[User | None] = relationship(foreign_keys=[completed_by_id])
+    template_task: Mapped["AgencyTaskTemplate | None"] = relationship(foreign_keys=[template_task_id])

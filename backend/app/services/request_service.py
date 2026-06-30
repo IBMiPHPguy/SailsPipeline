@@ -37,12 +37,13 @@ from app.models import (
     RequestPassenger,
     RequestPassengerAudit,
     RequestResearchDocument,
-    RequestTask,
-    RequestWorkflow,
+    RequestTaskLive,
+    RequestWorkflowLive,
     TravelRequest,
     TravelRequestAudit,
     User,
 )
+from app.services.workflow_read import resolve_workflow_name, workflow_to_read
 from app.passenger_helpers import attach_passenger_to_request, create_passenger_record
 from app.schemas import (
     AttachmentRead,
@@ -54,7 +55,6 @@ from app.schemas import (
     RequestNoteSummaryRead,
     RequestPassengerAuditRead,
     RequestPassengerRead,
-    RequestWorkflowRead,
     ResearchDocumentRead,
     TravelRequestAuditRead,
     TravelRequestCreate,
@@ -71,7 +71,6 @@ from app.services.proposed_cruise_service import proposed_cruise_to_read
 from app.workflow_helpers import (
     TASK_KEY_FOLLOW_UP_RESEARCH,
     ensure_follow_up_due_date,
-    get_workflow_label,
 )
 
 
@@ -86,10 +85,10 @@ def resolve_last_worked(request: TravelRequest) -> tuple[datetime, User]:
     candidates: list[tuple[datetime, User]] = [
         (request.updated_at, request.updated_by),
     ]
-    for workflow in request.request_workflows:
-        candidates.append((workflow.created_at, workflow.started_by))
-        if workflow.completed_at is not None and workflow.completed_by is not None:
-            candidates.append((workflow.completed_at, workflow.completed_by))
+    for workflow in request.request_workflows_live:
+        candidates.append((workflow.started_at, workflow.started_by))
+        if workflow.ended_at is not None and workflow.completed_by is not None:
+            candidates.append((workflow.ended_at, workflow.completed_by))
         for task in workflow.tasks:
             if task.completed_at is not None and task.completed_by is not None:
                 candidates.append((task.completed_at, task.completed_by))
@@ -98,7 +97,7 @@ def resolve_last_worked(request: TravelRequest) -> tuple[datetime, User]:
 
 def resolve_next_open_task(request: TravelRequest) -> DashboardNextOpenTaskRead | None:
     active_workflow = next(
-        (workflow for workflow in request.request_workflows if workflow.status == WORKFLOW_STATUS_ACTIVE),
+        (workflow for workflow in request.request_workflows_live if workflow.status == WORKFLOW_STATUS_ACTIVE),
         None,
     )
     if active_workflow is None:
@@ -106,18 +105,19 @@ def resolve_next_open_task(request: TravelRequest) -> DashboardNextOpenTaskRead 
 
     open_tasks = sorted(
         (task for task in active_workflow.tasks if task.status == TASK_STATUS_OPEN),
-        key=lambda task: task.sort_order,
+        key=lambda task: task.sequence_order,
     )
     if not open_tasks:
         return None
 
     task = open_tasks[0]
+    workflow_type = active_workflow.workflow_type_key or active_workflow.workflow_name
     return DashboardNextOpenTaskRead(
         id=task.id,
-        task_key=task.task_key,
-        title=task.title,
-        workflow_type=active_workflow.workflow_type,
-        workflow_name=get_workflow_label(active_workflow.workflow_type),
+        task_key=task.task_key or "",
+        title=task.task_title,
+        workflow_type=workflow_type,
+        workflow_name=resolve_workflow_name(active_workflow),
     )
 
 
@@ -153,10 +153,10 @@ def dashboard_query(db: Session):
     return db.query(TravelRequest).options(
         joinedload(TravelRequest.created_by),
         joinedload(TravelRequest.updated_by),
-        joinedload(TravelRequest.request_workflows).options(
-            joinedload(RequestWorkflow.started_by),
-            joinedload(RequestWorkflow.completed_by),
-            joinedload(RequestWorkflow.tasks).joinedload(RequestTask.completed_by),
+        joinedload(TravelRequest.request_workflows_live).options(
+            joinedload(RequestWorkflowLive.started_by),
+            joinedload(RequestWorkflowLive.completed_by),
+            joinedload(RequestWorkflowLive.tasks).joinedload(RequestTaskLive.completed_by),
         ),
     )
 
@@ -190,10 +190,10 @@ def detail_query(db: Session):
         ),
         selectinload(TravelRequest.call_transcripts).joinedload(CallTranscript.created_by),
         selectinload(TravelRequest.chat_logs).joinedload(ChatLog.created_by),
-        selectinload(TravelRequest.request_workflows).options(
-            joinedload(RequestWorkflow.started_by),
-            joinedload(RequestWorkflow.completed_by),
-            selectinload(RequestWorkflow.tasks).joinedload(RequestTask.completed_by),
+        selectinload(TravelRequest.request_workflows_live).options(
+            joinedload(RequestWorkflowLive.started_by),
+            joinedload(RequestWorkflowLive.completed_by),
+            selectinload(RequestWorkflowLive.tasks).joinedload(RequestTaskLive.completed_by),
         ),
         selectinload(TravelRequest.request_communications).options(
             joinedload(RequestCommunication.created_by),
@@ -242,7 +242,7 @@ def request_detail_to_read(request: TravelRequest) -> TravelRequestDetailRead:
             proposed_cruise_to_read(cruise, request.cabins_needed) for cruise in request.proposed_cruises
         ],
         quoted_insurance=[QuotedInsuranceRead.model_validate(quote) for quote in request.quoted_insurance],
-        request_workflows=[RequestWorkflowRead.model_validate(workflow) for workflow in request.request_workflows],
+        request_workflows=[workflow_to_read(workflow) for workflow in request.request_workflows_live],
         request_communications=[
             RequestCommunicationSummaryRead.model_validate(communication)
             for communication in request.request_communications
@@ -255,7 +255,7 @@ def request_detail_to_read(request: TravelRequest) -> TravelRequestDetailRead:
 
 def sync_communicate_research_follow_up_due_dates(db: Session, request: TravelRequest) -> None:
     changed = False
-    for workflow in request.request_workflows:
+    for workflow in request.request_workflows_live:
         if workflow.status != WORKFLOW_STATUS_ACTIVE:
             continue
         follow_up = next(
@@ -353,15 +353,16 @@ def search_open_requests(
             func.concat(TravelRequest.first_name, " ", TravelRequest.last_name).ilike(pattern),
             cast(TravelRequest.cruise_lines, String).ilike(pattern),
             User.username.ilike(pattern),
-            RequestTask.title.ilike(pattern),
-            RequestWorkflow.workflow_type.ilike(pattern),
+            RequestTaskLive.task_title.ilike(pattern),
+            RequestWorkflowLive.workflow_type_key.ilike(pattern),
+            RequestWorkflowLive.workflow_name.ilike(pattern),
         ]
         if phone_digits:
             filters.append(TravelRequest.phone.ilike(f"%{phone_digits}%"))
         base = (
             base.outerjoin(TravelRequest.updated_by)
-            .outerjoin(TravelRequest.request_workflows)
-            .outerjoin(RequestWorkflow.tasks)
+            .outerjoin(TravelRequest.request_workflows_live)
+            .outerjoin(RequestWorkflowLive.tasks)
             .filter(or_(*filters))
             .distinct()
         )

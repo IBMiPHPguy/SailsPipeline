@@ -92,6 +92,21 @@ export function FunnelNavIcon() {
   );
 }
 
+export function WorkflowsNavIcon() {
+  return (
+    <SidebarIcon>
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.75">
+        <path d="M9 6h11" strokeLinecap="round" />
+        <path d="M9 12h11" strokeLinecap="round" />
+        <path d="M9 18h11" strokeLinecap="round" />
+        <rect x="4" y="5" width="2.5" height="2.5" rx="0.5" />
+        <rect x="4" y="11" width="2.5" height="2.5" rx="0.5" />
+        <rect x="4" y="17" width="2.5" height="2.5" rx="0.5" />
+      </svg>
+    </SidebarIcon>
+  );
+}
+
 export function SalesFinancialCategoryIcon() {
   return (
     <NavStrokeIcon className="reports-category-icon">

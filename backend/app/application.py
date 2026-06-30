@@ -25,10 +25,23 @@ def seed_admin_user(db) -> None:
     from app.security import hash_password
     from app.services.agency_rollup_service import refresh_agency_rollups
     from app.services.agency_service import ensure_default_agency
+    from app.services.workflow_template_seed import migrate_legacy_workflows_to_live, seed_all_agency_workflow_templates
     from app.tenant_constants import DEFAULT_AGENCY_ID
     from app.tenant_roles import USER_ROLE_TENANT_SUPER_USER
 
     default_agency = ensure_default_agency(db)
+
+    if settings.app_env != "test":
+        try:
+            seed_all_agency_workflow_templates(db)
+            migrate_legacy_workflows_to_live(db)
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "Workflow template seed skipped; apply db/migrate_workflow_engine.sql if needed."
+            )
+            db.rollback()
 
     if settings.app_env != "test":
         try:
