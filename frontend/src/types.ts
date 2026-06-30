@@ -590,6 +590,11 @@ export type AgencyTaskAvailability = {
   available_count: number;
 };
 
+export type AgencyTaskTemplateMoveResult = {
+  source_workflow_template: AgencyWorkflowTemplate;
+  target_workflow_template: AgencyWorkflowTemplate;
+};
+
 export type RequestCommunicationInput = {
   communication_type: string;
   subject: string;

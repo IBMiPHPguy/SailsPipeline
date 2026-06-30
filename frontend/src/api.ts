@@ -941,6 +941,25 @@ export async function moveAgencyTaskTemplate(
   return response.json();
 }
 
+export async function transferAgencyTaskToWorkflow(
+  taskId: string,
+  targetWorkflowTemplateId: string,
+  sequenceOrder?: number | null,
+): Promise<AgencyTaskTemplateMoveResult> {
+  const response = await apiFetch(`${API_BASE}/agency-workflow-templates/tasks/${taskId}/move`, {
+    method: "PATCH",
+    headers: authHeaders(true),
+    body: JSON.stringify({
+      target_workflow_template_id: targetWorkflowTemplateId,
+      ...(sequenceOrder != null ? { sequence_order: sequenceOrder } : {}),
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to move task to workflow."));
+  }
+  return response.json();
+}
+
 export async function addCommunication(
   requestId: number,
   payload: RequestCommunicationInput,

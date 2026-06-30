@@ -216,6 +216,54 @@ def move_agency_task_template(
     return load_workflow_template(db, template.id)
 
 
+def transfer_agency_task_to_workflow(
+    db: Session,
+    *,
+    task_id: str,
+    target_workflow_template_id: str,
+    sequence_order: int | None = None,
+) -> tuple[AgencyWorkflowTemplate, AgencyWorkflowTemplate]:
+    task = db.get(AgencyTaskTemplate, task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task template not found.")
+
+    source_template_id = task.workflow_template_id
+    if source_template_id == target_workflow_template_id:
+        raise HTTPException(status_code=400, detail="Task is already on that workflow.")
+
+    source_template = load_workflow_template(db, source_template_id)
+    target_template = load_workflow_template(db, target_workflow_template_id)
+    if source_template.agency_id != target_template.agency_id:
+        raise HTTPException(status_code=400, detail="Target workflow not found.")
+
+    if task.task_key:
+        assert_task_key_available_for_agency(
+            db,
+            agency_id=source_template.agency_id,
+            task_key=task.task_key,
+            exclude_task_id=task.id,
+        )
+
+    target_tasks = sorted(target_template.task_templates, key=lambda row: row.sequence_order)
+    if sequence_order is None or sequence_order > len(target_tasks) + 1:
+        task.sequence_order = max((row.sequence_order for row in target_tasks), default=0) + 1
+    else:
+        task.sequence_order = sequence_order
+        for row in target_tasks:
+            if row.sequence_order >= sequence_order:
+                row.sequence_order += 1
+
+    task.workflow_template_id = target_workflow_template_id
+    db.flush()
+    _renumber_task_templates(db, source_template_id)
+    _renumber_task_templates(db, target_workflow_template_id)
+    db.commit()
+    return (
+        load_workflow_template(db, source_template_id),
+        load_workflow_template(db, target_workflow_template_id),
+    )
+
+
 def _renumber_task_templates(db: Session, template_id: str) -> None:
     tasks = (
         db.query(AgencyTaskTemplate)

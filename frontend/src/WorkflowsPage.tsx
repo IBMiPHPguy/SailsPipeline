@@ -14,7 +14,9 @@ import EditIcon from "./EditIcon";
 import IconTooltip from "./IconTooltip";
 import TaskLibraryModal, { TaskTypeBadge } from "./TaskLibraryModal";
 import type { AgencyTaskCatalogItem, AgencyTaskTemplate, AgencyWorkflowTemplate } from "./types";
+import ChickenSwitchModal from "./ChickenSwitchModal";
 import TopStatusBar from "./TopStatusBar";
+import WorkflowTaskMoveModal from "./WorkflowTaskMoveModal";
 import WorkflowTaskPickerModal from "./WorkflowTaskPickerModal";
 import WorkflowTemplateEditModal from "./WorkflowTemplateEditModal";
 import { useTopStatusBar } from "./useTopStatusBar";
@@ -37,6 +39,17 @@ function ArrowDownIcon() {
   );
 }
 
+function TransferIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M7 7h11" />
+      <path d="m14 4 4 3-4 3" />
+      <path d="M17 17H6" />
+      <path d="m10 20-4-3 4-3" />
+    </svg>
+  );
+}
+
 function formatTaskCount(count: number): string {
   return count === 1 ? "1 task" : `${count} tasks`;
 }
@@ -51,6 +64,9 @@ export default function WorkflowsPage() {
   const [placedTaskKeys, setPlacedTaskKeys] = useState<Set<string>>(new Set());
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [movingTask, setMovingTask] = useState<AgencyTaskTemplate | null>(null);
+  const [removingTask, setRemovingTask] = useState<AgencyTaskTemplate | null>(null);
+  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
   const { status, showStatus, clearStatus } = useTopStatusBar();
   const [newWorkflowName, setNewWorkflowName] = useState("");
   const [newWorkflowDescription, setNewWorkflowDescription] = useState("");
@@ -123,6 +139,8 @@ export default function WorkflowsPage() {
     [selectedTemplate],
   );
 
+  const canMoveBetweenWorkflows = templates.length > 1;
+
   async function handleCreateWorkflow(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const name = newWorkflowName.trim();
@@ -177,6 +195,36 @@ export default function WorkflowsPage() {
   async function handleCatalogTaskAdded() {
     showStatus("Task added to sequence.", "success");
     await loadTemplates();
+  }
+
+  async function handleTaskMoved() {
+    showStatus("Task moved to workflow.", "success");
+    await loadTemplates();
+  }
+
+  function requestDeleteTask(task: AgencyTaskTemplate) {
+    if (task.task_key) {
+      setRemovingTask(task);
+      return;
+    }
+    void handleDeleteTask(task.id);
+  }
+
+  async function confirmDeleteTask() {
+    if (!removingTask) {
+      return;
+    }
+    setDeletingTaskId(removingTask.id);
+    try {
+      await deleteAgencyTaskTemplate(removingTask.id);
+      showStatus("Task removed from workflow.", "delete");
+      setRemovingTask(null);
+      await loadTemplates();
+    } catch (deleteError) {
+      showStatus(deleteError instanceof Error ? deleteError.message : "Unable to delete task.", "error");
+    } finally {
+      setDeletingTaskId(null);
+    }
   }
 
   async function handleRenameTask(task: AgencyTaskTemplate, nextTitle: string) {
@@ -427,11 +475,30 @@ export default function WorkflowsPage() {
                             >
                               <ArrowDownIcon />
                             </button>
+                            <IconTooltip
+                              label={
+                                canMoveBetweenWorkflows
+                                  ? "Move task to another workflow"
+                                  : "Create another workflow to move tasks"
+                              }
+                              placement="below"
+                              align="end"
+                            >
+                              <button
+                                type="button"
+                                className="icon-button"
+                                aria-label="Move task to another workflow"
+                                disabled={!canMoveBetweenWorkflows || movingTaskId === task.id}
+                                onClick={() => setMovingTask(task)}
+                              >
+                                <TransferIcon />
+                              </button>
+                            </IconTooltip>
                             <button
                               type="button"
                               className="icon-button icon-button-danger"
                               aria-label="Remove task from workflow"
-                              onClick={() => void handleDeleteTask(task.id)}
+                              onClick={() => requestDeleteTask(task)}
                             >
                               ×
                             </button>
@@ -500,6 +567,28 @@ export default function WorkflowsPage() {
         availableTasks={availableTasks}
         onClose={() => setPickerOpen(false)}
         onAdded={handleCatalogTaskAdded}
+      />
+
+      <WorkflowTaskMoveModal
+        open={movingTask !== null}
+        task={movingTask}
+        sourceWorkflow={selectedTemplate}
+        workflows={templates}
+        onClose={() => setMovingTask(null)}
+        onMoved={handleTaskMoved}
+      />
+
+      <ChickenSwitchModal
+        open={removingTask !== null && selectedTemplate !== null}
+        title="Remove task from workflow?"
+        description={`This removes "${removingTask?.task_title ?? "the task"}" from ${selectedTemplate?.workflow_name ?? "the workflow"}. The task returns to the available library and can be added to another workflow.`}
+        switchLabel={`Yes, remove this task from ${selectedTemplate?.workflow_name ?? "the workflow"}`}
+        confirmLabel="Remove from workflow"
+        confirmingLabel="Removing..."
+        hint="You can add this task back from Available tasks or the task picker."
+        confirming={removingTask !== null && deletingTaskId === removingTask.id}
+        onCancel={() => setRemovingTask(null)}
+        onConfirm={() => void confirmDeleteTask()}
       />
     </section>
   );

@@ -1442,6 +1442,16 @@ class AgencyTaskTemplateUpdate(BaseModel):
     task_title: str | None = Field(default=None, min_length=1, max_length=255)
 
 
+class AgencyTaskTemplateMove(BaseModel):
+    target_workflow_template_id: str = Field(min_length=1)
+    sequence_order: int | None = Field(default=None, ge=1)
+
+
+class AgencyTaskTemplateMoveResult(BaseModel):
+    source_workflow_template: AgencyWorkflowTemplateRead
+    target_workflow_template: AgencyWorkflowTemplateRead
+
+
 class AgencyTaskCatalogItemRead(BaseModel):
     task_key: str
     task_title: str

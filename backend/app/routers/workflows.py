@@ -9,6 +9,8 @@ from app.schemas import (
     AgencyTaskCatalogItemRead,
     AgencyTaskFromCatalogCreate,
     AgencyTaskTemplateCreate,
+    AgencyTaskTemplateMove,
+    AgencyTaskTemplateMoveResult,
     AgencyTaskTemplateRead,
     AgencyTaskTemplateUpdate,
     AgencyWorkflowTemplateCreate,
@@ -40,6 +42,7 @@ from app.services.workflow_template_service import (
     list_agency_workflow_templates,
     load_workflow_template,
     move_agency_task_template,
+    transfer_agency_task_to_workflow,
     update_agency_task_template,
     update_agency_workflow_template,
 )
@@ -199,6 +202,25 @@ def create_agency_task_from_catalog_route(
     )
     template = load_workflow_template(db, template_id)
     return AgencyWorkflowTemplateRead.model_validate(template)
+
+
+@settings_router.patch("/tasks/{task_id}/move", response_model=AgencyTaskTemplateMoveResult)
+def transfer_agency_task_to_workflow_route(
+    task_id: str,
+    payload: AgencyTaskTemplateMove,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_tenant_super_user),
+) -> AgencyTaskTemplateMoveResult:
+    source_template, target_template = transfer_agency_task_to_workflow(
+        db,
+        task_id=task_id,
+        target_workflow_template_id=payload.target_workflow_template_id,
+        sequence_order=payload.sequence_order,
+    )
+    return AgencyTaskTemplateMoveResult(
+        source_workflow_template=AgencyWorkflowTemplateRead.model_validate(source_template),
+        target_workflow_template=AgencyWorkflowTemplateRead.model_validate(target_template),
+    )
 
 
 @settings_router.patch("/tasks/{task_id}", response_model=AgencyWorkflowTemplateRead)
