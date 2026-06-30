@@ -870,6 +870,25 @@ export async function deleteAgencyWorkflowTemplate(templateId: string): Promise<
   }
 }
 
+export async function createAgencyTaskFromCatalog(
+  templateId: string,
+  taskKey: string,
+  taskTitle?: string | null,
+): Promise<AgencyWorkflowTemplate> {
+  const response = await apiFetch(`${API_BASE}/agency-workflow-templates/${templateId}/catalog-tasks`, {
+    method: "POST",
+    headers: authHeaders(true),
+    body: JSON.stringify({
+      task_key: taskKey,
+      ...(taskTitle?.trim() ? { task_title: taskTitle.trim() } : {}),
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to add task to workflow."));
+  }
+  return response.json();
+}
+
 export async function createAgencyTaskTemplate(
   templateId: string,
   taskTitle: string,

@@ -8704,11 +8704,29 @@ button.modal-ghost:hover:not(:disabled) {
 }
 
 .workflows-settings-create-form,
-.workflows-settings-quick-add {
+.workflows-settings-checklist-add {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   margin-bottom: 0;
+}
+
+.workflows-settings-add-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 0.25rem;
+}
+
+.workflows-settings-builtin-add-button {
+  align-self: flex-start;
+}
+
+.workflows-settings-checklist-add label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
 }
 
 .workflows-settings-create-form label {
@@ -9005,6 +9023,73 @@ button.modal-ghost:hover:not(:disabled) {
 .task-library-modal-status-placed {
   background: #f0f4f8;
   color: #627d98;
+}
+
+.workflow-task-picker-modal {
+  width: min(100%, 640px);
+}
+
+.workflow-task-picker-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.workflow-task-picker-search {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.workflow-task-picker-empty {
+  margin: 0;
+}
+
+.workflow-task-picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.workflow-task-picker-row {
+  margin: 0;
+  min-width: 0;
+}
+
+.workflow-task-picker-row-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.workflow-task-picker-row-text {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.workflow-task-picker-row-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #102a43;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.workflow-task-picker-row-description {
+  margin: 0.35rem 0 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.workflow-task-picker-add-button {
+  flex-shrink: 0;
 }
 
 .workflows-settings-task-index {

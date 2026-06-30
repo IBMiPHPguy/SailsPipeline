@@ -115,3 +115,50 @@ def test_create_agency_task_from_catalog_adds_freed_task(db):
             template_id=original_template_id,
             task_key="research_cruise_options",
         )
+
+
+def test_create_agency_task_from_catalog_rejects_unknown_task_key(db):
+    workflow = (
+        db.query(AgencyWorkflowTemplate)
+        .filter(AgencyWorkflowTemplate.agency_id == DEFAULT_AGENCY_ID)
+        .first()
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        create_agency_task_from_catalog(
+            db,
+            template_id=workflow.id,
+            task_key="not_a_real_task",
+        )
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "Unknown built-in task."
+
+
+def test_create_agency_task_from_catalog_accepts_title_override(db):
+    task = (
+        db.query(AgencyTaskTemplate)
+        .join(AgencyWorkflowTemplate)
+        .filter(
+            AgencyWorkflowTemplate.agency_id == DEFAULT_AGENCY_ID,
+            AgencyTaskTemplate.task_key == "research_cruise_options",
+        )
+        .one()
+    )
+    original_template_id = task.workflow_template_id
+    db.delete(task)
+    db.commit()
+
+    other_workflow = (
+        db.query(AgencyWorkflowTemplate)
+        .filter(
+            AgencyWorkflowTemplate.agency_id == DEFAULT_AGENCY_ID,
+            AgencyWorkflowTemplate.id != original_template_id,
+        )
+        .first()
+    )
+    created = create_agency_task_from_catalog(
+        db,
+        template_id=other_workflow.id,
+        task_key="research_cruise_options",
+        task_title="Agency-specific research",
+    )
+    assert created.task_title == "Agency-specific research"

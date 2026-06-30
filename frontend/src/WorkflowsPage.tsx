@@ -15,6 +15,7 @@ import IconTooltip from "./IconTooltip";
 import TaskLibraryModal, { TaskTypeBadge } from "./TaskLibraryModal";
 import type { AgencyTaskCatalogItem, AgencyTaskTemplate, AgencyWorkflowTemplate } from "./types";
 import TopStatusBar from "./TopStatusBar";
+import WorkflowTaskPickerModal from "./WorkflowTaskPickerModal";
 import WorkflowTemplateEditModal from "./WorkflowTemplateEditModal";
 import { useTopStatusBar } from "./useTopStatusBar";
 
@@ -46,8 +47,10 @@ export default function WorkflowsPage() {
   const [loading, setLoading] = useState(true);
   const [catalog, setCatalog] = useState<AgencyTaskCatalogItem[]>([]);
   const [availableCount, setAvailableCount] = useState(0);
+  const [availableTasks, setAvailableTasks] = useState<AgencyTaskCatalogItem[]>([]);
   const [placedTaskKeys, setPlacedTaskKeys] = useState<Set<string>>(new Set());
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const { status, showStatus, clearStatus } = useTopStatusBar();
   const [newWorkflowName, setNewWorkflowName] = useState("");
   const [newWorkflowDescription, setNewWorkflowDescription] = useState("");
@@ -67,6 +70,7 @@ export default function WorkflowsPage() {
       ]);
       setTemplates(items);
       setAvailableCount(availability.available_count);
+      setAvailableTasks(availability.available_tasks);
       setPlacedTaskKeys(new Set(availability.placed_task_keys));
       setSelectedTemplateId((current) => {
         if (current && items.some((item) => item.id === current)) {
@@ -147,7 +151,7 @@ export default function WorkflowsPage() {
     }
   }
 
-  async function handleQuickAddTask(event: FormEvent<HTMLFormElement>) {
+  async function handleAddChecklistTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedTemplate) {
       return;
@@ -168,6 +172,11 @@ export default function WorkflowsPage() {
     } finally {
       setAddingTask(false);
     }
+  }
+
+  async function handleCatalogTaskAdded() {
+    showStatus("Task added to sequence.", "success");
+    await loadTemplates();
   }
 
   async function handleRenameTask(task: AgencyTaskTemplate, nextTitle: string) {
@@ -290,7 +299,7 @@ export default function WorkflowsPage() {
                 <p className="workflows-settings-available-summary">
                   <span className="workflows-settings-available-count">{availableCount}</span>
                   <span>
-                    built-in {availableCount === 1 ? "task" : "tasks"} not on any workflow yet
+                    {availableCount === 1 ? "task" : "tasks"} not on any workflow yet
                   </span>
                 </p>
                 <button type="button" className="workflows-settings-library-button" onClick={() => setLibraryOpen(true)}>
@@ -432,21 +441,32 @@ export default function WorkflowsPage() {
                     </ol>
                   )}
 
-                  <form className="workflows-settings-quick-add" onSubmit={handleQuickAddTask}>
-                    <label>
-                      Quick-Add New Task
-                      <input
-                        type="text"
-                        value={quickAddTitle}
-                        placeholder="Type next step..."
-                        disabled={addingTask}
-                        onChange={(event) => setQuickAddTitle(event.target.value)}
-                      />
-                    </label>
-                    <button type="submit" disabled={addingTask || !quickAddTitle.trim()}>
-                      {addingTask ? "Adding..." : "+ Append to Sequence"}
+                  <div className="workflows-settings-add-tasks">
+                    <button
+                      type="button"
+                      className="workflows-settings-builtin-add-button"
+                      disabled={availableCount === 0}
+                      onClick={() => setPickerOpen(true)}
+                    >
+                      + Add task
                     </button>
-                  </form>
+
+                    <form className="workflows-settings-checklist-add" onSubmit={handleAddChecklistTask}>
+                      <label>
+                        Add checklist task
+                        <input
+                          type="text"
+                          value={quickAddTitle}
+                          placeholder="Type checklist step..."
+                          disabled={addingTask}
+                          onChange={(event) => setQuickAddTitle(event.target.value)}
+                        />
+                      </label>
+                      <button type="submit" disabled={addingTask || !quickAddTitle.trim()}>
+                        {addingTask ? "Adding..." : "+ Add checklist task"}
+                      </button>
+                    </form>
+                  </div>
                 </>
               ) : (
                 <p className="meta">Create a workflow to begin defining tasks.</p>
@@ -472,6 +492,14 @@ export default function WorkflowsPage() {
         placedTaskKeys={placedTaskKeys}
         availableCount={availableCount}
         onClose={() => setLibraryOpen(false)}
+      />
+
+      <WorkflowTaskPickerModal
+        open={pickerOpen}
+        workflow={selectedTemplate}
+        availableTasks={availableTasks}
+        onClose={() => setPickerOpen(false)}
+        onAdded={handleCatalogTaskAdded}
       />
     </section>
   );

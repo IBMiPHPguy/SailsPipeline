@@ -94,6 +94,7 @@ def create_agency_task_from_catalog(
     *,
     template_id: str,
     task_key: str,
+    task_title: str | None = None,
 ) -> AgencyTaskTemplate:
     workflow_template = load_workflow_template(db, template_id)
     catalog_item = get_catalog_item(task_key)
@@ -106,11 +107,15 @@ def create_agency_task_from_catalog(
         task_key=task_key,
     )
 
+    resolved_title = task_title.strip() if task_title else catalog_item["task_title"]
+    if not resolved_title:
+        raise HTTPException(status_code=400, detail="Task title is required.")
+
     max_order = max((task.sequence_order for task in workflow_template.task_templates), default=0)
     task = AgencyTaskTemplate(
         id=_new_id(),
         workflow_template_id=workflow_template.id,
-        task_title=catalog_item["task_title"],
+        task_title=resolved_title,
         sequence_order=max_order + 1,
         action_type=catalog_item["action_type"],
         task_key=catalog_item["task_key"],

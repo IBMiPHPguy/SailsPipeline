@@ -1458,6 +1458,7 @@ class AgencyTaskAvailabilityRead(BaseModel):
 
 class AgencyTaskFromCatalogCreate(BaseModel):
     task_key: str = Field(min_length=1, max_length=128)
+    task_title: str | None = Field(default=None, min_length=1, max_length=255)
 
 
 class DashboardNextOpenTaskRead(BaseModel):

@@ -191,7 +191,12 @@ def create_agency_task_from_catalog_route(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_tenant_super_user),
 ) -> AgencyWorkflowTemplateRead:
-    create_agency_task_from_catalog(db, template_id=template_id, task_key=payload.task_key)
+    create_agency_task_from_catalog(
+        db,
+        template_id=template_id,
+        task_key=payload.task_key,
+        task_title=payload.task_title,
+    )
     template = load_workflow_template(db, template_id)
     return AgencyWorkflowTemplateRead.model_validate(template)
 

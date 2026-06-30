@@ -54,6 +54,25 @@ def test_agency_task_availability_after_seed(client, auth_headers):
 
 
 @pytest.mark.integration
+def test_create_catalog_task_rejects_unknown_task_key(client, auth_headers, db):
+    from app.models import AgencyWorkflowTemplate
+    from app.tenant_constants import DEFAULT_AGENCY_ID
+
+    workflow = (
+        db.query(AgencyWorkflowTemplate)
+        .filter(AgencyWorkflowTemplate.agency_id == DEFAULT_AGENCY_ID)
+        .first()
+    )
+    response = client.post(
+        f"/api/agency-workflow-templates/{workflow.id}/catalog-tasks",
+        headers=auth_headers,
+        json={"task_key": "not_a_real_task"},
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Unknown built-in task."
+
+
+@pytest.mark.integration
 def test_create_catalog_task_rejects_duplicate(client, auth_headers, db):
     from app.models import AgencyTaskTemplate, AgencyWorkflowTemplate
     from app.tenant_constants import DEFAULT_AGENCY_ID
@@ -115,3 +134,47 @@ def test_create_catalog_task_after_removal(client, auth_headers, db):
 
     availability = client.get("/api/agency-task-catalog/availability", headers=auth_headers)
     assert availability.json()["available_count"] == 0
+
+
+@pytest.mark.integration
+def test_create_catalog_task_with_title_override(client, auth_headers, db):
+    from app.models import AgencyTaskTemplate, AgencyWorkflowTemplate
+    from app.tenant_constants import DEFAULT_AGENCY_ID
+
+    task = (
+        db.query(AgencyTaskTemplate)
+        .join(AgencyWorkflowTemplate)
+        .filter(
+            AgencyWorkflowTemplate.agency_id == DEFAULT_AGENCY_ID,
+            AgencyTaskTemplate.task_key == "research_cruise_options",
+        )
+        .one()
+    )
+    original_template_id = task.workflow_template_id
+    db.delete(task)
+    db.commit()
+
+    other_workflow = (
+        db.query(AgencyWorkflowTemplate)
+        .filter(
+            AgencyWorkflowTemplate.agency_id == DEFAULT_AGENCY_ID,
+            AgencyWorkflowTemplate.id != original_template_id,
+        )
+        .first()
+    )
+
+    response = client.post(
+        f"/api/agency-workflow-templates/{other_workflow.id}/catalog-tasks",
+        headers=auth_headers,
+        json={
+            "task_key": "research_cruise_options",
+            "task_title": "Custom research label",
+        },
+    )
+    assert response.status_code == 201
+    added = next(
+        task_row
+        for task_row in response.json()["task_templates"]
+        if task_row["task_key"] == "research_cruise_options"
+    )
+    assert added["task_title"] == "Custom research label"
