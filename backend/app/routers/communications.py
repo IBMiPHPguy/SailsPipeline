@@ -84,7 +84,7 @@ def generate_research_communication_from_proposed_cruises_route(
         db,
         request=request,
         current_user=current_user,
-        request_workflow_id=payload.request_workflow_id,
+        request_workflow_live_id=payload.request_workflow_id,
     )
 
 
@@ -105,7 +105,7 @@ def add_communication(
         request=request,
         current_user=current_user,
         request_id=request_id,
-        request_workflow_id=payload.request_workflow_id,
+        request_workflow_live_id=payload.request_workflow_id,
         communication_type=payload.communication_type,
         subject=payload.subject,
         body=payload.body,

@@ -1,6 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
 import { fetchWorkflowTemplates, startWorkflow, updateTask, updateWorkflow, uploadResearchDocument } from "./api";
-import CloseRequestModal from "./CloseRequestModal";
 import WorkflowTaskModal from "./WorkflowTaskModal";
 import type { RequestTask, RequestWorkflow, TravelRequestDetail, TravelRequestInput, WorkflowTemplate } from "./types";
 import { formatTimestamp } from "./utils";
@@ -11,7 +10,7 @@ import {
   WORKFLOW_STATUS_ACTIVE,
   WORKFLOW_STATUS_CANCELLED,
   WORKFLOW_STATUS_COMPLETED,
-  WORKFLOW_TYPE_ENTER_TRIP_CRM,
+  WORKFLOW_STATUS_TERMINATED,
 } from "./formOptions";
 import {
   countOpenTasks,
@@ -25,7 +24,7 @@ import {
   isTaskBlockedByPrerequisites,
   taskDisplayStatusClass,
   taskStatusClass,
-  workflowTypeLabel,
+  workflowDisplayName,
 } from "./workflowForm";
 
 type WorkflowTab = "active" | "previous";
@@ -62,15 +61,14 @@ export default function WorkflowsSection({
   embeddedInWorkspace = false,
 }: WorkflowsSectionProps) {
   const [templates, setTemplates] = useState<WorkflowTemplate[]>([]);
-  const [selectedType, setSelectedType] = useState("");
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [starting, setStarting] = useState(false);
-  const [updatingWorkflowId, setUpdatingWorkflowId] = useState<number | null>(null);
+  const [updatingWorkflowId, setUpdatingWorkflowId] = useState<string | null>(null);
   const [savingTask, setSavingTask] = useState(false);
   const [uploadingResearch, setUploadingResearch] = useState(false);
   const [uploadSuccessMessage, setUploadSuccessMessage] = useState<string | null>(null);
   const [activeTask, setActiveTask] = useState<RequestTask | null>(null);
   const [activeTab, setActiveTab] = useState<WorkflowTab>("active");
-  const [completeWorkflowModalOpen, setCompleteWorkflowModalOpen] = useState(false);
 
   const activeWorkflow = getActiveWorkflow(workflows);
   const pastWorkflows = workflows
@@ -80,7 +78,7 @@ export default function WorkflowsSection({
       const rightTime = right.completed_at ?? right.updated_at;
       return rightTime.localeCompare(leftTime);
     });
-  const selectedTemplate = templates.find((template) => template.workflow_type === selectedType);
+  const selectedTemplate = templates.find((template) => template.id === selectedTemplateId);
 
   const sortedTasks = activeWorkflow
     ? [...activeWorkflow.tasks].sort((left, right) => left.sort_order - right.sort_order)
@@ -104,16 +102,16 @@ export default function WorkflowsSection({
 
   async function handleStartWorkflow(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selectedType || disabled || activeWorkflow) {
+    if (!selectedTemplateId || disabled || activeWorkflow) {
       return;
     }
 
     setStarting(true);
     onError("");
     try {
-      const workflow = await startWorkflow(requestId, selectedType);
+      const workflow = await startWorkflow(requestId, selectedTemplateId);
       await onChanged();
-      setSelectedType("");
+      setSelectedTemplateId("");
       const firstTask = [...workflow.tasks].sort((left, right) => left.sort_order - right.sort_order)[0];
       if (firstTask) {
         setActiveTask(firstTask);
@@ -125,17 +123,12 @@ export default function WorkflowsSection({
     }
   }
 
-  async function handleWorkflowStatus(workflowId: number, status: string, closeReason?: string) {
+  async function handleWorkflowStatus(workflowId: string, status: string) {
     setUpdatingWorkflowId(workflowId);
     onError("");
     try {
-      await updateWorkflow(
-        requestId,
-        workflowId,
-        closeReason ? { status, close_reason: closeReason } : { status },
-      );
+      await updateWorkflow(requestId, workflowId, { status });
       setActiveTask(null);
-      setCompleteWorkflowModalOpen(false);
       await onChanged();
     } catch (updateError) {
       onError(updateError instanceof Error ? updateError.message : "Unable to update workflow.");
@@ -149,23 +142,12 @@ export default function WorkflowsSection({
       return;
     }
 
-    if (activeWorkflow.workflow_type === WORKFLOW_TYPE_ENTER_TRIP_CRM) {
-      setCompleteWorkflowModalOpen(true);
-      return;
-    }
-
     void handleWorkflowStatus(activeWorkflow.id, WORKFLOW_STATUS_COMPLETED);
   }
 
-  async function handleConfirmCompleteEnterTripCrm(closeReason: string) {
-    if (!activeWorkflow) {
-      return;
-    }
+  const openTaskCount = activeWorkflow ? countOpenTasks(activeWorkflow) : 0;
 
-    await handleWorkflowStatus(activeWorkflow.id, WORKFLOW_STATUS_COMPLETED, closeReason);
-  }
-
-  async function handleTaskStatus(taskId: number, status: string) {
+  async function handleTaskStatus(taskId: string, status: string) {
     setSavingTask(true);
     onError("");
     try {
@@ -245,7 +227,7 @@ export default function WorkflowsSection({
                 <div className="workflow-active">
                   <div className="workflow-active-header">
                     <div className="workflow-active-header-main">
-                      <h4 className="workflow-active-name">{workflowTypeLabel(activeWorkflow.workflow_type)}</h4>
+                      <h4 className="workflow-active-name">{workflowDisplayName(activeWorkflow)}</h4>
                       <p className="workflow-active-meta">
                         <span>Started by {activeWorkflow.started_by.username}</span>
                         <span className="workflow-active-meta-sep" aria-hidden="true">
@@ -338,33 +320,35 @@ export default function WorkflowsSection({
                         type="button"
                         className="workflow-action-ghost"
                         disabled={updatingWorkflowId === activeWorkflow.id}
-                        onClick={() => handleWorkflowStatus(activeWorkflow.id, WORKFLOW_STATUS_CANCELLED)}
+                        onClick={() => handleWorkflowStatus(activeWorkflow.id, WORKFLOW_STATUS_TERMINATED)}
                       >
-                        {updatingWorkflowId === activeWorkflow.id ? "Updating..." : "Cancel workflow"}
+                        {updatingWorkflowId === activeWorkflow.id ? "Updating..." : "Terminate workflow"}
                       </button>
-                      <button
-                        type="button"
-                        className="workflow-action-complete"
-                        disabled={updatingWorkflowId === activeWorkflow.id}
-                        onClick={handleCompleteWorkflowClick}
-                      >
-                        {updatingWorkflowId === activeWorkflow.id ? "Updating..." : "Complete workflow"}
-                      </button>
+                      {openTaskCount > 0 ? (
+                        <button
+                          type="button"
+                          className="workflow-action-complete"
+                          disabled={updatingWorkflowId === activeWorkflow.id}
+                          onClick={handleCompleteWorkflowClick}
+                        >
+                          {updatingWorkflowId === activeWorkflow.id ? "Updating..." : "Mark workflow completed"}
+                        </button>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>
               ) : !disabled ? (
                 <form className="workflow-start-form" onSubmit={handleStartWorkflow}>
                   <label>
-                    Start a workflow
+                    Start workflow
                     <select
-                      value={selectedType}
+                      value={selectedTemplateId}
                       disabled={starting || templates.length === 0}
-                      onChange={(event) => setSelectedType(event.target.value)}
+                      onChange={(event) => setSelectedTemplateId(event.target.value)}
                     >
                       <option value="">--- Select ---</option>
                       {templates.map((template) => (
-                        <option key={template.workflow_type} value={template.workflow_type}>
+                        <option key={template.id} value={template.id}>
                           {template.name}
                         </option>
                       ))}
@@ -373,9 +357,9 @@ export default function WorkflowsSection({
                   {selectedTemplate?.description ? (
                     <p className="field-hint">{selectedTemplate.description}</p>
                   ) : null}
-                  <p className="field-hint">Starting a workflow creates a set of tasks for your team to complete.</p>
-                  <button type="submit" disabled={starting || !selectedType}>
-                    {starting ? "Creating tasks..." : "Start workflow"}
+                  <p className="field-hint">Starting a workflow snapshots its tasks onto this request.</p>
+                  <button type="submit" disabled={starting || !selectedTemplateId}>
+                    {starting ? "Starting workflow..." : "Start workflow"}
                   </button>
                 </form>
               ) : (
@@ -402,7 +386,7 @@ export default function WorkflowsSection({
                     <tbody>
                       {pastWorkflows.map((workflow) => (
                         <tr key={workflow.id}>
-                          <td>{workflowTypeLabel(workflow.workflow_type)}</td>
+                          <td>{workflowDisplayName(workflow)}</td>
                           <td>
                             <span
                               className={`workflow-status ${
@@ -411,7 +395,7 @@ export default function WorkflowsSection({
                                   : "workflow-status-cancelled"
                               }`}
                             >
-                              {workflow.status}
+                              {workflow.status === WORKFLOW_STATUS_TERMINATED ? "Terminated" : workflow.status}
                             </span>
                           </td>
                           <td className="meta">{workflow.started_by.username}</td>
@@ -430,15 +414,6 @@ export default function WorkflowsSection({
           )}
         </div>
       </div>
-
-      <CloseRequestModal
-        open={completeWorkflowModalOpen}
-        request={request}
-        closing={updatingWorkflowId !== null}
-        mode="complete_enter_trip_crm"
-        onCancel={() => setCompleteWorkflowModalOpen(false)}
-        onConfirm={(closeReason) => void handleConfirmCompleteEnterTripCrm(closeReason)}
-      />
 
       <WorkflowTaskModal
         open={activeTask !== null}

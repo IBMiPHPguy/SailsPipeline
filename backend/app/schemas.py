@@ -1191,16 +1191,19 @@ class RequestChangeHistoryRead(BaseModel):
 class RequestTaskRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: str
     task_key: str
     title: str
     description: str | None = None
     status: str
     sort_order: int
+    action_type: str = "manual_check"
+    is_completed: bool = False
     due_at: datetime | None = None
     completed_at: datetime | None = None
     completed_by: UserAudit | None = None
     result: dict | None = None
+    prerequisite_task_keys: list[str] | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -1208,10 +1211,11 @@ class RequestTaskRead(BaseModel):
 class RequestWorkflowRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: str
     workflow_type: str
+    workflow_name: str
     status: str
-    parent_workflow_id: int | None = None
+    parent_workflow_id: str | None = None
     context: dict | None = None
     started_by: UserAudit
     completed_by: UserAudit | None = None
@@ -1222,17 +1226,26 @@ class RequestWorkflowRead(BaseModel):
 
 
 class RequestWorkflowCreate(BaseModel):
-    workflow_type: str = Field(min_length=1, max_length=40)
-    parent_workflow_id: int | None = None
+    template_id: str | None = Field(default=None, min_length=36, max_length=36)
+    workflow_type: str | None = Field(default=None, min_length=1, max_length=40)
+    parent_workflow_id: str | None = Field(default=None, min_length=36, max_length=36)
 
     @field_validator("workflow_type")
     @classmethod
-    def validate_workflow_type(cls, value: str) -> str:
+    def validate_workflow_type(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
         from app.constants import WORKFLOW_TYPES
 
         if value not in WORKFLOW_TYPES:
             raise ValueError("Invalid workflow type selected.")
         return value
+
+    @model_validator(mode="after")
+    def validate_selector(self):
+        if not self.template_id and not self.workflow_type:
+            raise ValueError("Select a workflow playbook.")
+        return self
 
 
 class RequestWorkflowUpdate(BaseModel):
@@ -1258,6 +1271,7 @@ class RequestWorkflowUpdate(BaseModel):
 
 class RequestTaskUpdate(BaseModel):
     status: str | None = Field(default=None, min_length=1, max_length=40)
+    is_completed: bool | None = None
     due_at: datetime | None = None
     result: dict | None = None
     reached_out: bool | None = None
@@ -1276,7 +1290,7 @@ class RequestCommunicationCreate(BaseModel):
     communication_type: str = Field(min_length=1, max_length=40)
     subject: str = Field(min_length=1, max_length=255)
     body: str = Field(min_length=1)
-    request_workflow_id: int | None = None
+    request_workflow_id: str | None = None
     status: str = Field(default="Draft", min_length=1, max_length=40)
 
     @field_validator("communication_type")
@@ -1324,14 +1338,14 @@ class RequestCommunicationUpdate(BaseModel):
 
 
 class RequestCommunicationRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     id: int
     communication_type: str
     subject: str
     body: str
     status: str
-    request_workflow_id: int | None = None
+    request_workflow_id: str | None = Field(default=None, validation_alias="request_workflow_live_id")
     sent_at: datetime | None = None
     created_by: UserAudit
     updated_by: UserAudit
@@ -1340,13 +1354,13 @@ class RequestCommunicationRead(BaseModel):
 
 
 class RequestCommunicationSummaryRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     id: int
     communication_type: str
     subject: str
     status: str
-    request_workflow_id: int | None = None
+    request_workflow_id: str | None = Field(default=None, validation_alias="request_workflow_live_id")
     sent_at: datetime | None = None
     created_by: UserAudit
     updated_by: UserAudit
@@ -1355,7 +1369,7 @@ class RequestCommunicationSummaryRead(BaseModel):
 
 
 class GenerateResearchCommunicationRequest(BaseModel):
-    request_workflow_id: int | None = None
+    request_workflow_id: str | None = None
 
 
 class GenerateResearchCommunicationResponse(BaseModel):
@@ -1379,13 +1393,57 @@ class ResearchDocumentRead(BaseModel):
 
 
 class WorkflowTemplateRead(BaseModel):
+    id: str
     workflow_type: str
     name: str
     description: str
 
 
+class AgencyTaskTemplateRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    task_title: str
+    sequence_order: int
+    action_type: str
+    target_field: str | None = None
+    task_key: str | None = None
+    description: str | None = None
+    prerequisite_task_keys: list[str] | None = None
+
+
+class AgencyWorkflowTemplateRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    workflow_name: str
+    description: str | None = None
+    workflow_type_key: str | None = None
+    successor_template_id: str | None = None
+    created_at: datetime
+    task_templates: list[AgencyTaskTemplateRead] = Field(default_factory=list)
+
+
+class AgencyWorkflowTemplateCreate(BaseModel):
+    workflow_name: str = Field(min_length=1, max_length=255)
+    description: str | None = None
+
+
+class AgencyWorkflowTemplateUpdate(BaseModel):
+    workflow_name: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = None
+
+
+class AgencyTaskTemplateCreate(BaseModel):
+    task_title: str = Field(min_length=1, max_length=255)
+
+
+class AgencyTaskTemplateUpdate(BaseModel):
+    task_title: str | None = Field(default=None, min_length=1, max_length=255)
+
+
 class DashboardNextOpenTaskRead(BaseModel):
-    id: int
+    id: str
     task_key: str
     title: str
     workflow_type: str

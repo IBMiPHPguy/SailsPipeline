@@ -402,9 +402,9 @@ def test_sales_analytics_win_rate_uses_closed_requests_only(db):
 
     # 1 closed win + 1 closed loss = 50%; open requests are excluded
     assert analytics.win_rate_percent == 50.0
-    assert analytics.current_year_summary.total_sales_booked == 4000.0
+    assert analytics.current_year_summary.total_sales_booked == 8200.0
     assert analytics.current_year_summary.total_sales_lost == 0.0
-    assert analytics.current_year_summary.average_commission_rate_percent == 6.2
+    assert analytics.current_year_summary.average_commission_rate_percent == 7.3
     assert analytics.current_year_summary.win_rate_percent == 50.0
 
 

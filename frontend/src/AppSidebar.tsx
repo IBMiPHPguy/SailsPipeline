@@ -7,6 +7,7 @@ import {
   PersonNavIcon,
   ReportsNavIcon,
   TeamNavIcon,
+  WorkflowsNavIcon,
 } from "./SidebarNavIcons";
 import { isTenantSuperUser } from "./tenantRoles";
 import type { AppNavItem, User } from "./types";
@@ -35,9 +36,15 @@ const TEAM_NAV_ITEM = {
   icon: TeamNavIcon,
 };
 
+const WORKFLOWS_NAV_ITEM = {
+  id: "workflows" as const,
+  label: "Workflows",
+  icon: WorkflowsNavIcon,
+};
+
 export default function AppSidebar({ activeItem, currentUser, onNavigate }: AppSidebarProps) {
   const navItems = isTenantSuperUser(currentUser.role)
-    ? [...BASE_NAV_ITEMS, TEAM_NAV_ITEM]
+    ? [...BASE_NAV_ITEMS, WORKFLOWS_NAV_ITEM, TEAM_NAV_ITEM]
     : BASE_NAV_ITEMS;
 
   return (
@@ -84,6 +91,9 @@ export function activeNavItemForView(viewType: string): AppNavItem | null {
   }
   if (viewType === "team") {
     return "team";
+  }
+  if (viewType === "workflows") {
+    return "workflows";
   }
   return null;
 }

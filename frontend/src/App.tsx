@@ -13,6 +13,7 @@ import RequestForm, { emptyRequestForm, isReturnAfterDeparture } from "./Request
 import ReportViewPage from "./ReportViewPage";
 import ReportsPage from "./ReportsPage";
 import RequestWorkspace from "./RequestWorkspace";
+import WorkflowsPage from "./WorkflowsPage";
 import TeamPage from "./TeamPage";
 import { formatCruiseLines } from "./CruiseLineMultiSelect";
 import {
@@ -102,7 +103,11 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (view.type === "team" && currentUser && !isTenantSuperUser(currentUser.role)) {
+    if (
+      (view.type === "team" || view.type === "workflows") &&
+      currentUser &&
+      !isTenantSuperUser(currentUser.role)
+    ) {
       setView({ type: "dashboard" });
     }
   }, [currentUser, view.type]);
@@ -122,6 +127,10 @@ function App() {
     }
     if (view.type === "team") {
       document.title = brandedDocumentTitle("Team");
+      return;
+    }
+    if (view.type === "workflows") {
+      document.title = brandedDocumentTitle("Workflows and Tasks");
       return;
     }
     if (view.type === "marketing-campaigns") {
@@ -287,7 +296,14 @@ function App() {
                 setView({ type: "team" });
                 return;
               }
-              setView({ type: "clients" });
+              if (item === "workflows") {
+                setView({ type: "workflows" });
+                return;
+              }
+              if (item === "clients") {
+                setView({ type: "clients" });
+                return;
+              }
             }}
           />
         ) : null}
@@ -338,6 +354,8 @@ function App() {
       ) : null}
 
       {view.type === "marketing-campaigns" ? <MarketingCampaignsPage /> : null}
+
+      {view.type === "workflows" && currentUser ? <WorkflowsPage /> : null}
 
       {view.type === "clients" ? <ClientsPage /> : null}
 

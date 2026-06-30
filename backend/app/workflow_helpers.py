@@ -143,13 +143,21 @@ def get_successor_workflow_type(workflow_type: str) -> str | None:
 
 
 def _task_by_key(tasks: list, task_key: str):
-    return next((task for task in tasks if task.task_key == task_key), None)
+    return next(
+        (
+            task
+            for task in tasks
+            if (getattr(task, "task_key", None) or "") == task_key
+        ),
+        None,
+    )
+
+
+def get_workflow_type_key(workflow) -> str | None:
+    return getattr(workflow, "workflow_type_key", None) or getattr(workflow, "workflow_type", None)
 
 
 def schedule_follow_up_due_date(workflow, send_completed_at: datetime) -> None:
-    if workflow.workflow_type != WORKFLOW_TYPE_COMMUNICATE_RESEARCH:
-        return
-
     follow_up = _task_by_key(workflow.tasks, TASK_KEY_FOLLOW_UP_RESEARCH)
     if follow_up is None or follow_up.status != TASK_STATUS_OPEN:
         return
@@ -158,9 +166,6 @@ def schedule_follow_up_due_date(workflow, send_completed_at: datetime) -> None:
 
 
 def ensure_follow_up_due_date(workflow) -> None:
-    if workflow.workflow_type != WORKFLOW_TYPE_COMMUNICATE_RESEARCH:
-        return
-
     send_task = _task_by_key(workflow.tasks, TASK_KEY_SEND_RESEARCH_COMMUNICATION)
     follow_up = _task_by_key(workflow.tasks, TASK_KEY_FOLLOW_UP_RESEARCH)
     if send_task is None or follow_up is None:

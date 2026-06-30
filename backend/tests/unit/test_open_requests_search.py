@@ -1,13 +1,20 @@
 from datetime import UTC, date, datetime, timedelta
+import uuid
 
 from app.constants import REQUEST_STATUS_OPEN, TASK_STATUS_OPEN, WORKFLOW_STATUS_ACTIVE, WORKFLOW_TYPE_RESEARCH
-from app.models import RequestTask, RequestWorkflow, TravelRequest, User
+from app.models import RequestTaskLive, RequestWorkflowLive, TravelRequest, User
 from app.security import hash_password
 from app.services.request_service import search_open_requests
+from app.tenant_constants import DEFAULT_AGENCY_ID
 
 
 def _create_user(db, *, username: str, email: str) -> User:
-    user = User(username=username, email=email, password_hash=hash_password("ValidPass1!"))
+    user = User(
+        agency_id=DEFAULT_AGENCY_ID,
+        username=username,
+        email=email,
+        password_hash=hash_password("ValidPass1!"),
+    )
     db.add(user)
     db.flush()
     return user
@@ -24,6 +31,7 @@ def _create_open_request(
     task_title: str = "Research cruise options",
 ) -> TravelRequest:
     request = TravelRequest(
+        agency_id=DEFAULT_AGENCY_ID,
         first_name=first_name,
         last_name=last_name,
         email=email,
@@ -47,23 +55,29 @@ def _create_open_request(
     db.add(request)
     db.flush()
 
-    workflow = RequestWorkflow(
+    workflow = RequestWorkflowLive(
+        id=str(uuid.uuid4()),
+        agency_id=DEFAULT_AGENCY_ID,
         travel_request_id=request.id,
-        workflow_type=WORKFLOW_TYPE_RESEARCH,
+        workflow_name="Research",
+        workflow_type_key=WORKFLOW_TYPE_RESEARCH,
         status=WORKFLOW_STATUS_ACTIVE,
         started_by_id=user.id,
-        created_at=datetime.now(UTC),
+        started_at=datetime.now(UTC),
     )
     db.add(workflow)
     db.flush()
 
-    task = RequestTask(
-        request_workflow_id=workflow.id,
+    task = RequestTaskLive(
+        id=str(uuid.uuid4()),
+        agency_id=DEFAULT_AGENCY_ID,
+        request_workflow_live_id=workflow.id,
         travel_request_id=request.id,
         task_key="research_cruise_options",
-        title=task_title,
+        task_title=task_title,
         status=TASK_STATUS_OPEN,
-        sort_order=1,
+        sequence_order=1,
+        is_completed=False,
     )
     db.add(task)
     db.flush()

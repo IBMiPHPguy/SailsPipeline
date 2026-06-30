@@ -1,119 +1,153 @@
+from __future__ import annotations
+
+import uuid
 from datetime import UTC, datetime
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
 
-from app.audit_helpers import (
-    TRAVEL_REQUEST_AUDIT_FIELDS,
-    apply_updates,
-    collect_field_changes,
-    record_travel_request_field_changes,
-)
 from app.constants import (
-    CLOSE_REASONS,
-    REQUEST_STATUS_CLOSED,
     TASK_STATUS_DONE,
     TASK_STATUS_OPEN,
     WORKFLOW_STATUS_ACTIVE,
-    WORKFLOW_STATUS_CANCELLED,
     WORKFLOW_STATUS_COMPLETED,
-    WORKFLOW_TYPE_ENTER_TRIP_CRM,
-    WORKFLOW_TYPE_RESEARCH,
+    WORKFLOW_STATUS_TERMINATED,
 )
-from app.models import RequestTask, RequestWorkflow, TravelRequest, User
-from app.schemas import RequestTaskUpdate, RequestWorkflowCreate, RequestWorkflowUpdate, WorkflowTemplateRead
+from app.models import AgencyTaskTemplate, AgencyWorkflowTemplate, RequestTaskLive, RequestWorkflowLive, TravelRequest, User
+from app.schemas import (
+    RequestTaskUpdate,
+    RequestWorkflowCreate,
+    RequestWorkflowUpdate,
+    WorkflowTemplateRead,
+)
 from app.services.agency_service import assert_child_belongs_to_request, require_record_for_agency
 from app.services.request_service import get_open_request, touch_request
+from app.services.workflow_template_seed import seed_agency_workflow_templates
 from app.tenant_context import require_current_agency_id
 from app.workflow_helpers import (
-    WORKFLOW_DEFINITIONS,
     ensure_follow_up_due_date,
-    get_successor_workflow_type,
-    get_task_templates,
     record_follow_up_reached_out,
     schedule_follow_up_due_date,
     TASK_KEY_SEND_RESEARCH_COMMUNICATION,
 )
 
 
-def load_workflow(db: Session, workflow_id: int) -> RequestWorkflow:
-    return (
-        db.query(RequestWorkflow)
+def _new_id() -> str:
+    return str(uuid.uuid4())
+
+
+def load_workflow(db: Session, workflow_id: str) -> RequestWorkflowLive:
+    workflow = (
+        db.query(RequestWorkflowLive)
         .options(
-            joinedload(RequestWorkflow.started_by),
-            joinedload(RequestWorkflow.completed_by),
-            joinedload(RequestWorkflow.tasks).joinedload(RequestTask.completed_by),
+            joinedload(RequestWorkflowLive.started_by),
+            joinedload(RequestWorkflowLive.completed_by),
+            joinedload(RequestWorkflowLive.tasks).joinedload(RequestTaskLive.completed_by),
+            joinedload(RequestWorkflowLive.tasks).joinedload(RequestTaskLive.template_task),
         )
-        .filter(RequestWorkflow.id == workflow_id)
+        .filter(RequestWorkflowLive.id == workflow_id)
         .one()
     )
+    return workflow
 
 
-def get_active_workflow(db: Session, request_id: int) -> RequestWorkflow | None:
+def get_active_workflow(db: Session, request_id: int) -> RequestWorkflowLive | None:
     return (
-        db.query(RequestWorkflow)
+        db.query(RequestWorkflowLive)
         .filter(
-            RequestWorkflow.travel_request_id == request_id,
-            RequestWorkflow.status == WORKFLOW_STATUS_ACTIVE,
+            RequestWorkflowLive.travel_request_id == request_id,
+            RequestWorkflowLive.status == WORKFLOW_STATUS_ACTIVE,
         )
         .first()
     )
 
 
-def create_request_workflow(
+def _resolve_template(
+    db: Session,
+    *,
+    agency_id: str,
+    template_id: str | None = None,
+    workflow_type: str | None = None,
+) -> AgencyWorkflowTemplate:
+    seed_agency_workflow_templates(db, agency_id)
+    query = db.query(AgencyWorkflowTemplate).options(joinedload(AgencyWorkflowTemplate.task_templates))
+    if template_id is not None:
+        template = query.filter(AgencyWorkflowTemplate.id == template_id).first()
+    elif workflow_type is not None:
+        template = query.filter(
+            AgencyWorkflowTemplate.agency_id == agency_id,
+            AgencyWorkflowTemplate.workflow_type_key == workflow_type,
+        ).first()
+    else:
+        raise HTTPException(status_code=400, detail="Select a workflow playbook.")
+
+    if template is None or not template.task_templates:
+        raise HTTPException(status_code=404, detail="Workflow playbook not found.")
+    require_record_for_agency(template, agency_id=agency_id)
+    return template
+
+
+def _snapshot_live_workflow(
     db: Session,
     *,
     request: TravelRequest,
-    workflow_type: str,
+    template: AgencyWorkflowTemplate,
     current_user: User,
-    parent_workflow_id: int | None = None,
-) -> RequestWorkflow:
-    if parent_workflow_id is not None:
-        parent = db.get(RequestWorkflow, parent_workflow_id)
-        require_record_for_agency(parent, agency_id=request.agency_id)
-        assert_child_belongs_to_request(
-            child_agency_id=parent.agency_id,
-            child_travel_request_id=parent.travel_request_id,
-            request_id=request.id,
-            agency_id=request.agency_id,
-        )
-
-    workflow = RequestWorkflow(
+    parent_workflow_live_id: str | None = None,
+) -> RequestWorkflowLive:
+    workflow = RequestWorkflowLive(
+        id=_new_id(),
         agency_id=request.agency_id,
         travel_request_id=request.id,
-        workflow_type=workflow_type,
+        template_id=template.id,
+        workflow_name=template.workflow_name,
+        workflow_type_key=template.workflow_type_key,
         status=WORKFLOW_STATUS_ACTIVE,
-        parent_workflow_id=parent_workflow_id,
+        parent_workflow_live_id=parent_workflow_live_id,
         started_by_id=current_user.id,
     )
     db.add(workflow)
     db.flush()
 
-    for template in get_task_templates(workflow_type):
+    for task_template in sorted(template.task_templates, key=lambda row: row.sequence_order):
         db.add(
-            RequestTask(
+            RequestTaskLive(
+                id=_new_id(),
                 agency_id=request.agency_id,
-                request_workflow_id=workflow.id,
+                request_workflow_live_id=workflow.id,
                 travel_request_id=request.id,
-                task_key=template.task_key,
-                title=template.title,
-                description=template.description,
+                template_task_id=task_template.id,
+                task_key=task_template.task_key,
+                task_title=task_template.task_title,
+                description=task_template.description,
+                sequence_order=task_template.sequence_order,
+                action_type=task_template.action_type,
+                target_field=task_template.target_field,
                 status=TASK_STATUS_OPEN,
-                sort_order=template.sort_order,
+                is_completed=False,
             )
         )
 
     return workflow
 
 
-def list_workflow_templates() -> list[WorkflowTemplateRead]:
+def list_workflow_templates(db: Session, *, agency_id: str) -> list[WorkflowTemplateRead]:
+    seed_agency_workflow_templates(db, agency_id)
+    db.flush()
+    templates = (
+        db.query(AgencyWorkflowTemplate)
+        .filter(AgencyWorkflowTemplate.agency_id == agency_id)
+        .order_by(AgencyWorkflowTemplate.workflow_name.asc())
+        .all()
+    )
     return [
         WorkflowTemplateRead(
-            workflow_type=workflow_type,
-            name=definition["name"],
-            description=definition["description"],
+            id=template.id,
+            workflow_type=template.workflow_type_key or template.id,
+            name=template.workflow_name,
+            description=template.description or "",
         )
-        for workflow_type, definition in WORKFLOW_DEFINITIONS.items()
+        for template in templates
     ]
 
 
@@ -123,16 +157,17 @@ def start_workflow(
     request_id: int,
     payload: RequestWorkflowCreate,
     current_user: User,
-) -> RequestWorkflow:
+) -> RequestWorkflowLive:
     request = get_open_request(db, request_id)
     if get_active_workflow(db, request_id) is not None:
         raise HTTPException(
             status_code=400,
-            detail="This request already has an active workflow. Complete or cancel it before starting another.",
+            detail="This request already has an active workflow. Complete or terminate it before starting another.",
         )
 
-    if payload.parent_workflow_id is not None:
-        parent = db.get(RequestWorkflow, payload.parent_workflow_id)
+    parent_workflow_live_id = payload.parent_workflow_id
+    if parent_workflow_live_id is not None:
+        parent = db.get(RequestWorkflowLive, parent_workflow_live_id)
         require_record_for_agency(parent, agency_id=request.agency_id)
         assert_child_belongs_to_request(
             child_agency_id=parent.agency_id,
@@ -141,12 +176,18 @@ def start_workflow(
             agency_id=request.agency_id,
         )
 
-    workflow = create_request_workflow(
+    template = _resolve_template(
+        db,
+        agency_id=request.agency_id,
+        template_id=payload.template_id,
+        workflow_type=payload.workflow_type,
+    )
+    workflow = _snapshot_live_workflow(
         db,
         request=request,
-        workflow_type=payload.workflow_type,
+        template=template,
         current_user=current_user,
-        parent_workflow_id=payload.parent_workflow_id,
+        parent_workflow_live_id=parent_workflow_live_id,
     )
     touch_request(request, current_user)
     db.commit()
@@ -157,12 +198,12 @@ def update_workflow(
     db: Session,
     *,
     request_id: int,
-    workflow_id: int,
+    workflow_id: str,
     payload: RequestWorkflowUpdate,
     current_user: User,
-) -> RequestWorkflow:
+) -> RequestWorkflowLive:
     request = get_open_request(db, request_id)
-    workflow = db.get(RequestWorkflow, workflow_id)
+    workflow = db.get(RequestWorkflowLive, workflow_id)
     require_record_for_agency(workflow, agency_id=require_current_agency_id())
     assert_child_belongs_to_request(
         child_agency_id=workflow.agency_id,
@@ -171,61 +212,51 @@ def update_workflow(
         agency_id=request.agency_id,
     )
 
-    just_completed = False
     if payload.status is not None and payload.status != workflow.status:
-        if payload.status in {WORKFLOW_STATUS_COMPLETED, WORKFLOW_STATUS_CANCELLED}:
-            workflow.status = payload.status
+        if payload.status in {WORKFLOW_STATUS_COMPLETED, WORKFLOW_STATUS_TERMINATED, "Cancelled"}:
+            mapped_status = WORKFLOW_STATUS_TERMINATED if payload.status in {"Cancelled", WORKFLOW_STATUS_TERMINATED} else WORKFLOW_STATUS_COMPLETED
+            workflow.status = mapped_status
             workflow.completed_by_id = current_user.id
-            workflow.completed_at = datetime.now(UTC).replace(tzinfo=None)
-            just_completed = payload.status == WORKFLOW_STATUS_COMPLETED
+            workflow.ended_at = datetime.now(UTC).replace(tzinfo=None)
         else:
             workflow.status = payload.status
 
-    successor_workflow: RequestWorkflow | None = None
-    if just_completed and workflow.workflow_type == WORKFLOW_TYPE_RESEARCH:
-        successor_type = get_successor_workflow_type(workflow.workflow_type)
-        if successor_type is not None:
-            db.flush()
-            successor_workflow = create_request_workflow(
-                db,
-                request=request,
-                workflow_type=successor_type,
-                current_user=current_user,
-                parent_workflow_id=workflow.id,
-            )
-    elif just_completed and workflow.workflow_type == WORKFLOW_TYPE_ENTER_TRIP_CRM:
-        if not payload.close_reason:
-            raise HTTPException(
-                status_code=400,
-                detail="Select a close reason before completing this workflow.",
-            )
-        if payload.close_reason not in CLOSE_REASONS:
-            raise HTTPException(status_code=400, detail="Invalid close reason selected.")
-        close_updates = {
-            "status": REQUEST_STATUS_CLOSED,
-            "close_reason": payload.close_reason,
-        }
-        request_changes = collect_field_changes(request, close_updates, TRAVEL_REQUEST_AUDIT_FIELDS)
-        record_travel_request_field_changes(db, request, request_changes, current_user)
-        apply_updates(request, close_updates)
-
     touch_request(request, current_user)
     db.commit()
-    if successor_workflow is not None:
-        return load_workflow(db, successor_workflow.id)
     return load_workflow(db, workflow.id)
+
+
+def _maybe_auto_complete_workflow(workflow: RequestWorkflowLive, current_user: User) -> None:
+    if workflow.status != WORKFLOW_STATUS_ACTIVE or not workflow.tasks:
+        return
+    if not all(task.status == TASK_STATUS_DONE for task in workflow.tasks):
+        return
+    workflow.status = WORKFLOW_STATUS_COMPLETED
+    workflow.completed_by_id = current_user.id
+    workflow.ended_at = datetime.now(UTC).replace(tzinfo=None)
+
+
+def _apply_task_status(task: RequestTaskLive, status: str, current_user: User) -> None:
+    task.status = status
+    task.is_completed = status == TASK_STATUS_DONE
+    if status == TASK_STATUS_DONE:
+        task.completed_at = datetime.now(UTC).replace(tzinfo=None)
+        task.completed_by_id = current_user.id
+    elif status == TASK_STATUS_OPEN:
+        task.completed_at = None
+        task.completed_by_id = None
 
 
 def update_task(
     db: Session,
     *,
     request_id: int,
-    task_id: int,
+    task_id: str,
     payload: RequestTaskUpdate,
     current_user: User,
-) -> RequestWorkflow:
+) -> RequestWorkflowLive:
     request = get_open_request(db, request_id)
-    task = db.get(RequestTask, task_id)
+    task = db.get(RequestTaskLive, task_id)
     require_record_for_agency(task, agency_id=require_current_agency_id())
     assert_child_belongs_to_request(
         child_agency_id=task.agency_id,
@@ -234,20 +265,19 @@ def update_task(
         agency_id=request.agency_id,
     )
 
-    workflow = load_workflow(db, task.request_workflow_id)
+    workflow = load_workflow(db, task.request_workflow_live_id)
     if workflow.status != WORKFLOW_STATUS_ACTIVE:
         raise HTTPException(status_code=400, detail="Tasks can only be updated on active workflows.")
 
+    if payload.is_completed is not None:
+        _apply_task_status(task, TASK_STATUS_DONE if payload.is_completed else TASK_STATUS_OPEN, current_user)
+        if payload.is_completed and task.task_key == TASK_KEY_SEND_RESEARCH_COMMUNICATION and task.completed_at:
+            schedule_follow_up_due_date(workflow, task.completed_at)
+
     if payload.status is not None:
-        task.status = payload.status
-        if payload.status == TASK_STATUS_DONE:
-            task.completed_at = datetime.now(UTC).replace(tzinfo=None)
-            task.completed_by_id = current_user.id
-            if task.task_key == TASK_KEY_SEND_RESEARCH_COMMUNICATION:
-                schedule_follow_up_due_date(workflow, task.completed_at)
-        elif payload.status == TASK_STATUS_OPEN:
-            task.completed_at = None
-            task.completed_by_id = None
+        _apply_task_status(task, payload.status, current_user)
+        if payload.status == TASK_STATUS_DONE and task.task_key == TASK_KEY_SEND_RESEARCH_COMMUNICATION and task.completed_at:
+            schedule_follow_up_due_date(workflow, task.completed_at)
 
     payload_data = payload.model_dump(exclude_unset=True)
     if payload_data.get("reached_out"):
@@ -263,6 +293,7 @@ def update_task(
         task.result = payload.result
 
     ensure_follow_up_due_date(workflow)
+    _maybe_auto_complete_workflow(workflow, current_user)
 
     touch_request(request, current_user)
     db.commit()

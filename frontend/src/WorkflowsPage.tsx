@@ -1,0 +1,405 @@
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  createAgencyTaskTemplate,
+  createAgencyWorkflowTemplate,
+  deleteAgencyTaskTemplate,
+  deleteAgencyWorkflowTemplate,
+  fetchAgencyWorkflowTemplates,
+  moveAgencyTaskTemplate,
+  updateAgencyTaskTemplate,
+} from "./api";
+import EditIcon from "./EditIcon";
+import IconTooltip from "./IconTooltip";
+import type { AgencyTaskTemplate, AgencyWorkflowTemplate } from "./types";
+import TopStatusBar from "./TopStatusBar";
+import WorkflowTemplateEditModal from "./WorkflowTemplateEditModal";
+import { useTopStatusBar } from "./useTopStatusBar";
+
+function ArrowUpIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="m12 19V5" />
+      <path d="m5 12 7-7 7 7" />
+    </svg>
+  );
+}
+
+function ArrowDownIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="m12 5v14" />
+      <path d="m19 12-7 7-7-7" />
+    </svg>
+  );
+}
+
+export default function WorkflowsPage() {
+  const [templates, setTemplates] = useState<AgencyWorkflowTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { status, showStatus, clearStatus } = useTopStatusBar();
+  const [newWorkflowName, setNewWorkflowName] = useState("");
+  const [newWorkflowDescription, setNewWorkflowDescription] = useState("");
+  const [creatingWorkflow, setCreatingWorkflow] = useState(false);
+  const [quickAddTitle, setQuickAddTitle] = useState("");
+  const [addingTask, setAddingTask] = useState(false);
+  const [savingTaskId, setSavingTaskId] = useState<string | null>(null);
+  const [movingTaskId, setMovingTaskId] = useState<string | null>(null);
+  const [editingTemplate, setEditingTemplate] = useState<AgencyWorkflowTemplate | null>(null);
+
+  const loadTemplates = useCallback(async () => {
+    setLoading(true);
+    try {
+      const items = await fetchAgencyWorkflowTemplates();
+      setTemplates(items);
+      setSelectedTemplateId((current) => {
+        if (current && items.some((item) => item.id === current)) {
+          return current;
+        }
+        return items[0]?.id ?? null;
+      });
+    } catch (loadError) {
+      showStatus(
+        loadError instanceof Error ? loadError.message : "Unable to load workflows.",
+        "error",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [showStatus]);
+
+  useEffect(() => {
+    void loadTemplates();
+  }, [loadTemplates]);
+
+  const selectedTemplate = useMemo(
+    () => templates.find((template) => template.id === selectedTemplateId) ?? null,
+    [selectedTemplateId, templates],
+  );
+
+  const sortedTasks = useMemo(
+    () =>
+      selectedTemplate
+        ? [...selectedTemplate.task_templates].sort((left, right) => left.sequence_order - right.sequence_order)
+        : [],
+    [selectedTemplate],
+  );
+
+  async function handleCreateWorkflow(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const name = newWorkflowName.trim();
+    if (!name) {
+      return;
+    }
+
+    setCreatingWorkflow(true);
+    try {
+      const created = await createAgencyWorkflowTemplate({
+        workflow_name: name,
+        description: newWorkflowDescription.trim() || null,
+      });
+      setNewWorkflowName("");
+      setNewWorkflowDescription("");
+      showStatus("Workflow created.", "success");
+      setSelectedTemplateId(created.id);
+      await loadTemplates();
+    } catch (createError) {
+      showStatus(
+        createError instanceof Error ? createError.message : "Unable to create workflow.",
+        "error",
+      );
+    } finally {
+      setCreatingWorkflow(false);
+    }
+  }
+
+  async function handleQuickAddTask(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedTemplate) {
+      return;
+    }
+    const title = quickAddTitle.trim();
+    if (!title) {
+      return;
+    }
+
+    setAddingTask(true);
+    try {
+      await createAgencyTaskTemplate(selectedTemplate.id, title);
+      setQuickAddTitle("");
+      showStatus("Task appended to sequence.", "success");
+      await loadTemplates();
+    } catch (addError) {
+      showStatus(addError instanceof Error ? addError.message : "Unable to add task.", "error");
+    } finally {
+      setAddingTask(false);
+    }
+  }
+
+  async function handleRenameTask(task: AgencyTaskTemplate, nextTitle: string) {
+    const title = nextTitle.trim();
+    if (!title || title === task.task_title) {
+      return;
+    }
+
+    setSavingTaskId(task.id);
+    try {
+      await updateAgencyTaskTemplate(task.id, title);
+      await loadTemplates();
+    } catch (renameError) {
+      showStatus(renameError instanceof Error ? renameError.message : "Unable to rename task.", "error");
+    } finally {
+      setSavingTaskId(null);
+    }
+  }
+
+  async function handleDeleteTask(taskId: string) {
+    try {
+      await deleteAgencyTaskTemplate(taskId);
+      showStatus("Task removed from workflow.", "delete");
+      await loadTemplates();
+    } catch (deleteError) {
+      showStatus(deleteError instanceof Error ? deleteError.message : "Unable to delete task.", "error");
+    }
+  }
+
+  async function handleMoveTask(taskId: string, direction: "up" | "down") {
+    setMovingTaskId(taskId);
+    try {
+      await moveAgencyTaskTemplate(taskId, direction);
+      await loadTemplates();
+    } catch (moveError) {
+      showStatus(moveError instanceof Error ? moveError.message : "Unable to reorder task.", "error");
+    } finally {
+      setMovingTaskId(null);
+    }
+  }
+
+  async function handleDeleteTemplate(template: AgencyWorkflowTemplate) {
+    if (template.workflow_type_key) {
+      showStatus("Recommended workflows cannot be deleted.", "error");
+      return;
+    }
+
+    try {
+      await deleteAgencyWorkflowTemplate(template.id);
+      showStatus("Workflow deleted.", "delete");
+      await loadTemplates();
+    } catch (deleteError) {
+      showStatus(
+        deleteError instanceof Error ? deleteError.message : "Unable to delete workflow.",
+        "error",
+      );
+    }
+  }
+
+  return (
+    <section className="workflows-settings-page">
+      <TopStatusBar status={status} onDismiss={clearStatus} />
+
+      <header className="request-summary-card request-summary-card-compact workflows-summary-card">
+        <div className="request-summary-compact-row">
+          <div className="request-summary-compact-title">
+            <h2>Workflows and Tasks</h2>
+          </div>
+        </div>
+        <div className="request-summary-compact-meta">
+          <span>Recommended workflow templates and task sequencing for your agency.</span>
+        </div>
+      </header>
+
+      {loading ? (
+        <p className="meta">Loading workflows...</p>
+      ) : (
+        <div className="workflows-settings-grid">
+          <aside className="workflows-settings-left">
+            <section className="section-card workflows-settings-section-card">
+              <div className="workflows-settings-section-header">
+                <h3>Create New Workflow</h3>
+              </div>
+              <div className="section-card-body workflows-settings-section-body">
+                <form className="workflows-settings-create-form" onSubmit={handleCreateWorkflow}>
+                  <label>
+                    Enter workflow name
+                    <input
+                      type="text"
+                      value={newWorkflowName}
+                      placeholder="Enter workflow name..."
+                      disabled={creatingWorkflow}
+                      onChange={(event) => setNewWorkflowName(event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    <span>
+                      Description <span className="field-optional">(Optional)</span>
+                    </span>
+                    <textarea
+                      rows={3}
+                      value={newWorkflowDescription}
+                      placeholder="Short summary shown in the workflow sequencer"
+                      disabled={creatingWorkflow}
+                      onChange={(event) => setNewWorkflowDescription(event.target.value)}
+                    />
+                  </label>
+                  <button type="submit" disabled={creatingWorkflow || !newWorkflowName.trim()}>
+                    {creatingWorkflow ? "Creating..." : "+ Create Workflow"}
+                  </button>
+                </form>
+              </div>
+            </section>
+
+            <section className="section-card workflows-settings-section-card workflows-settings-agency-card">
+              <div className="workflows-settings-section-header">
+                <h3>Agency Workflows</h3>
+              </div>
+              <div className="section-card-body workflows-settings-section-body">
+                <ul className="workflows-settings-list">
+                  {templates.map((template) => {
+                    const isSelected = template.id === selectedTemplateId;
+                    return (
+                      <li
+                        key={template.id}
+                        className={`workflows-settings-list-row${isSelected ? " is-selected" : ""}`}
+                      >
+                        <button
+                          type="button"
+                          className="workflows-settings-list-item"
+                          onClick={() => setSelectedTemplateId(template.id)}
+                        >
+                          <span className="workflows-settings-list-item-name">{template.workflow_name}</span>
+                          {template.workflow_type_key ? (
+                            <span className="workflows-settings-list-item-badge">Recommended</span>
+                          ) : null}
+                        </button>
+                        <IconTooltip label="Edit Workflow" placement="below" align="end">
+                          <button
+                            type="button"
+                            className="icon-button workflows-settings-list-edit"
+                            aria-label="Edit Workflow"
+                            onClick={() => setEditingTemplate(template)}
+                          >
+                            <EditIcon />
+                          </button>
+                        </IconTooltip>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </section>
+          </aside>
+
+          <section className="section-card workflows-settings-right workflows-settings-section-card">
+            <div className="workflows-settings-section-header">
+              <h3>Workflow Sequencer</h3>
+            </div>
+            <div className="section-card-body workflows-settings-section-body">
+              {selectedTemplate ? (
+                <>
+                  <div className="workflows-settings-detail-header">
+                    <div>
+                      <h2 className="workflows-settings-active-title">{selectedTemplate.workflow_name}</h2>
+                      {selectedTemplate.description ? (
+                        <p className="meta">{selectedTemplate.description}</p>
+                      ) : (
+                        <p className="meta">Define the ordered checklist agents follow on travel requests. Remove tasks you do not use — they will not be re-added.</p>
+                      )}
+                    </div>
+                    {!selectedTemplate.workflow_type_key ? (
+                      <button
+                        type="button"
+                        className="workflows-settings-delete-button"
+                        onClick={() => void handleDeleteTemplate(selectedTemplate)}
+                      >
+                        Delete workflow
+                      </button>
+                    ) : null}
+                  </div>
+
+                  <div className="workflows-settings-detail-divider" aria-hidden="true" />
+
+                  <h3 className="workflows-settings-ledger-title">Task Sequence Ledger</h3>
+                  <ol className="workflows-settings-task-list">
+                    {sortedTasks.map((task, index) => (
+                      <li key={task.id} className="workflows-settings-task-row">
+                        <span className="workflows-settings-task-index">{index + 1}.</span>
+                        <input
+                          className="workflows-settings-task-input"
+                          type="text"
+                          defaultValue={task.task_title}
+                          disabled={savingTaskId === task.id}
+                          onBlur={(event) => void handleRenameTask(task, event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              event.currentTarget.blur();
+                            }
+                          }}
+                        />
+                        <div className="workflows-settings-task-actions">
+                          <button
+                            type="button"
+                            className="icon-button"
+                            aria-label="Move task up"
+                            disabled={movingTaskId === task.id || index === 0}
+                            onClick={() => void handleMoveTask(task.id, "up")}
+                          >
+                            <ArrowUpIcon />
+                          </button>
+                          <button
+                            type="button"
+                            className="icon-button"
+                            aria-label="Move task down"
+                            disabled={movingTaskId === task.id || index === sortedTasks.length - 1}
+                            onClick={() => void handleMoveTask(task.id, "down")}
+                          >
+                            <ArrowDownIcon />
+                          </button>
+                          <button
+                            type="button"
+                            className="icon-button icon-button-danger"
+                            aria-label="Remove task from workflow"
+                            onClick={() => void handleDeleteTask(task.id)}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+
+                  <form className="workflows-settings-quick-add" onSubmit={handleQuickAddTask}>
+                    <label>
+                      Quick-Add New Task
+                      <input
+                        type="text"
+                        value={quickAddTitle}
+                        placeholder="Type next step..."
+                        disabled={addingTask}
+                        onChange={(event) => setQuickAddTitle(event.target.value)}
+                      />
+                    </label>
+                    <button type="submit" disabled={addingTask || !quickAddTitle.trim()}>
+                      {addingTask ? "Adding..." : "+ Append to Sequence"}
+                    </button>
+                  </form>
+                </>
+              ) : (
+                <p className="meta">Create a workflow to begin defining tasks.</p>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
+
+      <WorkflowTemplateEditModal
+        open={editingTemplate !== null}
+        template={editingTemplate}
+        onClose={() => setEditingTemplate(null)}
+        onSaved={async () => {
+          showStatus("Workflow updated.", "success");
+          await loadTemplates();
+        }}
+      />
+    </section>
+  );
+}

@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.constants import MARKETING_CAMPAIGN_TYPES
-from app.models import MarketingCampaign
+from app.models import MarketingCampaign, TravelRequest
 from app.services.agency_rollup_service import get_or_refresh_dashboard_rollup, refresh_agency_dashboard_rollups
 from app.services.agency_service import get_marketing_campaign_for_agency
 
@@ -101,6 +101,20 @@ def update_marketing_campaign(
 
 def delete_marketing_campaign(db: Session, *, agency_id: str, campaign_id: str) -> None:
     campaign = get_marketing_campaign_for_agency(db, campaign_id, agency_id)
+    (
+        db.query(TravelRequest)
+        .filter(
+            TravelRequest.agency_id == agency_id,
+            TravelRequest.marketing_campaign_id == campaign_id,
+        )
+        .update(
+            {
+                TravelRequest.lead_source: None,
+                TravelRequest.marketing_campaign_id: None,
+            },
+            synchronize_session=False,
+        )
+    )
     db.delete(campaign)
     db.commit()
     _refresh_marketing_dashboard_rollups(db, agency_id)

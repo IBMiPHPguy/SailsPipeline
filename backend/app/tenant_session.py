@@ -9,6 +9,8 @@ TENANT_SCOPED_MODELS: tuple[type, ...] = ()
 def configure_tenant_session() -> None:
     global TENANT_SCOPED_MODELS
     from app.models import (
+        AgencyTaskTemplate,
+        AgencyWorkflowTemplate,
         CallTranscript,
         ChatLog,
         MarketingCampaign,
@@ -18,20 +20,21 @@ def configure_tenant_session() -> None:
         RequestCommunication,
         RequestNote,
         RequestResearchDocument,
-        RequestTask,
-        RequestWorkflow,
+        RequestTaskLive,
+        RequestWorkflowLive,
         TravelRequest,
     )
 
     TENANT_SCOPED_MODELS = (
         TravelRequest,
         MarketingCampaign,
+        AgencyWorkflowTemplate,
         Passenger,
         ProposedCruise,
         RequestCommunication,
-        RequestTask,
+        RequestTaskLive,
         RequestNote,
-        RequestWorkflow,
+        RequestWorkflowLive,
         CallTranscript,
         ChatLog,
         RequestResearchDocument,

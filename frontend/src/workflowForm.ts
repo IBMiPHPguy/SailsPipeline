@@ -29,6 +29,13 @@ const COMMUNICATE_RESEARCH_PREREQUISITE_KEYS: Record<string, string[]> = {
   [TASK_KEY_CLIENT_RESPONSE]: [TASK_KEY_SEND_RESEARCH_COMMUNICATION],
 };
 
+function getRequiredPrerequisiteTaskKeys(task: RequestTask): string[] {
+  if (task.prerequisite_task_keys?.length) {
+    return task.prerequisite_task_keys;
+  }
+  return COMMUNICATE_RESEARCH_PREREQUISITE_KEYS[task.task_key] ?? [];
+}
+
 export function workflowTypeLabel(workflowType: string): string {
   if (workflowType === WORKFLOW_TYPE_RESEARCH) {
     return "Research";
@@ -40,6 +47,14 @@ export function workflowTypeLabel(workflowType: string): string {
     return "Enter Trip in CRM";
   }
   return workflowType;
+}
+
+export function workflowDisplayName(workflow: RequestWorkflow): string {
+  return workflow.workflow_name || workflowTypeLabel(workflow.workflow_type);
+}
+
+export function isManualCheckTask(task: RequestTask): boolean {
+  return task.action_type === "manual_check";
 }
 
 export function communicationTypeLabel(type: string): string {
@@ -139,12 +154,8 @@ export function taskDisplayStatusClass(task: RequestTask, workflow: RequestWorkf
 }
 
 export function isTaskBlockedByPrerequisites(workflow: RequestWorkflow, task: RequestTask): boolean {
-  if (workflow.workflow_type !== WORKFLOW_TYPE_COMMUNICATE_RESEARCH) {
-    return false;
-  }
-
-  const requiredTaskKeys = COMMUNICATE_RESEARCH_PREREQUISITE_KEYS[task.task_key];
-  if (!requiredTaskKeys?.length) {
+  const requiredTaskKeys = getRequiredPrerequisiteTaskKeys(task);
+  if (!requiredTaskKeys.length) {
     return false;
   }
 
@@ -159,7 +170,7 @@ export function getTaskBlockedReason(workflow: RequestWorkflow, task: RequestTas
     return null;
   }
 
-  const requiredTaskKeys = COMMUNICATE_RESEARCH_PREREQUISITE_KEYS[task.task_key] ?? [];
+  const requiredTaskKeys = getRequiredPrerequisiteTaskKeys(task);
   const blockingTaskKey = requiredTaskKeys.find((taskKey) => {
     const prerequisite = getWorkflowTaskByKey(workflow, taskKey);
     return prerequisite?.status !== TASK_STATUS_DONE;

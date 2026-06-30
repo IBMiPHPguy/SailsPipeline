@@ -19,7 +19,7 @@ type AddressDraft = {
 type CollectPassengerAddressesTaskPanelProps = {
   requestId: number;
   passengers: RequestPassenger[];
-  taskId: number;
+  taskId: string;
   disabled: boolean;
   isDone: boolean;
   onChanged: () => Promise<void>;

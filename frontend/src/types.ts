@@ -495,25 +495,29 @@ export type ResearchDocument = {
 };
 
 export type RequestTask = {
-  id: number;
+  id: string;
   task_key: string;
   title: string;
   description: string | null;
   status: string;
   sort_order: number;
+  action_type: string;
+  is_completed: boolean;
   due_at: string | null;
   completed_at: string | null;
   completed_by: UserAudit | null;
   result: Record<string, unknown> | null;
+  prerequisite_task_keys: string[] | null;
   created_at: string;
   updated_at: string;
 };
 
 export type RequestWorkflow = {
-  id: number;
+  id: string;
   workflow_type: string;
+  workflow_name: string;
   status: string;
-  parent_workflow_id: number | null;
+  parent_workflow_id: string | null;
   context: Record<string, unknown> | null;
   started_by: UserAudit;
   completed_by: UserAudit | null;
@@ -529,7 +533,7 @@ export type RequestCommunication = {
   subject: string;
   body: string;
   status: string;
-  request_workflow_id: number | null;
+  request_workflow_id: string | null;
   sent_at: string | null;
   created_by: UserAudit;
   updated_by: UserAudit;
@@ -545,16 +549,38 @@ export type RequestChangeHistory = {
 };
 
 export type WorkflowTemplate = {
+  id: string;
   workflow_type: string;
   name: string;
   description: string;
+};
+
+export type AgencyTaskTemplate = {
+  id: string;
+  task_title: string;
+  sequence_order: number;
+  action_type: string;
+  target_field: string | null;
+  task_key: string | null;
+  description: string | null;
+  prerequisite_task_keys: string[] | null;
+};
+
+export type AgencyWorkflowTemplate = {
+  id: string;
+  workflow_name: string;
+  description: string | null;
+  workflow_type_key: string | null;
+  successor_template_id: string | null;
+  created_at: string;
+  task_templates: AgencyTaskTemplate[];
 };
 
 export type RequestCommunicationInput = {
   communication_type: string;
   subject: string;
   body: string;
-  request_workflow_id?: number | null;
+  request_workflow_id?: string | null;
   status?: string;
 };
 
@@ -589,7 +615,7 @@ export type TravelRequestDetail = TravelRequest & {
 };
 
 export type DashboardNextOpenTask = {
-  id: number;
+  id: string;
   task_key: string;
   title: string;
   workflow_type: string;
@@ -653,6 +679,7 @@ export type AppView =
   | { type: "dashboard" }
   | { type: "sales-analytics" }
   | { type: "marketing-campaigns" }
+  | { type: "workflows" }
   | { type: "clients" }
   | { type: "reports" }
   | { type: "report"; reportId: ReportId }
@@ -661,7 +688,14 @@ export type AppView =
   | { type: "new" }
   | { type: "edit"; requestId: number };
 
-export type AppNavItem = "dashboard" | "sales-analytics" | "marketing-campaigns" | "clients" | "reports" | "team";
+export type AppNavItem =
+  | "dashboard"
+  | "sales-analytics"
+  | "marketing-campaigns"
+  | "workflows"
+  | "clients"
+  | "reports"
+  | "team";
 
 export type MarketingCampaign = {
   id: string;

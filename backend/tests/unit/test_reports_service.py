@@ -57,7 +57,7 @@ def test_get_report_meta_groups_workflow_tasks_in_sequence(db):
     meta = get_report_meta(db, DEFAULT_AGENCY_ID)
     assert len(meta.workflow_task_groups) == 3
 
-    research = meta.workflow_task_groups[0]
+    research = next(group for group in meta.workflow_task_groups if group.workflow_type == "research")
     assert research.workflow_name == "Research"
     assert [task.value for task in research.tasks] == [
         "task:research_cruise_options",

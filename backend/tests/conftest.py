@@ -2,7 +2,7 @@ import os
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -51,12 +51,59 @@ def _create_test_engine():
     return create_engine(database_url, pool_pre_ping=True)
 
 
+def _ensure_workflow_engine_schema(engine) -> None:
+    database_url = os.environ["DATABASE_URL"]
+    if database_url.startswith("sqlite"):
+        return
+
+    inspector = inspect(engine)
+    if "agency_workflow_templates" in inspector.get_table_names():
+        return
+
+    from app.models import (  # noqa: WPS433
+        AgencyTaskTemplate,
+        AgencyWorkflowTemplate,
+        RequestTaskLive,
+        RequestWorkflowLive,
+    )
+
+    Base.metadata.create_all(
+        bind=engine,
+        tables=[
+            AgencyWorkflowTemplate.__table__,
+            AgencyTaskTemplate.__table__,
+            RequestWorkflowLive.__table__,
+            RequestTaskLive.__table__,
+        ],
+    )
+
+    communication_columns = {column["name"] for column in inspector.get_columns("request_communications")}
+    if "request_workflow_live_id" not in communication_columns:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "ALTER TABLE request_communications "
+                    "ADD COLUMN request_workflow_live_id CHAR(36) NULL AFTER request_workflow_id"
+                )
+            )
+            connection.execute(
+                text(
+                    "ALTER TABLE request_communications "
+                    "ADD CONSTRAINT fk_request_communications_workflow_live "
+                    "FOREIGN KEY (request_workflow_live_id) "
+                    "REFERENCES request_workflows_live(id) ON DELETE SET NULL"
+                )
+            )
+
+
 @pytest.fixture(scope="session")
 def engine():
     test_engine = _create_test_engine()
     database_url = os.environ["DATABASE_URL"]
     if database_url.startswith("sqlite"):
         Base.metadata.create_all(bind=test_engine)
+    else:
+        _ensure_workflow_engine_schema(test_engine)
     yield test_engine
     if database_url.startswith("sqlite"):
         Base.metadata.drop_all(bind=test_engine)
@@ -75,6 +122,11 @@ def db(session_factory, engine):
     session.begin_nested()
 
     ensure_default_agency(session)
+    from app.services.workflow_template_seed import seed_agency_workflow_templates
+    from app.tenant_constants import DEFAULT_AGENCY_ID
+
+    seed_agency_workflow_templates(session, DEFAULT_AGENCY_ID)
+    session.commit()
     set_current_agency_id(DEFAULT_AGENCY_ID)
 
     @event.listens_for(session, "after_transaction_end")

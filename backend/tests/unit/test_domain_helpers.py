@@ -125,9 +125,9 @@ def test_record_follow_up_reached_out_rejects_non_open_task():
         record_follow_up_reached_out(Task(), now=datetime.now(timezone.utc))
 
 
-def test_schedule_follow_up_due_date_ignores_non_communicate_workflow():
+def test_schedule_follow_up_due_date_ignores_when_follow_up_task_missing():
     class Task:
-        task_key = TASK_KEY_FOLLOW_UP_RESEARCH
+        task_key = TASK_KEY_SEND_RESEARCH_COMMUNICATION
         status = "Open"
         due_at = None
 

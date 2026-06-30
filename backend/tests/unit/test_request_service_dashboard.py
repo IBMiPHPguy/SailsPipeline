@@ -27,11 +27,11 @@ def test_resolve_last_worked_prefers_latest_activity():
     request = SimpleNamespace(
         updated_at=older,
         updated_by=user,
-        request_workflows=[
+        request_workflows_live=[
             SimpleNamespace(
-                created_at=older,
+                started_at=older,
                 started_by=user,
-                completed_at=newer,
+                ended_at=newer,
                 completed_by=user,
                 tasks=[
                     SimpleNamespace(
@@ -50,26 +50,26 @@ def test_resolve_last_worked_prefers_latest_activity():
 
 
 def test_resolve_next_open_task_returns_first_open_task():
-    user = SimpleNamespace(id=1, username="agent")
     request = SimpleNamespace(
-        request_workflows=[
+        request_workflows_live=[
             SimpleNamespace(
                 status=WORKFLOW_STATUS_ACTIVE,
-                workflow_type=WORKFLOW_TYPE_RESEARCH,
+                workflow_type_key=WORKFLOW_TYPE_RESEARCH,
+                workflow_name="Research",
                 tasks=[
                     SimpleNamespace(
-                        id=10,
+                        id="10",
                         task_key="research_cruise_options",
-                        title="Research cruise options",
+                        task_title="Research cruise options",
                         status=TASK_STATUS_OPEN,
-                        sort_order=1,
+                        sequence_order=1,
                     ),
                     SimpleNamespace(
-                        id=11,
+                        id="11",
                         task_key="upload_research_document",
-                        title="Upload research document",
+                        task_title="Upload research document",
                         status=TASK_STATUS_OPEN,
-                        sort_order=2,
+                        sequence_order=2,
                     ),
                 ],
             )
@@ -85,17 +85,18 @@ def test_resolve_next_open_task_returns_first_open_task():
 
 def test_resolve_next_open_task_returns_none_when_no_open_tasks():
     request = SimpleNamespace(
-        request_workflows=[
+        request_workflows_live=[
             SimpleNamespace(
                 status=WORKFLOW_STATUS_ACTIVE,
-                workflow_type=WORKFLOW_TYPE_RESEARCH,
+                workflow_type_key=WORKFLOW_TYPE_RESEARCH,
+                workflow_name="Research",
                 tasks=[
                     SimpleNamespace(
-                        id=10,
+                        id="10",
                         task_key="research_cruise_options",
-                        title="Research cruise options",
+                        task_title="Research cruise options",
                         status="Done",
-                        sort_order=1,
+                        sequence_order=1,
                     )
                 ],
             )
@@ -106,7 +107,7 @@ def test_resolve_next_open_task_returns_none_when_no_open_tasks():
 
 
 def test_resolve_next_open_task_returns_none_without_active_workflow():
-    request = SimpleNamespace(request_workflows=[])
+    request = SimpleNamespace(request_workflows_live=[])
 
     assert resolve_next_open_task(request) is None
 
@@ -135,21 +136,22 @@ def test_build_dashboard_open_request_includes_stale_and_next_task():
         cabins_needed=1,
         status="Open",
         close_reason=None,
-        request_workflows=[
+        request_workflows_live=[
             SimpleNamespace(
                 status=WORKFLOW_STATUS_ACTIVE,
-                workflow_type=WORKFLOW_TYPE_RESEARCH,
-                created_at=fresh,
+                workflow_type_key=WORKFLOW_TYPE_RESEARCH,
+                workflow_name="Research",
+                started_at=fresh,
                 started_by=user,
-                completed_at=None,
+                ended_at=None,
                 completed_by=None,
                 tasks=[
                     SimpleNamespace(
-                        id=10,
+                        id="10",
                         task_key="research_cruise_options",
-                        title="Research cruise options",
+                        task_title="Research cruise options",
                         status=TASK_STATUS_OPEN,
-                        sort_order=1,
+                        sequence_order=1,
                         completed_at=None,
                         completed_by=None,
                     )
