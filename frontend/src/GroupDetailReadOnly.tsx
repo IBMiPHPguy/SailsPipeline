@@ -1,8 +1,12 @@
 import { formatMoney } from "./cabinPricing";
 import EditIcon from "./EditIcon";
+import GroupLiquidationBar from "./GroupLiquidationBar";
+import GroupTcCallout from "./GroupTcCallout";
+import GroupYieldPanel from "./GroupYieldPanel";
 import IconTooltip from "./IconTooltip";
 import TrashIcon from "./TrashIcon";
-import type { AgencyGroup, AgencyGroupInventory } from "./types";
+import { metricsForInventoryId } from "./groupMetricsHelpers";
+import type { AgencyGroup, AgencyGroupInventory, AgencyGroupMetrics } from "./types";
 import { formatDate } from "./utils";
 
 export function formatInventoryDescription(item: AgencyGroupInventory): string {
@@ -20,6 +24,7 @@ export function formatInventoryDescription(item: AgencyGroupInventory): string {
 
 type GroupDetailReadOnlyProps = {
   group: AgencyGroup;
+  metrics?: AgencyGroupMetrics | null;
   showActions?: boolean;
   deletingInventoryId?: string | null;
   onEditInventory?: (item: AgencyGroupInventory) => void;
@@ -28,6 +33,7 @@ type GroupDetailReadOnlyProps = {
 
 export default function GroupDetailReadOnly({
   group,
+  metrics = null,
   showActions = false,
   deletingInventoryId = null,
   onEditInventory,
@@ -78,6 +84,23 @@ export default function GroupDetailReadOnly({
           <strong>{group.summary.total_cabins_remaining}</strong> remaining
         </span>
       </div>
+
+      {metrics ? (
+        <div className="group-metrics-panels">
+          <GroupLiquidationBar
+            label="Group liquidation"
+            reserved={metrics.totals.cabins_reserved}
+            allocated={metrics.totals.cabins_allocated}
+            percent={metrics.totals.liquidation_percent}
+            tone={metrics.totals.liquidation_tone}
+          />
+          <div className="group-metrics-panels-grid">
+            <GroupYieldPanel totals={metrics.totals} linkedRequestCount={metrics.linked_request_count} />
+            <GroupTcCallout tourConductor={metrics.tour_conductor} />
+          </div>
+        </div>
+      ) : null}
+
       <div className="open-requests-table-wrap group-inventory-table-wrap">
         <table
           className={`open-requests-table group-inventory-table${showActions ? " group-inventory-table--actions" : ""}`}
@@ -87,6 +110,7 @@ export default function GroupDetailReadOnly({
             <col className="group-inventory-col group-inventory-col--type" />
             <col className="group-inventory-col group-inventory-col--price" />
             <col className="group-inventory-col group-inventory-col--deposit" />
+            <col className="group-inventory-col group-inventory-col--liquidation" />
             <col className="group-inventory-col group-inventory-col--alloc" />
             <col className="group-inventory-col group-inventory-col--reserved" />
             <col className="group-inventory-col group-inventory-col--remaining" />
@@ -98,6 +122,7 @@ export default function GroupDetailReadOnly({
               <th>Type</th>
               <th className="group-inventory-table-price-heading">Price</th>
               <th className="group-inventory-table-price-heading">Deposit</th>
+              <th className="group-inventory-col--liquidation">Fill</th>
               <th className="group-inventory-table-numeric group-inventory-col--alloc">Allocated</th>
               <th className="group-inventory-table-numeric group-inventory-col--reserved">Reserved</th>
               <th className="group-inventory-table-numeric group-inventory-col--remaining">Remaining</th>
@@ -107,49 +132,66 @@ export default function GroupDetailReadOnly({
           <tbody>
             {group.inventory_items.length === 0 ? (
               <tr>
-                <td colSpan={showActions ? 8 : 7} className="meta">
+                <td colSpan={showActions ? 9 : 8} className="meta">
                   No inventory rows yet.
                 </td>
               </tr>
             ) : (
-              group.inventory_items.map((item) => (
-                <tr key={item.id}>
-                  <td className="group-inventory-table-description">{formatInventoryDescription(item)}</td>
-                  <td>{item.cabin_type}</td>
-                  <td className="group-inventory-table-numeric">{formatMoney(item.price_per_cabin)}</td>
-                  <td className="group-inventory-table-numeric">{formatMoney(item.deposit_per_cabin)}</td>
-                  <td className="group-inventory-table-numeric group-inventory-col--alloc">{item.cabins_allocated}</td>
-                  <td className="group-inventory-table-numeric group-inventory-col--reserved">{item.cabins_reserved}</td>
-                  <td className="group-inventory-table-numeric group-inventory-col--remaining">{item.cabins_remaining}</td>
-                  {showActions ? (
-                    <td className="dashboard-table-actions-cell">
-                      <div className="dashboard-table-actions">
-                        <IconTooltip label="Edit inventory row">
-                          <button
-                            type="button"
-                            className="icon-button"
-                            aria-label="Edit inventory row"
-                            onClick={() => onEditInventory?.(item)}
-                          >
-                            <EditIcon />
-                          </button>
-                        </IconTooltip>
-                        <IconTooltip label="Remove inventory row">
-                          <button
-                            type="button"
-                            className="icon-button icon-button-danger"
-                            aria-label="Remove inventory row"
-                            disabled={deletingInventoryId === item.id}
-                            onClick={() => onDeleteInventory?.(item)}
-                          >
-                            <TrashIcon />
-                          </button>
-                        </IconTooltip>
-                      </div>
+              group.inventory_items.map((item) => {
+                const rowMetrics = metricsForInventoryId(metrics, item.id);
+                return (
+                  <tr key={item.id}>
+                    <td className="group-inventory-table-description">{formatInventoryDescription(item)}</td>
+                    <td>{item.cabin_type}</td>
+                    <td className="group-inventory-table-numeric">{formatMoney(item.price_per_cabin)}</td>
+                    <td className="group-inventory-table-numeric">{formatMoney(item.deposit_per_cabin)}</td>
+                    <td className="group-inventory-col--liquidation">
+                      {rowMetrics ? (
+                        <GroupLiquidationBar
+                          compact
+                          label={item.cabin_category}
+                          reserved={rowMetrics.cabins_reserved}
+                          allocated={rowMetrics.cabins_allocated}
+                          percent={rowMetrics.liquidation_percent}
+                          tone={rowMetrics.liquidation_tone}
+                        />
+                      ) : (
+                        "—"
+                      )}
                     </td>
-                  ) : null}
-                </tr>
-              ))
+                    <td className="group-inventory-table-numeric group-inventory-col--alloc">{item.cabins_allocated}</td>
+                    <td className="group-inventory-table-numeric group-inventory-col--reserved">{item.cabins_reserved}</td>
+                    <td className="group-inventory-table-numeric group-inventory-col--remaining">{item.cabins_remaining}</td>
+                    {showActions ? (
+                      <td className="dashboard-table-actions-cell">
+                        <div className="dashboard-table-actions">
+                          <IconTooltip label="Edit inventory row">
+                            <button
+                              type="button"
+                              className="icon-button"
+                              aria-label="Edit inventory row"
+                              onClick={() => onEditInventory?.(item)}
+                            >
+                              <EditIcon />
+                            </button>
+                          </IconTooltip>
+                          <IconTooltip label="Remove inventory row">
+                            <button
+                              type="button"
+                              className="icon-button icon-button-danger"
+                              aria-label="Remove inventory row"
+                              disabled={deletingInventoryId === item.id}
+                              onClick={() => onDeleteInventory?.(item)}
+                            >
+                              <TrashIcon />
+                            </button>
+                          </IconTooltip>
+                        </div>
+                      </td>
+                    ) : null}
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

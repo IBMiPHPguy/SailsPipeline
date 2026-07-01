@@ -59,6 +59,7 @@ import type {
   AgencyGroupInventoryUpdateInput,
   AgencyGroupListItem,
   AgencyGroupListPage,
+  AgencyGroupMetrics,
   AgencyGroupInventoryOption,
   AgencyGroupPickerItem,
   AgencyGroupUpdateInput,
@@ -1328,6 +1329,16 @@ export async function fetchAgencyGroup(groupId: string): Promise<AgencyGroup> {
   });
   if (!response.ok) {
     throw new Error(await parseApiError(response, "Unable to load group block."));
+  }
+  return response.json();
+}
+
+export async function fetchAgencyGroupMetrics(groupId: string): Promise<AgencyGroupMetrics> {
+  const response = await apiFetch(`${API_BASE}/agency-groups/${groupId}/metrics`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to load group metrics."));
   }
   return response.json();
 }

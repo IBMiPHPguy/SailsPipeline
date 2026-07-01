@@ -1143,6 +1143,7 @@ class TravelRequestRead(TravelRequestBase):
     id: int
     status: str
     close_reason: str | None = None
+    group_inventory_reservation_applied: bool = False
     cabin_hold_reservation_ids: list[list[str]] = Field(default_factory=list)
     created_by: UserAudit
     updated_by: UserAudit
@@ -2013,3 +2014,47 @@ class TravelRequestGroupBookingRead(BaseModel):
     cabin_description: str | None = None
     price_per_cabin: float
     cabins_remaining: int
+
+
+class AgencyGroupInventoryMetricsRead(BaseModel):
+    inventory_id: str
+    cabin_category: str
+    cabins_allocated: int
+    cabins_reserved: int
+    cabins_remaining: int
+    max_gross_yield: float
+    accrued_gross_yield: float
+    liquidation_percent: float
+    liquidation_tone: str
+
+
+class AgencyGroupMetricsTotalsRead(BaseModel):
+    cabins_allocated: int
+    cabins_reserved: int
+    cabins_remaining: int
+    max_gross_yield: float
+    accrued_gross_yield: float
+    remaining_gross_yield: float
+    liquidation_percent: float
+    liquidation_tone: str
+
+
+class AgencyGroupTourConductorMetricsRead(BaseModel):
+    ratio_label: str
+    berths_per_credit: int
+    tc_per_credit: int
+    used_default_ratio: bool
+    total_cabins_reserved: int
+    total_berths_reserved: int
+    tc_credits_earned: int
+    berths_until_next_tc: int
+    cabins_until_next_tc: int
+    message: str
+
+
+class AgencyGroupMetricsRead(BaseModel):
+    group_id: str
+    linked_request_count: int
+    totals: AgencyGroupMetricsTotalsRead
+    inventory_rows: list[AgencyGroupInventoryMetricsRead]
+    tour_conductor: AgencyGroupTourConductorMetricsRead

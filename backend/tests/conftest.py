@@ -98,6 +98,11 @@ def _ensure_agency_groups_schema(engine) -> None:
         if "group_inventory_id" not in request_columns:
             alters.append("ADD COLUMN group_inventory_id CHAR(36) NULL AFTER group_id")
             added_group_columns = True
+        if "group_inventory_reservation_applied" not in request_columns:
+            alters.append(
+                "ADD COLUMN group_inventory_reservation_applied TINYINT(1) NOT NULL DEFAULT 0 "
+                "AFTER group_inventory_id"
+            )
         if alters:
             with engine.begin() as connection:
                 connection.execute(text(f"ALTER TABLE travel_requests {', '.join(alters)}"))

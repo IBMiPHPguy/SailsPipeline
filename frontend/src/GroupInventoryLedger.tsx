@@ -1,15 +1,15 @@
-import { useState } from "react";
-import { deleteAgencyGroupInventory, fetchAgencyGroup } from "./api";
+import { useCallback, useEffect, useState } from "react";
+import { deleteAgencyGroupInventory, fetchAgencyGroup, fetchAgencyGroupMetrics } from "./api";
 import ChickenSwitchModal from "./ChickenSwitchModal";
 import GroupDetailReadOnly, { formatInventoryDescription } from "./GroupDetailReadOnly";
 import GroupInventoryEditModal from "./GroupInventoryEditModal";
-import type { AgencyGroup, AgencyGroupInventory } from "./types";
+import type { AgencyGroup, AgencyGroupInventory, AgencyGroupMetrics } from "./types";
 import type { TopStatusBarVariant } from "./TopStatusBar";
 
 type GroupInventoryLedgerProps = {
   group: AgencyGroup;
   readOnly?: boolean;
-  onGroupUpdated: (group: AgencyGroup) => void;
+  onGroupUpdated: (group: AgencyGroup, metrics?: AgencyGroupMetrics | null) => void;
   showStatus: (message: string, variant: TopStatusBarVariant) => void;
 };
 
@@ -19,10 +19,40 @@ export default function GroupInventoryLedger({
   onGroupUpdated,
   showStatus,
 }: GroupInventoryLedgerProps) {
+  const [metrics, setMetrics] = useState<AgencyGroupMetrics | null>(null);
+  const [metricsLoading, setMetricsLoading] = useState(true);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editingInventory, setEditingInventory] = useState<AgencyGroupInventory | null>(null);
   const [deletingInventory, setDeletingInventory] = useState<AgencyGroupInventory | null>(null);
   const [deletingInventoryId, setDeletingInventoryId] = useState<string | null>(null);
+
+  const loadMetrics = useCallback(async () => {
+    setMetricsLoading(true);
+    try {
+      const nextMetrics = await fetchAgencyGroupMetrics(group.id);
+      setMetrics(nextMetrics);
+      return nextMetrics;
+    } catch {
+      setMetrics(null);
+      return null;
+    } finally {
+      setMetricsLoading(false);
+    }
+  }, [group.id]);
+
+  useEffect(() => {
+    void loadMetrics();
+  }, [loadMetrics]);
+
+  async function refreshGroup() {
+    const [updatedGroup, updatedMetrics] = await Promise.all([
+      fetchAgencyGroup(group.id),
+      fetchAgencyGroupMetrics(group.id).catch(() => null),
+    ]);
+    setMetrics(updatedMetrics);
+    onGroupUpdated(updatedGroup, updatedMetrics);
+    return updatedGroup;
+  }
 
   async function confirmDeleteInventory() {
     if (!deletingInventory) {
@@ -31,10 +61,10 @@ export default function GroupInventoryLedger({
 
     setDeletingInventoryId(deletingInventory.id);
     try {
-      const updated = await deleteAgencyGroupInventory(deletingInventory.id);
+      await deleteAgencyGroupInventory(deletingInventory.id);
       showStatus("Inventory row removed.", "delete");
       setDeletingInventory(null);
-      onGroupUpdated(updated);
+      await refreshGroup();
     } catch (deleteError) {
       showStatus(deleteError instanceof Error ? deleteError.message : "Unable to remove inventory row.", "error");
     } finally {
@@ -43,7 +73,7 @@ export default function GroupInventoryLedger({
   }
 
   if (readOnly) {
-    return <GroupDetailReadOnly group={group} />;
+    return <GroupDetailReadOnly group={group} metrics={metricsLoading ? null : metrics} />;
   }
 
   return (
@@ -51,6 +81,7 @@ export default function GroupInventoryLedger({
       <header className="group-inventory-ledger-toolbar">
         <p className="meta group-inventory-panel-meta">
           {group.summary.inventory_row_count} inventory rows · {group.summary.total_cabins_remaining} cabins remaining
+          {metrics ? ` · ${metrics.linked_request_count} linked requests` : ""}
         </p>
         {group.is_active ? (
           <button type="button" className="agency-workflows-create-button" onClick={() => setCreateModalOpen(true)}>
@@ -61,6 +92,7 @@ export default function GroupInventoryLedger({
 
       <GroupDetailReadOnly
         group={group}
+        metrics={metricsLoading ? null : metrics}
         showActions={group.is_active}
         deletingInventoryId={deletingInventoryId}
         onEditInventory={(item) => setEditingInventory(item)}
@@ -77,7 +109,7 @@ export default function GroupInventoryLedger({
         onClose={() => setCreateModalOpen(false)}
         onSaved={async () => {
           showStatus("Inventory row added.", "success");
-          onGroupUpdated(await fetchAgencyGroup(group.id));
+          await refreshGroup();
         }}
       />
 
@@ -89,7 +121,7 @@ export default function GroupInventoryLedger({
         onClose={() => setEditingInventory(null)}
         onSaved={async () => {
           showStatus("Inventory row updated.", "success");
-          onGroupUpdated(await fetchAgencyGroup(group.id));
+          await refreshGroup();
         }}
       />
 

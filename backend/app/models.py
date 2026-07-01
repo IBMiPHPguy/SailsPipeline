@@ -195,6 +195,9 @@ class TravelRequest(Base):
     group_inventory_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("agency_group_inventory.id", ondelete="SET NULL"), nullable=True
     )
+    group_inventory_reservation_applied: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     updated_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)

@@ -10528,3 +10528,151 @@ button.modal-ghost:hover:not(:disabled) {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.group-metrics-panels {
+  display: grid;
+  gap: 1rem;
+  margin: 1rem 0 1.25rem;
+}
+
+.group-metrics-panels-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.group-liquidation-bar {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.group-liquidation-bar--compact .group-liquidation-bar-header {
+  display: none;
+}
+
+.group-liquidation-bar-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.82rem;
+}
+
+.group-liquidation-bar-label,
+.group-liquidation-bar-meta {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.group-liquidation-bar-track {
+  position: relative;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.25);
+  overflow: hidden;
+}
+
+.group-liquidation-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: #3b82f6;
+}
+
+.group-liquidation-bar-track--healthy .group-liquidation-bar-fill {
+  background: #16a34a;
+}
+
+.group-liquidation-bar-track--nearing_sellout .group-liquidation-bar-fill {
+  background: #d97706;
+}
+
+.group-liquidation-bar-track--sold_out .group-liquidation-bar-fill {
+  background: #dc2626;
+}
+
+.group-yield-panel,
+.group-tc-callout {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 0.75rem;
+  padding: 0.85rem 1rem;
+  min-width: 0;
+}
+
+.group-yield-panel-header,
+.group-tc-callout-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: baseline;
+  margin-bottom: 0.65rem;
+}
+
+.group-yield-panel-header h4,
+.group-tc-callout-header h4 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.group-yield-panel-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.group-yield-panel-grid dt {
+  font-size: 0.78rem;
+  color: var(--muted-text, #64748b);
+}
+
+.group-yield-panel-grid dd {
+  margin: 0.15rem 0 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.group-tc-callout-message,
+.group-amenities-card-tc-line {
+  margin: 0;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.group-tc-callout-warning,
+.group-amenities-card .group-tc-callout-warning {
+  margin: 0.5rem 0 0;
+  font-size: 0.82rem;
+  color: #b45309;
+}
+
+.group-tc-callout-ratio {
+  font-size: 0.78rem;
+  color: var(--muted-text, #64748b);
+}
+
+.group-amenities-card-body-wrap {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.group-inventory-col--liquidation {
+  width: 18%;
+  min-width: 0;
+}
+
+.open-requests-table.group-inventory-table .group-inventory-col--liquidation {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  .group-metrics-panels-grid,
+  .group-yield-panel-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 719px) {
+  col.group-inventory-col--liquidation,
+  .group-inventory-col--liquidation {
+    display: none;
+  }
+}

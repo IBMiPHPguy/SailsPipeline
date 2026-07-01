@@ -11,10 +11,12 @@ from app.schemas import (
     AgencyGroupInventoryUpdate,
     AgencyGroupListItemRead,
     AgencyGroupListPageRead,
+    AgencyGroupMetricsRead,
     AgencyGroupPickerItemRead,
     AgencyGroupRead,
     AgencyGroupUpdate,
 )
+from app.services.agency_group_metrics_service import build_agency_group_metrics
 from app.services.agency_group_service import (
     AGENCY_GROUPS_PAGE_SIZE_DEFAULT,
     AGENCY_GROUPS_PAGE_SIZE_MAX,
@@ -126,6 +128,17 @@ def list_group_inventory_options_route(
     agency_id = _require_agency_id(current_user)
     options = list_group_inventory_options(db, agency_id=agency_id, group_id=group_id)
     return [AgencyGroupInventoryOptionRead.model_validate(option) for option in options]
+
+
+@router.get("/{group_id}/metrics", response_model=AgencyGroupMetricsRead)
+def get_agency_group_metrics_route(
+    group_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> AgencyGroupMetricsRead:
+    agency_id = _require_agency_id(current_user)
+    metrics = build_agency_group_metrics(db, agency_id=agency_id, group_id=group_id)
+    return AgencyGroupMetricsRead.model_validate(metrics)
 
 
 @router.get("/{group_id}", response_model=AgencyGroupRead)

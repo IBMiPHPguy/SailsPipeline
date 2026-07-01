@@ -598,6 +598,20 @@ def update_request(
     if returning <= departure:
         raise HTTPException(status_code=400, detail="Return date must be after departure date.")
 
+    next_status = updates.get("status", request.status)
+    next_close_reason = updates.get("close_reason", request.close_reason)
+    from app.services.group_inventory_reservation_service import (
+        maybe_apply_group_inventory_reservation_on_purchase,
+    )
+
+    maybe_apply_group_inventory_reservation_on_purchase(
+        db,
+        request_id=request_id,
+        agency_id=current_user.agency_id,
+        next_status=next_status,
+        next_close_reason=next_close_reason,
+    )
+
     request_changes = collect_field_changes(request, updates, TRAVEL_REQUEST_AUDIT_FIELDS)
     record_travel_request_field_changes(db, request, request_changes, current_user)
     apply_updates(request, updates)

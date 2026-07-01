@@ -1116,3 +1116,49 @@ export type AgencyGroupsQuery = {
   pageSize?: number;
   filter?: AgencyGroupActiveFilter;
 };
+
+export type GroupLiquidationTone = "healthy" | "nearing_sellout" | "sold_out";
+
+export type AgencyGroupInventoryMetrics = {
+  inventory_id: string;
+  cabin_category: string;
+  cabins_allocated: number;
+  cabins_reserved: number;
+  cabins_remaining: number;
+  max_gross_yield: number;
+  accrued_gross_yield: number;
+  liquidation_percent: number;
+  liquidation_tone: GroupLiquidationTone;
+};
+
+export type AgencyGroupMetricsTotals = {
+  cabins_allocated: number;
+  cabins_reserved: number;
+  cabins_remaining: number;
+  max_gross_yield: number;
+  accrued_gross_yield: number;
+  remaining_gross_yield: number;
+  liquidation_percent: number;
+  liquidation_tone: GroupLiquidationTone;
+};
+
+export type AgencyGroupTourConductorMetrics = {
+  ratio_label: string;
+  berths_per_credit: number;
+  tc_per_credit: number;
+  used_default_ratio: boolean;
+  total_cabins_reserved: number;
+  total_berths_reserved: number;
+  tc_credits_earned: number;
+  berths_until_next_tc: number;
+  cabins_until_next_tc: number;
+  message: string;
+};
+
+export type AgencyGroupMetrics = {
+  group_id: string;
+  linked_request_count: number;
+  totals: AgencyGroupMetricsTotals;
+  inventory_rows: AgencyGroupInventoryMetrics[];
+  tour_conductor: AgencyGroupTourConductorMetrics;
+};

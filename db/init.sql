@@ -118,6 +118,7 @@ CREATE TABLE IF NOT EXISTS travel_requests (
     marketing_campaign_id CHAR(36) NULL,
     group_id CHAR(36) NULL,
     group_inventory_id CHAR(36) NULL,
+    group_inventory_reservation_applied TINYINT(1) NOT NULL DEFAULT 0,
     created_by_id INT NOT NULL,
     updated_by_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
