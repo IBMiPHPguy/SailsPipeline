@@ -1,10 +1,21 @@
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.email_config import (
+    ALLOWED_APP_ENVS,
+    APP_ENV_ALIASES,
+    APP_ENV_DEVELOPMENT,
+    APP_ENV_PRODUCTION,
+    APP_ENV_STAGING,
+    DEPLOYMENT_APP_ENVS,
+    EmailDeliverySettings,
+    resolve_email_delivery_settings,
+)
+
 
 class Settings(BaseSettings):
     database_url: str = "mysql+pymysql://cruiseapp:cruisesecret@db:3306/sailspipeline"
-    app_env: str = "development"
+    app_env: str = APP_ENV_DEVELOPMENT
     jwt_secret: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 480
@@ -26,10 +37,38 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:8080,http://localhost:5173,http://127.0.0.1:8080"
     expose_openapi: bool = True
     auth_rate_limit: str = "10/minute"
+    # Legacy overrides (ignored when APP_ENV=development; routing is tier-driven).
+    email_backend: str = "smtp"
+    email_host: str = "mailpit"
+    email_port: int = 1025
+    email_username: str = ""
+    email_password: str = ""
+    email_use_tls: bool = False
+    email_from_address: str = "notifications@sailspipeline.com"
+    email_from_address_staging: str | None = None
+    email_api_provider: str = "resend"
+    email_api_key: str | None = None
+    email_api_key_staging: str | None = None
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    @field_validator("allow_public_registration", "expose_openapi", "rollup_scheduler_enabled", mode="before")
+    @field_validator("app_env", mode="before")
+    @classmethod
+    def validate_app_env(cls, value: object) -> str:
+        normalized = str(value).strip().lower()
+        normalized = APP_ENV_ALIASES.get(normalized, normalized)
+        if normalized not in ALLOWED_APP_ENVS:
+            allowed = ", ".join(sorted(DEPLOYMENT_APP_ENVS))
+            raise ValueError(f"APP_ENV must be one of: {allowed}")
+        return normalized
+
+    @field_validator(
+        "allow_public_registration",
+        "expose_openapi",
+        "rollup_scheduler_enabled",
+        "email_use_tls",
+        mode="before",
+    )
     @classmethod
     def parse_bool(cls, value):
         if isinstance(value, str):
@@ -44,6 +83,21 @@ class Settings(BaseSettings):
     @property
     def rate_limiting_enabled(self) -> bool:
         return self.app_env not in {"test"}
+
+    @property
+    def is_development(self) -> bool:
+        return self.app_env == APP_ENV_DEVELOPMENT
+
+    @property
+    def is_staging(self) -> bool:
+        return self.app_env == APP_ENV_STAGING
+
+    @property
+    def is_production(self) -> bool:
+        return self.app_env == APP_ENV_PRODUCTION
+
+    def resolve_email_delivery_settings(self) -> EmailDeliverySettings:
+        return resolve_email_delivery_settings(self)
 
 
 settings = Settings()

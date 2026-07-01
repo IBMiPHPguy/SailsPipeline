@@ -1,12 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { fetchCommunication, updateCommunication } from "./api";
-import {
-  COMMUNICATION_STATUS_SENT,
-  COMMUNICATION_TYPE_RESEARCH_PROPOSAL,
-} from "./formOptions";
+import { fetchCommunication, sendResearchCommunicationViaSailsPipeline } from "./api";
+import { COMMUNICATION_STATUS_SENT, COMMUNICATION_TYPE_RESEARCH_PROPOSAL } from "./formOptions";
 import type { RequestCommunication, RequestCommunicationSummary } from "./types";
 import ResearchCommunicationBodyPreview from "./ResearchCommunicationBodyPreview";
-import { copyCommunicationBodyToClipboard, copyTextToClipboard } from "./utils";
+import { copyCommunicationBodyToClipboard } from "./utils";
 import { communicationStatusClass } from "./workflowForm";
 
 type SendResearchCommunicationTaskPanelProps = {
@@ -35,8 +32,8 @@ export default function SendResearchCommunicationTaskPanel({
   const [selectedCommunicationId, setSelectedCommunicationId] = useState<number | "">("");
   const [loadedCommunication, setLoadedCommunication] = useState<RequestCommunication | null>(null);
   const [loadingCommunication, setLoadingCommunication] = useState(false);
-  const [markingSent, setMarkingSent] = useState(false);
-  const [copyMessage, setCopyMessage] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (proposalCommunications.length === 0) {
@@ -61,7 +58,7 @@ export default function SendResearchCommunicationTaskPanel({
 
     let cancelled = false;
     setLoadingCommunication(true);
-    setCopyMessage(null);
+    setStatusMessage(null);
     onError("");
 
     fetchCommunication(requestId, selectedCommunicationId)
@@ -99,42 +96,29 @@ export default function SendResearchCommunicationTaskPanel({
 
     try {
       await copyCommunicationBodyToClipboard(loadedCommunication.body);
-      setCopyMessage("Message body copied to clipboard.");
+      setStatusMessage("Message body copied to clipboard.");
     } catch {
       onError("Unable to copy message body.");
     }
   }
 
-  async function handleCopy(label: string, value: string) {
-    try {
-      await copyTextToClipboard(value);
-      setCopyMessage(`${label} copied to clipboard.`);
-    } catch {
-      onError(`Unable to copy ${label.toLowerCase()}.`);
-    }
-  }
-
-  async function handleMarkSent() {
+  async function handleSendViaSailsPipeline() {
     if (!loadedCommunication || loadedCommunication.status === COMMUNICATION_STATUS_SENT) {
       return;
     }
 
-    setMarkingSent(true);
+    setSending(true);
     onError("");
+    setStatusMessage(null);
     try {
-      await updateCommunication(requestId, loadedCommunication.id, {
-        communication_type: loadedCommunication.communication_type,
-        subject: loadedCommunication.subject,
-        body: loadedCommunication.body,
-        request_workflow_id: loadedCommunication.request_workflow_id,
-        status: COMMUNICATION_STATUS_SENT,
-      });
-      setLoadedCommunication({ ...loadedCommunication, status: COMMUNICATION_STATUS_SENT });
+      const result = await sendResearchCommunicationViaSailsPipeline(requestId, loadedCommunication.id);
+      setLoadedCommunication(result.communication);
+      setStatusMessage("Email sent via SailsPipeline. Check Mailpit to confirm delivery.");
       await onChanged();
-    } catch (updateError) {
-      onError(updateError instanceof Error ? updateError.message : "Unable to mark communication as sent.");
+    } catch (sendError) {
+      onError(sendError instanceof Error ? sendError.message : "Unable to send communication via SailsPipeline.");
     } finally {
-      setMarkingSent(false);
+      setSending(false);
     }
   }
 
@@ -154,7 +138,7 @@ export default function SendResearchCommunicationTaskPanel({
         Cruise proposal communication
         <select
           value={selectedCommunicationId}
-          disabled={disabled || loadingCommunication}
+          disabled={disabled || loadingCommunication || sending}
           onChange={(event) => {
             const nextValue = event.target.value;
             setSelectedCommunicationId(nextValue ? Number(nextValue) : "");
@@ -183,41 +167,36 @@ export default function SendResearchCommunicationTaskPanel({
         <div className="send-research-communication-preview">
           <div className="send-research-communication-field">
             <label htmlFor="send-research-subject">Subject</label>
-            <div className="send-research-communication-copy-row">
-              <input id="send-research-subject" type="text" readOnly value={loadedCommunication.subject} />
-              <button
-                type="button"
-                className="modal-secondary"
-                disabled={disabled}
-                onClick={() => void handleCopy("Subject", loadedCommunication.subject)}
-              >
-                Copy subject
-              </button>
-            </div>
+            <input id="send-research-subject" type="text" readOnly value={loadedCommunication.subject} />
           </div>
 
           <div className="send-research-communication-field">
             <label htmlFor="send-research-body">Message preview</label>
-            <div className="send-research-communication-copy-row send-research-communication-copy-row--stacked">
-              <ResearchCommunicationBodyPreview body={loadedCommunication.body} id="send-research-body" />
+            <ResearchCommunicationBodyPreview body={loadedCommunication.body} id="send-research-body" />
+          </div>
+
+          {!disabled && loadedCommunication.status !== COMMUNICATION_STATUS_SENT ? (
+            <div className="send-research-communication-action-row">
               <button
                 type="button"
                 className="modal-secondary"
-                disabled={disabled}
+                disabled={sending}
                 onClick={() => void handleCopyBody()}
               >
                 Copy formatted body
               </button>
+              <button
+                type="button"
+                className="modal-primary"
+                disabled={sending}
+                onClick={() => void handleSendViaSailsPipeline()}
+              >
+                {sending ? "Sending..." : "Send via SailsPipeline"}
+              </button>
             </div>
-          </div>
-
-          {copyMessage ? <p className="status success workflow-task-upload-success">{copyMessage}</p> : null}
-
-          {!disabled && loadedCommunication.status !== COMMUNICATION_STATUS_SENT ? (
-            <button type="button" disabled={markingSent} onClick={() => void handleMarkSent()}>
-              {markingSent ? "Updating..." : "Mark communication as sent"}
-            </button>
           ) : null}
+
+          {statusMessage ? <p className="status success workflow-task-upload-success">{statusMessage}</p> : null}
         </div>
       ) : null}
     </div>

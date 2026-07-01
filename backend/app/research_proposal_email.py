@@ -8,6 +8,9 @@ from typing import Any
 from app.branding import BRAND_NAME
 from app.models import ProposedCruise
 
+RESEARCH_PROPOSAL_CONTENT_START = "<!-- sailspipeline-email-content-start -->"
+RESEARCH_PROPOSAL_CONTENT_END = "<!-- sailspipeline-email-content-end -->"
+
 
 def _format_money(value: Decimal | float | str | int) -> str:
     amount = Decimal(str(value))
@@ -188,9 +191,11 @@ def build_research_proposal_email_html(
             </tr>
             <tr>
               <td style="padding:28px;">
+                {RESEARCH_PROPOSAL_CONTENT_START}
                 {intro_html}
                 {options_html}
                 {closing_html}
+                {RESEARCH_PROPOSAL_CONTENT_END}
               </td>
             </tr>
           </table>

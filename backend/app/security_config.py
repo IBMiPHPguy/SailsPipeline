@@ -38,6 +38,9 @@ def validate_production_settings(settings: Settings) -> None:
     if settings.expose_openapi:
         errors.append("EXPOSE_OPENAPI must be false.")
 
+    if not settings.email_api_key:
+        errors.append("EMAIL_API_KEY must be set for production email delivery.")
+
     if errors:
         message = "Refusing to start with insecure production configuration:\n- " + "\n- ".join(errors)
         raise RuntimeError(message)

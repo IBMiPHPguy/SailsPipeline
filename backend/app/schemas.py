@@ -1397,6 +1397,11 @@ class GenerateResearchCommunicationResponse(BaseModel):
     communication: RequestCommunicationRead
 
 
+class SendResearchCommunicationResponse(BaseModel):
+    message: str
+    communication: RequestCommunicationRead
+
+
 class ResearchDocumentRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
