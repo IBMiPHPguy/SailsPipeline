@@ -13,13 +13,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.constants import CABIN_TYPES
-from app.models import AgencyGroup, AgencyGroupInventory
+from app.models import AgencyGroup, AgencyGroupInventory, TravelRequest, TravelRequestGroupBooking
 from app.schemas import normalize_cruise_line_value
 from app.services.agency_service import NOT_FOUND, require_record_for_agency
 
 DEFAULT_TC_RATIO = "1:16"
 AGENCY_GROUPS_PAGE_SIZE_DEFAULT = 7
 AGENCY_GROUPS_PAGE_SIZE_MAX = 50
+AGENCY_GROUPS_PICKER_LIMIT = 100
 
 
 class AgencyGroupValidationError(ValueError):
@@ -40,6 +41,7 @@ def validate_inventory_counts(
     cabins_allocated: int,
     cabins_reserved: int = 0,
     price_per_cabin: Decimal | float | int = 0,
+    deposit_per_cabin: Decimal | float | int = 0,
 ) -> None:
     if cabins_allocated < 0:
         raise AgencyGroupValidationError("Cabins allocated cannot be negative.")
@@ -49,6 +51,8 @@ def validate_inventory_counts(
         raise AgencyGroupValidationError("Cabins reserved cannot exceed cabins allocated.")
     if Decimal(str(price_per_cabin)) < 0:
         raise AgencyGroupValidationError("Price per cabin cannot be negative.")
+    if Decimal(str(deposit_per_cabin)) < 0:
+        raise AgencyGroupValidationError("Deposit per cabin cannot be negative.")
 
 
 def validate_cabin_type(value: str) -> str:
@@ -101,6 +105,7 @@ def validate_inventory_row_payload(row: dict) -> None:
         cabins_allocated=int(row.get("cabins_allocated", 0)),
         cabins_reserved=int(row.get("cabins_reserved", 0)),
         price_per_cabin=row.get("price_per_cabin", 0),
+        deposit_per_cabin=row.get("deposit_per_cabin", 0),
     )
 
 
@@ -131,14 +136,16 @@ def validate_inventory_update(
     cabins_allocated: int | None = None,
     cabins_reserved: int | None = None,
     price_per_cabin: Decimal | float | int | None = None,
+    deposit_per_cabin: Decimal | float | int | None = None,
     cabin_type: str | None = None,
 ) -> None:
-    if cabin_type is not None:
+    if cabin_type is not None and cabin_type.strip() != inventory.cabin_type:
         validate_cabin_type(cabin_type)
     validate_inventory_counts(
         cabins_allocated=cabins_allocated if cabins_allocated is not None else inventory.cabins_allocated,
         cabins_reserved=cabins_reserved if cabins_reserved is not None else inventory.cabins_reserved,
         price_per_cabin=price_per_cabin if price_per_cabin is not None else inventory.price_per_cabin,
+        deposit_per_cabin=deposit_per_cabin if deposit_per_cabin is not None else inventory.deposit_per_cabin,
     )
 
 
@@ -204,6 +211,7 @@ def inventory_row_read_payload(inventory: AgencyGroupInventory) -> dict:
         "cabin_type": inventory.cabin_type,
         "cabin_description": inventory.cabin_description,
         "price_per_cabin": float(inventory.price_per_cabin),
+        "deposit_per_cabin": float(inventory.deposit_per_cabin),
         "cabins_allocated": inventory.cabins_allocated,
         "cabins_reserved": inventory.cabins_reserved,
         "cabins_remaining": remaining,
@@ -440,6 +448,7 @@ def create_agency_group(
                 else None
             ),
             price_per_cabin=row.get("price_per_cabin", 0),
+            deposit_per_cabin=row.get("deposit_per_cabin", 0),
             cabins_allocated=int(row.get("cabins_allocated", 0)),
             cabins_reserved=int(row.get("cabins_reserved", 0)),
         )
@@ -521,6 +530,7 @@ def create_agency_group_inventory(
     cabin_type: str,
     cabin_description: str | None = None,
     price_per_cabin: float = 0,
+    deposit_per_cabin: float = 0,
     cabins_allocated: int = 0,
     cabins_reserved: int = 0,
 ) -> AgencyGroup:
@@ -530,6 +540,7 @@ def create_agency_group_inventory(
         "cabin_type": cabin_type,
         "cabin_description": cabin_description,
         "price_per_cabin": price_per_cabin,
+        "deposit_per_cabin": deposit_per_cabin,
         "cabins_allocated": cabins_allocated,
         "cabins_reserved": cabins_reserved,
     }
@@ -545,6 +556,7 @@ def create_agency_group_inventory(
         cabin_type=row["cabin_type"],
         cabin_description=row.get("cabin_description"),
         price_per_cabin=row["price_per_cabin"],
+        deposit_per_cabin=row["deposit_per_cabin"],
         cabins_allocated=row["cabins_allocated"],
         cabins_reserved=row["cabins_reserved"],
     )
@@ -575,6 +587,7 @@ def update_agency_group_inventory(
             cabins_allocated=updates.get("cabins_allocated"),
             cabins_reserved=updates.get("cabins_reserved"),
             price_per_cabin=updates.get("price_per_cabin"),
+            deposit_per_cabin=updates.get("deposit_per_cabin"),
             cabin_type=updates.get("cabin_type"),
         )
     except AgencyGroupValidationError as exc:
@@ -583,12 +596,16 @@ def update_agency_group_inventory(
     if "cabin_category" in updates and updates["cabin_category"] is not None:
         inventory.cabin_category = updates["cabin_category"].strip()
     if "cabin_type" in updates and updates["cabin_type"] is not None:
-        inventory.cabin_type = validate_cabin_type(updates["cabin_type"])
+        next_cabin_type = str(updates["cabin_type"]).strip()
+        if next_cabin_type != inventory.cabin_type:
+            inventory.cabin_type = validate_cabin_type(next_cabin_type)
     if "cabin_description" in updates:
         description = updates["cabin_description"]
         inventory.cabin_description = description.strip() if description and str(description).strip() else None
     if "price_per_cabin" in updates and updates["price_per_cabin"] is not None:
         inventory.price_per_cabin = updates["price_per_cabin"]
+    if "deposit_per_cabin" in updates and updates["deposit_per_cabin"] is not None:
+        inventory.deposit_per_cabin = updates["deposit_per_cabin"]
     if "cabins_allocated" in updates and updates["cabins_allocated"] is not None:
         inventory.cabins_allocated = updates["cabins_allocated"]
     if "cabins_reserved" in updates and updates["cabins_reserved"] is not None:
@@ -622,3 +639,246 @@ def delete_agency_group_inventory(
     db.delete(inventory)
     db.commit()
     return get_agency_group_detail(db, agency_id=agency_id, group_id=group_id)
+
+
+def group_picker_item_payload(group: AgencyGroup) -> dict:
+    return {
+        "id": group.id,
+        "group_name": group.group_name,
+        "cruise_line": group.cruise_line,
+        "ship_name": group.ship_name,
+        "sailing_date": group.sailing_date,
+        "disembarkation_date": group.disembarkation_date,
+    }
+
+
+def group_intake_summary_payload(group: AgencyGroup) -> dict:
+    return {
+        "id": group.id,
+        "group_name": group.group_name,
+        "cruise_line": group.cruise_line,
+        "ship_name": group.ship_name,
+        "sailing_date": group.sailing_date,
+        "disembarkation_date": group.disembarkation_date,
+        "group_id_code": group.group_id_code,
+        "group_amenities": group.group_amenities,
+    }
+
+
+def format_inventory_option_label(
+    *,
+    cabin_category: str,
+    cabin_type: str,
+    cabin_description: str | None,
+    price_per_cabin: float,
+    cabins_remaining: int,
+) -> str:
+    description = (cabin_description or cabin_type).strip()
+    price_label = f"${price_per_cabin:,.2f}".replace(".00", "")
+    return f"{description} ({cabin_category}) - {price_label} [{cabins_remaining} left]"
+
+
+def list_active_groups_picker(
+    db: Session,
+    *,
+    agency_id: str,
+    query: str = "",
+    limit: int = AGENCY_GROUPS_PICKER_LIMIT,
+) -> list[AgencyGroup]:
+    normalized_limit = max(1, min(limit, AGENCY_GROUPS_PICKER_LIMIT))
+    return (
+        _agency_groups_filtered_query(
+            db,
+            agency_id=agency_id,
+            is_active=True,
+            query=query,
+        )
+        .order_by(AgencyGroup.sailing_date.asc(), AgencyGroup.group_name.asc())
+        .limit(normalized_limit)
+        .all()
+    )
+
+
+def list_group_inventory_options(
+    db: Session,
+    *,
+    agency_id: str,
+    group_id: str,
+) -> list[dict]:
+    group = get_agency_group_detail(db, agency_id=agency_id, group_id=group_id)
+    options: list[dict] = []
+    for item in group.inventory_items:
+        remaining = compute_cabins_remaining(
+            cabins_allocated=item.cabins_allocated,
+            cabins_reserved=item.cabins_reserved,
+        )
+        price = float(item.price_per_cabin)
+        deposit = float(item.deposit_per_cabin)
+        options.append(
+            {
+                "id": item.id,
+                "cabin_category": item.cabin_category,
+                "cabin_type": item.cabin_type,
+                "cabin_description": item.cabin_description,
+                "price_per_cabin": price,
+                "deposit_per_cabin": deposit,
+                "cabins_remaining": remaining,
+                "label": format_inventory_option_label(
+                    cabin_category=item.cabin_category,
+                    cabin_type=item.cabin_type,
+                    cabin_description=item.cabin_description,
+                    price_per_cabin=price,
+                    cabins_remaining=remaining,
+                ),
+                "is_selectable": remaining > 0,
+            }
+        )
+    return options
+
+
+def validate_travel_request_group_alignment(
+    db: Session,
+    *,
+    agency_id: str,
+    group_id: str,
+    cruise_lines: list[str],
+    ship_name: str | None,
+    departure_date: date,
+    return_date: date,
+) -> AgencyGroup:
+    group = get_agency_group_for_agency(db, group_id, agency_id)
+    normalized_line = normalize_cruise_line_value(group.cruise_line)
+    request_lines = [normalize_cruise_line_value(line) for line in cruise_lines]
+    if request_lines != [normalized_line]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cruise line must match the selected group block.",
+        )
+    if (ship_name or "").strip() != group.ship_name.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Ship name must match the selected group block.",
+        )
+    if departure_date != group.sailing_date:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Departure date must match the selected group sailing date.",
+        )
+    if return_date != group.disembarkation_date:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Return date must match the selected group disembarkation date.",
+        )
+    return group
+
+
+def normalize_group_booking_inputs(
+    db: Session,
+    *,
+    agency_id: str,
+    group_id: str,
+    bookings: list[dict],
+    fallback_inventory_id: str | None = None,
+    fallback_cabins_requested: int = 1,
+) -> tuple[list[dict], list[str], int]:
+    normalized_inputs = bookings
+    if not normalized_inputs and fallback_inventory_id:
+        normalized_inputs = [
+            {
+                "group_inventory_id": fallback_inventory_id,
+                "cabins_requested": fallback_cabins_requested,
+            }
+        ]
+    if not normalized_inputs:
+        return [], [], 0
+
+    seen_inventory_ids: set[str] = set()
+    normalized_rows: list[dict] = []
+    cabin_types: list[str] = []
+    total_cabins = 0
+
+    for row in normalized_inputs:
+        inventory_id = str(row["group_inventory_id"]).strip()
+        cabins_requested = int(row["cabins_requested"])
+        if inventory_id in seen_inventory_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Duplicate inventory category selected for this request.",
+            )
+        seen_inventory_ids.add(inventory_id)
+        if cabins_requested < 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Each inventory selection must request at least one cabin.",
+            )
+
+        inventory = get_agency_group_inventory_for_agency(db, inventory_id, agency_id)
+        if inventory.group_id != group_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Group inventory does not belong to the selected group.",
+            )
+        remaining = compute_cabins_remaining(
+            cabins_allocated=inventory.cabins_allocated,
+            cabins_reserved=inventory.cabins_reserved,
+        )
+        if cabins_requested > remaining:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Only {remaining} cabins remain for {inventory.cabin_category}.",
+            )
+        if inventory.cabin_type not in CABIN_TYPES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Inventory cabin type '{inventory.cabin_type}' is not supported on requests.",
+            )
+
+        normalized_rows.append(
+            {
+                "group_inventory_id": inventory_id,
+                "cabins_requested": cabins_requested,
+                "inventory": inventory,
+            }
+        )
+        cabin_types.append(inventory.cabin_type)
+        total_cabins += cabins_requested
+
+    return normalized_rows, cabin_types, total_cabins
+
+
+def group_booking_read_payload(booking: TravelRequestGroupBooking) -> dict:
+    inventory = booking.group_inventory
+    remaining = compute_cabins_remaining(
+        cabins_allocated=inventory.cabins_allocated,
+        cabins_reserved=inventory.cabins_reserved,
+    )
+    return {
+        "id": booking.id,
+        "group_inventory_id": booking.group_inventory_id,
+        "cabins_requested": booking.cabins_requested,
+        "cabin_category": inventory.cabin_category,
+        "cabin_type": inventory.cabin_type,
+        "cabin_description": inventory.cabin_description,
+        "price_per_cabin": float(inventory.price_per_cabin),
+        "deposit_per_cabin": float(inventory.deposit_per_cabin),
+        "cabins_remaining": remaining,
+    }
+
+
+def replace_travel_request_group_bookings(
+    db: Session,
+    *,
+    request: TravelRequest,
+    booking_rows: list[dict],
+) -> None:
+    request.group_bookings.clear()
+    db.flush()
+    for row in booking_rows:
+        request.group_bookings.append(
+            TravelRequestGroupBooking(
+                id=_new_id(),
+                travel_request_id=request.id,
+                group_inventory_id=row["group_inventory_id"],
+                cabins_requested=row["cabins_requested"],
+            )
+        )

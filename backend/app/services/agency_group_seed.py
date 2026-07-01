@@ -56,9 +56,10 @@ def seed_agency_groups(db: Session, agency_id: str) -> AgencyGroup | None:
     inventory_rows = [
         {
             "cabin_category": "4D",
-            "cabin_type": "Inside",
+            "cabin_type": "Interior",
             "cabin_description": "Interior stateroom, forward/midship",
             "price_per_cabin": 899.00,
+            "deposit_per_cabin": 150.00,
             "cabins_allocated": 12,
         },
         {
@@ -66,6 +67,7 @@ def seed_agency_groups(db: Session, agency_id: str) -> AgencyGroup | None:
             "cabin_type": "Balcony",
             "cabin_description": "Spacious balcony overlooking the ocean",
             "price_per_cabin": 1299.00,
+            "deposit_per_cabin": 200.00,
             "cabins_allocated": 20,
         },
         {
@@ -73,6 +75,7 @@ def seed_agency_groups(db: Session, agency_id: str) -> AgencyGroup | None:
             "cabin_type": "Suite",
             "cabin_description": "Grand suite with priority boarding perks",
             "price_per_cabin": 2499.00,
+            "deposit_per_cabin": 500.00,
             "cabins_allocated": 4,
         },
     ]
@@ -85,6 +88,7 @@ def seed_agency_groups(db: Session, agency_id: str) -> AgencyGroup | None:
                 cabin_type=row["cabin_type"],
                 cabin_description=row["cabin_description"],
                 price_per_cabin=row["price_per_cabin"],
+                deposit_per_cabin=row["deposit_per_cabin"],
                 cabins_allocated=row["cabins_allocated"],
                 cabins_reserved=0,
             )

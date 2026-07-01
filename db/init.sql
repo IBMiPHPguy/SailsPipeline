@@ -174,6 +174,7 @@ CREATE TABLE IF NOT EXISTS agency_group_inventory (
     cabin_type VARCHAR(100) NOT NULL,
     cabin_description TEXT NULL,
     price_per_cabin DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    deposit_per_cabin DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     cabins_allocated INT NOT NULL DEFAULT 0,
     cabins_reserved INT NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -192,6 +193,22 @@ ALTER TABLE travel_requests
         FOREIGN KEY (group_inventory_id) REFERENCES agency_group_inventory(id) ON DELETE SET NULL;
 
 CREATE INDEX idx_travel_requests_group ON travel_requests(group_id);
+
+CREATE TABLE IF NOT EXISTS travel_request_group_bookings (
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    travel_request_id INT NOT NULL,
+    group_inventory_id CHAR(36) NOT NULL,
+    cabins_requested INT NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_travel_request_group_bookings_request
+        FOREIGN KEY (travel_request_id) REFERENCES travel_requests(id) ON DELETE CASCADE,
+    CONSTRAINT fk_travel_request_group_bookings_inventory
+        FOREIGN KEY (group_inventory_id) REFERENCES agency_group_inventory(id) ON DELETE CASCADE,
+    CONSTRAINT uq_travel_request_group_booking UNIQUE (travel_request_id, group_inventory_id),
+    INDEX idx_travel_request_group_bookings_request (travel_request_id),
+    INDEX idx_travel_request_group_bookings_inventory (group_inventory_id)
+);
 
 CREATE TABLE IF NOT EXISTS call_transcripts (
     id INT AUTO_INCREMENT PRIMARY KEY,

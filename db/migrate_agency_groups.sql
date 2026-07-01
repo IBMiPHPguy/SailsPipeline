@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS agency_group_inventory (
     cabin_type VARCHAR(100) NOT NULL,
     cabin_description TEXT NULL,
     price_per_cabin DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    deposit_per_cabin DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     cabins_allocated INT NOT NULL DEFAULT 0,
     cabins_reserved INT NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

@@ -56,7 +56,7 @@ def _ensure_agency_groups_schema(engine) -> None:
     if database_url.startswith("sqlite"):
         return
 
-    from app.models import AgencyGroup, AgencyGroupInventory  # noqa: WPS433
+    from app.models import AgencyGroup, AgencyGroupInventory, TravelRequestGroupBooking  # noqa: WPS433
 
     inspector = inspect(engine)
     table_names = set(inspector.get_table_names())
@@ -66,6 +66,25 @@ def _ensure_agency_groups_schema(engine) -> None:
             tables=[AgencyGroup.__table__, AgencyGroupInventory.__table__],
         )
         inspector = inspect(engine)
+        table_names = set(inspector.get_table_names())
+
+    if "travel_request_group_bookings" not in table_names:
+        Base.metadata.create_all(
+            bind=engine,
+            tables=[TravelRequestGroupBooking.__table__],
+        )
+
+    if "agency_group_inventory" in table_names:
+        inventory_columns = {column["name"] for column in inspector.get_columns("agency_group_inventory")}
+        if "deposit_per_cabin" not in inventory_columns:
+            with engine.begin() as connection:
+                connection.execute(
+                    text(
+                        "ALTER TABLE agency_group_inventory "
+                        "ADD COLUMN deposit_per_cabin DECIMAL(10, 2) NOT NULL DEFAULT 0.00 "
+                        "AFTER price_per_cabin"
+                    )
+                )
 
     if "travel_requests" in inspector.get_table_names():
         request_columns = {column["name"] for column in inspector.get_columns("travel_requests")}

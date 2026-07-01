@@ -1,11 +1,14 @@
 import { FormEvent } from "react";
 import CruiseLineMultiSelect from "./CruiseLineMultiSelect";
 import DestinationFields from "./DestinationFields";
+import GroupAmenitiesCard from "./GroupAmenitiesCard";
 import LeadAttributionFields from "./LeadAttributionFields";
 import TravelDatesField, { isReturnAfterDeparture } from "./TravelDatesField";
 import WorkspaceBandHeader from "./WorkspaceBandHeader";
+import { buildGroupIntakeDraftSummary } from "./groupIntakeHelpers";
 import { CABIN_TYPES, DESTINATIONS } from "./formOptions";
-import type { DestinationDetailField, TravelRequestInput } from "./types";
+import type { DestinationDetailField, GroupIntakeDraft, TravelRequestInput } from "./types";
+import { formatDate } from "./utils";
 
 type RequestFormProps = {
   form: TravelRequestInput;
@@ -24,6 +27,7 @@ type RequestFormProps = {
   creationNote?: string;
   onCreationNoteChange?: (value: string) => void;
   showLeadAttribution?: boolean;
+  groupIntakeDraft?: GroupIntakeDraft | null;
 };
 
 function toggleListItem(values: string[], item: string): string[] {
@@ -58,7 +62,9 @@ export default function RequestForm({
   creationNote,
   onCreationNoteChange,
   showLeadAttribution = false,
+  groupIntakeDraft = null,
 }: RequestFormProps) {
+  const groupFieldsLocked = groupIntakeDraft !== null;
   function patchForm(patch: Partial<TravelRequestInput>, clearLinkedPassenger = false) {
     setForm({
       ...form,
@@ -211,7 +217,7 @@ export default function RequestForm({
             <label className="checkbox-inline" key={cabinType}>
               <input
                 type="checkbox"
-                disabled={disabled}
+                disabled={disabled || groupFieldsLocked}
                 checked={form.cabin_types.includes(cabinType)}
                 onChange={() => toggleCabinType(cabinType)}
               />
@@ -239,7 +245,7 @@ export default function RequestForm({
           Max cabins needed
           <input
             required
-            disabled={disabled}
+            disabled={disabled || groupFieldsLocked}
             type="number"
             min={1}
             max={10}
@@ -252,6 +258,44 @@ export default function RequestForm({
       </div>
     </>
   );
+
+  const groupLockedTripFields = groupIntakeDraft ? (
+    <section className="request-form-band request-form-band-group-locked" aria-label="Linked group block">
+      <div className="request-form-zone">
+        <div className="request-form-zone-panel">
+          <WorkspaceBandHeader title="Linked group block" panel />
+          <div className="request-form-panel-body">
+            <dl className="group-intake-locked-grid">
+              <div>
+                <dt>Group</dt>
+                <dd>{groupIntakeDraft.groupSummary.group_name}</dd>
+              </div>
+              <div>
+                <dt>Cruise line</dt>
+                <dd>{groupIntakeDraft.groupSummary.cruise_line}</dd>
+              </div>
+              <div>
+                <dt>Ship</dt>
+                <dd>{groupIntakeDraft.groupSummary.ship_name}</dd>
+              </div>
+              <div>
+                <dt>Sailing</dt>
+                <dd>
+                  {formatDate(groupIntakeDraft.groupSummary.sailing_date)} –{" "}
+                  {formatDate(groupIntakeDraft.groupSummary.disembarkation_date)}
+                </dd>
+              </div>
+              <div className="group-intake-locked-grid-wide">
+                <dt>Inventory requested</dt>
+                <dd>{buildGroupIntakeDraftSummary(groupIntakeDraft)}</dd>
+              </div>
+            </dl>
+            <GroupAmenitiesCard draft={groupIntakeDraft} />
+          </div>
+        </div>
+      </div>
+    </section>
+  ) : null;
 
   const formActions = (
     <>
@@ -274,6 +318,7 @@ export default function RequestForm({
   if (layout === "workspace") {
     return (
       <form id={formId} className="request-form request-form--workspace" onSubmit={onSubmit}>
+        {groupLockedTripFields}
         <section className="request-form-band" aria-label="Contact and cruise line preferences">
           <div className="request-form-zone">
             <div className="request-form-zone-panel">
@@ -288,13 +333,13 @@ export default function RequestForm({
                   label="Preferred cruise lines"
                   value={form.cruise_lines}
                   onChange={(cruise_lines) => setForm({ ...form, cruise_lines })}
-                  disabled={disabled}
+                  disabled={disabled || groupFieldsLocked}
                 />
                 <CruiseLineMultiSelect
                   label="Cruise lines to avoid"
                   value={form.excluded_cruise_lines ?? []}
                   onChange={(excluded_cruise_lines) => setForm({ ...form, excluded_cruise_lines })}
-                  disabled={disabled}
+                  disabled={disabled || groupFieldsLocked}
                   placeholder="Search lines to avoid..."
                 />
               </div>
@@ -315,7 +360,7 @@ export default function RequestForm({
                 <TravelDatesField
                   departureDate={form.departure_date}
                   returnDate={form.return_date}
-                  disabled={disabled}
+                  disabled={disabled || groupFieldsLocked}
                   hideLabel
                   embedded
                   onChange={(departureDate, returnDate) =>

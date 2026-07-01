@@ -41,6 +41,7 @@ from app.models import (
     RequestWorkflowLive,
     TravelRequest,
     TravelRequestAudit,
+    TravelRequestGroupBooking,
     User,
 )
 from app.services.workflow_read import resolve_workflow_name, workflow_to_read
@@ -200,6 +201,9 @@ def detail_query(db: Session):
             joinedload(RequestCommunication.updated_by),
         ),
         selectinload(TravelRequest.research_documents).joinedload(RequestResearchDocument.uploaded_by),
+        joinedload(TravelRequest.agency_group),
+        joinedload(TravelRequest.group_inventory),
+        selectinload(TravelRequest.group_bookings).joinedload(TravelRequestGroupBooking.group_inventory),
     )
 
 
@@ -228,12 +232,22 @@ def touch_request(request: TravelRequest, current_user: User) -> None:
 
 
 def request_detail_to_read(request: TravelRequest) -> TravelRequestDetailRead:
+    from app.services.agency_group_service import group_booking_read_payload, group_intake_summary_payload
+
     last_worked_at, last_worked_by = resolve_last_worked(request)
     base = TravelRequestRead.model_validate(request)
+    group_summary = (
+        group_intake_summary_payload(request.agency_group) if request.agency_group is not None else None
+    )
+    group_bookings = [
+        group_booking_read_payload(booking) for booking in request.group_bookings
+    ]
     return TravelRequestDetailRead(
         **base.model_dump(),
         last_worked_at=last_worked_at,
         last_worked_by=UserAudit.model_validate(last_worked_by),
+        group_summary=group_summary,
+        group_bookings=group_bookings,
         request_passengers=[RequestPassengerRead.model_validate(passenger) for passenger in request.request_passengers],
         request_notes=[RequestNoteSummaryRead.model_validate(note) for note in request.request_notes],
         call_transcripts=[AttachmentRead.model_validate(attachment) for attachment in request.call_transcripts],
@@ -404,7 +418,9 @@ def create_request(db: Session, payload: TravelRequestCreate, current_user: User
     if payload.return_date <= payload.departure_date:
         raise HTTPException(status_code=400, detail="Return date must be after departure date.")
 
-    data = payload.model_dump(exclude={"first_passenger_date_of_birth", "primary_passenger_id"})
+    data = payload.model_dump(
+        exclude={"first_passenger_date_of_birth", "primary_passenger_id", "group_bookings"},
+    )
     request_qualifiers = data.pop("qualifiers", []) or []
     if payload.destination_details:
         data["destination_details"] = payload.destination_details.model_dump(exclude_none=True)
@@ -431,14 +447,54 @@ def create_request(db: Session, payload: TravelRequestCreate, current_user: User
 
         get_marketing_campaign_for_agency(db, payload.marketing_campaign_id, current_user.agency_id)
 
-    from app.services.agency_group_service import validate_travel_request_group_linkage
-
-    validate_travel_request_group_linkage(
-        db,
-        agency_id=current_user.agency_id,
-        group_id=payload.group_id,
-        group_inventory_id=payload.group_inventory_id,
+    from app.services.agency_group_service import (
+        normalize_group_booking_inputs,
+        replace_travel_request_group_bookings,
+        validate_travel_request_group_alignment,
+        validate_travel_request_group_linkage,
     )
+
+    group_booking_rows: list[dict] = []
+    if payload.group_id:
+        validate_travel_request_group_linkage(
+            db,
+            agency_id=current_user.agency_id,
+            group_id=payload.group_id,
+            group_inventory_id=payload.group_inventory_id,
+        )
+        validate_travel_request_group_alignment(
+            db,
+            agency_id=current_user.agency_id,
+            group_id=payload.group_id,
+            cruise_lines=payload.cruise_lines,
+            ship_name=payload.ship_name,
+            departure_date=payload.departure_date,
+            return_date=payload.return_date,
+        )
+        group_booking_rows, cabin_types, total_cabins = normalize_group_booking_inputs(
+            db,
+            agency_id=current_user.agency_id,
+            group_id=payload.group_id,
+            bookings=[row.model_dump() for row in payload.group_bookings],
+            fallback_inventory_id=payload.group_inventory_id,
+            fallback_cabins_requested=payload.cabins_needed,
+        )
+        if group_booking_rows:
+            data["group_inventory_id"] = group_booking_rows[0]["group_inventory_id"]
+            data["cabin_types"] = list(dict.fromkeys(cabin_types))
+            data["cabins_needed"] = total_cabins
+    elif payload.group_bookings or payload.group_inventory_id:
+        raise HTTPException(
+            status_code=400,
+            detail="group_id is required when group inventory bookings are provided.",
+        )
+    else:
+        validate_travel_request_group_linkage(
+            db,
+            agency_id=current_user.agency_id,
+            group_id=payload.group_id,
+            group_inventory_id=payload.group_inventory_id,
+        )
 
     request = TravelRequest(
         **data,
@@ -475,6 +531,29 @@ def create_request(db: Session, payload: TravelRequestCreate, current_user: User
             is_primary=True,
             qualifiers=request_qualifiers,
         )
+
+    if group_booking_rows:
+        replace_travel_request_group_bookings(
+            db,
+            request=request,
+            booking_rows=group_booking_rows,
+        )
+        from app.services.agency_group_service import get_agency_group_detail
+        from app.services.group_intake_proposed_cruise_service import seed_proposed_cruise_from_group_intake
+
+        group = get_agency_group_detail(
+            db,
+            agency_id=current_user.agency_id,
+            group_id=payload.group_id,
+        )
+        seed_proposed_cruise_from_group_intake(
+            db,
+            request=request,
+            group=group,
+            group_booking_rows=group_booking_rows,
+            current_user=current_user,
+        )
+
     db.commit()
     from app.services.agency_rollup_service import schedule_agency_rollup_refresh
 

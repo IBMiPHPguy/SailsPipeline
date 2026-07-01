@@ -111,6 +111,22 @@ def test_validate_inventory_update_blocks_reducing_allocated_below_reserved(db):
         validate_inventory_update(inventory, cabins_allocated=5)
 
 
+def test_validate_inventory_update_allows_deposit_change_for_legacy_cabin_type(db):
+    group = _make_group(db)
+    inventory = _make_inventory(db, group)
+    inventory.cabin_type = "Inside"
+    validate_inventory_update(inventory, deposit_per_cabin=250)
+    validate_inventory_update(inventory, cabin_type="Inside", deposit_per_cabin=300)
+
+
+def test_validate_inventory_update_rejects_changing_to_invalid_cabin_type(db):
+    group = _make_group(db)
+    inventory = _make_inventory(db, group)
+    inventory.cabin_type = "Inside"
+    with pytest.raises(AgencyGroupValidationError):
+        validate_inventory_update(inventory, cabin_type="Penthouse")
+
+
 def test_get_agency_group_for_agency_enforces_tenant_isolation(db):
     group = _make_group(db)
     loaded = get_agency_group_for_agency(db, group.id, DEFAULT_AGENCY_ID)

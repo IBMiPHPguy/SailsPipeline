@@ -411,6 +411,12 @@ class TravelRequestBase(BaseModel):
 class TravelRequestCreate(TravelRequestBase):
     first_passenger_date_of_birth: date | None = None
     primary_passenger_id: int | None = None
+    group_bookings: list["TravelRequestGroupBookingInput"] = Field(default_factory=list)
+
+
+class TravelRequestGroupBookingInput(BaseModel):
+    group_inventory_id: str = Field(min_length=1, max_length=36)
+    cabins_requested: int = Field(ge=1, le=10)
 
 
 class PassengerRead(BaseModel):
@@ -642,6 +648,7 @@ class TravelRequestUpdate(BaseModel):
     ship_name: str | None = Field(default=None, max_length=100)
     group_id: str | None = Field(default=None, max_length=36)
     group_inventory_id: str | None = Field(default=None, max_length=36)
+    group_bookings: list[TravelRequestGroupBookingInput] | None = None
 
     @field_validator("lead_source")
     @classmethod
@@ -1178,6 +1185,8 @@ class ClosedRequestsPageRead(BaseModel):
 class TravelRequestDetailRead(TravelRequestRead):
     last_worked_at: datetime
     last_worked_by: UserAudit
+    group_summary: "AgencyGroupIntakeSummaryRead | None" = None
+    group_bookings: list["TravelRequestGroupBookingRead"] = Field(default_factory=list)
     request_passengers: list[RequestPassengerRead] = Field(default_factory=list)
     request_notes: list[RequestNoteSummaryRead] = Field(default_factory=list)
     call_transcripts: list[AttachmentRead] = Field(default_factory=list)
@@ -1863,6 +1872,7 @@ class AgencyGroupInventoryBase(BaseModel):
     cabin_type: str = Field(min_length=1, max_length=100)
     cabin_description: str | None = None
     price_per_cabin: float = Field(ge=0, default=0)
+    deposit_per_cabin: float = Field(ge=0, default=0)
     cabins_allocated: int = Field(ge=0, default=0)
 
 
@@ -1875,6 +1885,7 @@ class AgencyGroupInventoryUpdate(BaseModel):
     cabin_type: str | None = Field(default=None, min_length=1, max_length=100)
     cabin_description: str | None = None
     price_per_cabin: float | None = Field(default=None, ge=0)
+    deposit_per_cabin: float | None = Field(default=None, ge=0)
     cabins_allocated: int | None = Field(default=None, ge=0)
     cabins_reserved: int | None = Field(default=None, ge=0)
 
@@ -1959,3 +1970,46 @@ class AgencyGroupListPageRead(BaseModel):
     page: int = Field(ge=1)
     page_size: int = Field(ge=1)
     total_pages: int = Field(ge=0)
+
+
+class AgencyGroupPickerItemRead(BaseModel):
+    id: str
+    group_name: str
+    cruise_line: str
+    ship_name: str
+    sailing_date: date
+    disembarkation_date: date
+
+
+class AgencyGroupInventoryOptionRead(BaseModel):
+    id: str
+    cabin_category: str
+    cabin_type: str
+    cabin_description: str | None = None
+    price_per_cabin: float
+    deposit_per_cabin: float
+    cabins_remaining: int
+    label: str
+    is_selectable: bool
+
+
+class AgencyGroupIntakeSummaryRead(BaseModel):
+    id: str
+    group_name: str
+    cruise_line: str
+    ship_name: str
+    sailing_date: date
+    disembarkation_date: date
+    group_id_code: str | None = None
+    group_amenities: str | None = None
+
+
+class TravelRequestGroupBookingRead(BaseModel):
+    id: str
+    group_inventory_id: str
+    cabins_requested: int
+    cabin_category: str
+    cabin_type: str
+    cabin_description: str | None = None
+    price_per_cabin: float
+    cabins_remaining: int

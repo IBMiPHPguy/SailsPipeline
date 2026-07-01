@@ -24,6 +24,7 @@ def _group_payload(**overrides):
                 "cabin_type": "Ocean View",
                 "cabin_description": "Partial view",
                 "price_per_cabin": 1499,
+                "deposit_per_cabin": 250,
                 "cabins_allocated": 8,
                 "cabins_reserved": 0,
             }
@@ -76,6 +77,7 @@ def test_agency_group_crud_flow(client, auth_headers):
     assert created["group_name"] == "Alaska Alumni 2028"
     assert created["summary"]["total_cabins_allocated"] == 8
     assert len(created["inventory_items"]) == 1
+    assert created["inventory_items"][0]["deposit_per_cabin"] == 250
 
     list_response = client.get("/api/agency-groups?is_active=true", headers=auth_headers)
     assert list_response.status_code == 200, list_response.text

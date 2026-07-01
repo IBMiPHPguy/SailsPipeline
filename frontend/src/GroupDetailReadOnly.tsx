@@ -86,6 +86,7 @@ export default function GroupDetailReadOnly({
             <col className="group-inventory-col group-inventory-col--description" />
             <col className="group-inventory-col group-inventory-col--type" />
             <col className="group-inventory-col group-inventory-col--price" />
+            <col className="group-inventory-col group-inventory-col--deposit" />
             <col className="group-inventory-col group-inventory-col--alloc" />
             <col className="group-inventory-col group-inventory-col--reserved" />
             <col className="group-inventory-col group-inventory-col--remaining" />
@@ -96,6 +97,7 @@ export default function GroupDetailReadOnly({
               <th>Description</th>
               <th>Type</th>
               <th className="group-inventory-table-price-heading">Price</th>
+              <th className="group-inventory-table-price-heading">Deposit</th>
               <th className="group-inventory-table-numeric group-inventory-col--alloc">Allocated</th>
               <th className="group-inventory-table-numeric group-inventory-col--reserved">Reserved</th>
               <th className="group-inventory-table-numeric group-inventory-col--remaining">Remaining</th>
@@ -105,7 +107,7 @@ export default function GroupDetailReadOnly({
           <tbody>
             {group.inventory_items.length === 0 ? (
               <tr>
-                <td colSpan={showActions ? 7 : 6} className="meta">
+                <td colSpan={showActions ? 8 : 7} className="meta">
                   No inventory rows yet.
                 </td>
               </tr>
@@ -115,6 +117,7 @@ export default function GroupDetailReadOnly({
                   <td className="group-inventory-table-description">{formatInventoryDescription(item)}</td>
                   <td>{item.cabin_type}</td>
                   <td className="group-inventory-table-numeric">{formatMoney(item.price_per_cabin)}</td>
+                  <td className="group-inventory-table-numeric">{formatMoney(item.deposit_per_cabin)}</td>
                   <td className="group-inventory-table-numeric group-inventory-col--alloc">{item.cabins_allocated}</td>
                   <td className="group-inventory-table-numeric group-inventory-col--reserved">{item.cabins_reserved}</td>
                   <td className="group-inventory-table-numeric group-inventory-col--remaining">{item.cabins_remaining}</td>

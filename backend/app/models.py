@@ -207,6 +207,11 @@ class TravelRequest(Base):
     marketing_campaign: Mapped["MarketingCampaign | None"] = relationship(back_populates="travel_requests")
     agency_group: Mapped["AgencyGroup | None"] = relationship(back_populates="travel_requests")
     group_inventory: Mapped["AgencyGroupInventory | None"] = relationship(back_populates="travel_requests")
+    group_bookings: Mapped[list["TravelRequestGroupBooking"]] = relationship(
+        back_populates="travel_request",
+        cascade="all, delete-orphan",
+        order_by="TravelRequestGroupBooking.created_at.asc()",
+    )
     call_transcripts: Mapped[list["CallTranscript"]] = relationship(
         back_populates="travel_request",
         cascade="all, delete-orphan",
@@ -783,6 +788,7 @@ class AgencyGroupInventory(Base):
     cabin_type: Mapped[str] = mapped_column(String(100), nullable=False)
     cabin_description: Mapped[str | None] = mapped_column(Text, nullable=True)
     price_per_cabin: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False, default=0)
+    deposit_per_cabin: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False, default=0)
     cabins_allocated: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     cabins_reserved: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
@@ -792,6 +798,38 @@ class AgencyGroupInventory(Base):
 
     group: Mapped["AgencyGroup"] = relationship(back_populates="inventory_items")
     travel_requests: Mapped[list["TravelRequest"]] = relationship(back_populates="group_inventory")
+    travel_request_bookings: Mapped[list["TravelRequestGroupBooking"]] = relationship(
+        back_populates="group_inventory",
+    )
+
+
+class TravelRequestGroupBooking(Base):
+    __tablename__ = "travel_request_group_bookings"
+    __table_args__ = (
+        UniqueConstraint(
+            "travel_request_id",
+            "group_inventory_id",
+            name="uq_travel_request_group_booking",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    travel_request_id: Mapped[int] = mapped_column(
+        ForeignKey("travel_requests.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    group_inventory_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("agency_group_inventory.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    cabins_requested: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    travel_request: Mapped["TravelRequest"] = relationship(back_populates="group_bookings")
+    group_inventory: Mapped["AgencyGroupInventory"] = relationship(
+        back_populates="travel_request_bookings",
+    )
 
 
 class AgencyWorkflowTemplate(Base):

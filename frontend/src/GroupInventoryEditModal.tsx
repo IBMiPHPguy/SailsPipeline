@@ -9,6 +9,7 @@ const emptyInventoryForm = {
   cabin_type: CABIN_TYPES[0] as string,
   cabin_description: "",
   price_per_cabin: "0",
+  deposit_per_cabin: "0",
   cabins_allocated: "0",
   cabins_reserved: "0",
 };
@@ -30,9 +31,18 @@ function inventoryToForm(inventory: AgencyGroupInventory) {
     cabin_type: inventory.cabin_type,
     cabin_description: inventory.cabin_description ?? "",
     price_per_cabin: String(inventory.price_per_cabin),
+    deposit_per_cabin: String(inventory.deposit_per_cabin),
     cabins_allocated: String(inventory.cabins_allocated),
     cabins_reserved: String(inventory.cabins_reserved),
   };
+}
+
+function cabinTypeOptions(currentType: string): string[] {
+  const normalized = currentType.trim();
+  if (!normalized || CABIN_TYPES.includes(normalized as (typeof CABIN_TYPES)[number])) {
+    return [...CABIN_TYPES];
+  }
+  return [normalized, ...CABIN_TYPES];
 }
 
 export default function GroupInventoryEditModal({
@@ -91,6 +101,7 @@ export default function GroupInventoryEditModal({
         cabin_type: form.cabin_type,
         cabin_description: form.cabin_description.trim() || undefined,
         price_per_cabin: Number(form.price_per_cabin || 0),
+        deposit_per_cabin: Number(form.deposit_per_cabin || 0),
         cabins_allocated: Number(form.cabins_allocated || 0),
         cabins_reserved: Number(form.cabins_reserved || 0),
       };
@@ -149,7 +160,7 @@ export default function GroupInventoryEditModal({
               disabled={submitting}
               onChange={(event) => setForm({ ...form, cabin_type: event.target.value })}
             >
-              {CABIN_TYPES.map((cabinType) => (
+              {cabinTypeOptions(form.cabin_type).map((cabinType) => (
                 <option key={cabinType} value={cabinType}>
                   {cabinType}
                 </option>
@@ -179,6 +190,19 @@ export default function GroupInventoryEditModal({
               value={form.price_per_cabin}
               disabled={submitting}
               onChange={(event) => setForm({ ...form, price_per_cabin: event.target.value })}
+            />
+          </label>
+
+          <label>
+            Deposit per cabin
+            <input
+              required
+              type="number"
+              min={0}
+              step="0.01"
+              value={form.deposit_per_cabin}
+              disabled={submitting}
+              onChange={(event) => setForm({ ...form, deposit_per_cabin: event.target.value })}
             />
           </label>
 

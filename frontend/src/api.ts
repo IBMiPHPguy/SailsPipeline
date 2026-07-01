@@ -59,6 +59,8 @@ import type {
   AgencyGroupInventoryUpdateInput,
   AgencyGroupListItem,
   AgencyGroupListPage,
+  AgencyGroupInventoryOption,
+  AgencyGroupPickerItem,
   AgencyGroupUpdateInput,
   AgencyGroupsQuery,
 } from "./types";
@@ -1291,6 +1293,31 @@ export async function fetchAgencyGroups(query: AgencyGroupsQuery = {}): Promise<
   });
   if (!response.ok) {
     throw new Error(await parseApiError(response, "Unable to load group blocks."));
+  }
+  return response.json();
+}
+
+export async function fetchActiveGroupBlocksPicker(query = ""): Promise<AgencyGroupPickerItem[]> {
+  const params = new URLSearchParams();
+  if (query.trim()) {
+    params.set("q", query.trim());
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  const response = await apiFetch(`${API_BASE}/agency-groups/active-picker${suffix}`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to load active group blocks."));
+  }
+  return response.json();
+}
+
+export async function fetchGroupInventoryOptions(groupId: string): Promise<AgencyGroupInventoryOption[]> {
+  const response = await apiFetch(`${API_BASE}/agency-groups/${groupId}/inventory-options`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to load group inventory options."));
   }
   return response.json();
 }

@@ -7,9 +7,11 @@ from app.models import User
 from app.schemas import (
     AgencyGroupCreate,
     AgencyGroupInventoryCreate,
+    AgencyGroupInventoryOptionRead,
     AgencyGroupInventoryUpdate,
     AgencyGroupListItemRead,
     AgencyGroupListPageRead,
+    AgencyGroupPickerItemRead,
     AgencyGroupRead,
     AgencyGroupUpdate,
 )
@@ -22,9 +24,12 @@ from app.services.agency_group_service import (
     create_agency_group_inventory,
     delete_agency_group_inventory,
     get_agency_group_detail,
+    group_picker_item_payload,
     group_to_list_item_payload,
     group_to_read_payload,
+    list_active_groups_picker,
     list_agency_groups_page,
+    list_group_inventory_options,
     update_agency_group,
     update_agency_group_inventory,
 )
@@ -76,6 +81,17 @@ def list_agency_groups_route(
     )
 
 
+@router.get("/active-picker", response_model=list[AgencyGroupPickerItemRead])
+def list_active_groups_picker_route(
+    q: str = Query(default=""),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[AgencyGroupPickerItemRead]:
+    agency_id = _require_agency_id(current_user)
+    groups = list_active_groups_picker(db, agency_id=agency_id, query=q)
+    return [AgencyGroupPickerItemRead.model_validate(group_picker_item_payload(group)) for group in groups]
+
+
 @router.post("", response_model=AgencyGroupRead, status_code=201)
 def create_agency_group_route(
     payload: AgencyGroupCreate,
@@ -99,6 +115,17 @@ def create_agency_group_route(
         inventory_items=inventory_items,
     )
     return AgencyGroupRead.model_validate(group_to_read_payload(group))
+
+
+@router.get("/{group_id}/inventory-options", response_model=list[AgencyGroupInventoryOptionRead])
+def list_group_inventory_options_route(
+    group_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[AgencyGroupInventoryOptionRead]:
+    agency_id = _require_agency_id(current_user)
+    options = list_group_inventory_options(db, agency_id=agency_id, group_id=group_id)
+    return [AgencyGroupInventoryOptionRead.model_validate(option) for option in options]
 
 
 @router.get("/{group_id}", response_model=AgencyGroupRead)
@@ -152,6 +179,7 @@ def create_agency_group_inventory_route(
         cabin_type=payload.cabin_type,
         cabin_description=payload.cabin_description,
         price_per_cabin=payload.price_per_cabin,
+        deposit_per_cabin=payload.deposit_per_cabin,
         cabins_allocated=payload.cabins_allocated,
         cabins_reserved=payload.cabins_reserved,
     )

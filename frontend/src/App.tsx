@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { createRequest, addNote, fetchDashboard } from "./api";
+import { createRequest, addNote, fetchAgencyGroup, fetchDashboard } from "./api";
 import { fetchCurrentUser, logout } from "./authApi";
 import { getToken } from "./authStorage";
 import Dashboard from "./Dashboard";
@@ -15,6 +15,9 @@ import ReportsPage from "./ReportsPage";
 import RequestWorkspace from "./RequestWorkspace";
 import WorkflowsPage from "./WorkflowsPage";
 import GroupBlocksPage from "./GroupBlocksPage";
+import GroupBlockPickerModal from "./GroupBlockPickerModal";
+import GroupBlockRequestPromptModal from "./GroupBlockRequestPromptModal";
+import GroupInventoryBookingModal from "./GroupInventoryBookingModal";
 import TeamPage from "./TeamPage";
 import { formatCruiseLines } from "./CruiseLineMultiSelect";
 import {
@@ -23,7 +26,17 @@ import {
 } from "./formOptions";
 import { buildQuickNoteInput } from "./noteForm";
 import { BRAND_APP_TITLE, brandedDocumentTitle, REQUEST_DASHBOARD_PAGE_TITLE } from "./branding";
-import type { AppView, DashboardData, TravelRequest, TravelRequestInput, User } from "./types";
+import type {
+  AgencyGroupInventoryOption,
+  AgencyGroupPickerItem,
+  AppView,
+  DashboardData,
+  GroupIntakeDraft,
+  TravelRequest,
+  TravelRequestGroupBookingInput,
+  TravelRequestInput,
+  User,
+} from "./types";
 import { isTenantSuperUser } from "./tenantRoles";
 import { formatDate, formatDestinationSummary } from "./utils";
 import "./App.css";
@@ -67,8 +80,77 @@ function App() {
   const [submitting, setSubmitting] = useState(false);
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [creationNote, setCreationNote] = useState("");
+  const [groupIntakeDraft, setGroupIntakeDraft] = useState<GroupIntakeDraft | null>(null);
+  const [groupRequestPromptOpen, setGroupRequestPromptOpen] = useState(false);
+  const [groupPickerOpen, setGroupPickerOpen] = useState(false);
+  const [groupInventoryOpen, setGroupInventoryOpen] = useState(false);
+  const [selectedPickerGroup, setSelectedPickerGroup] = useState<AgencyGroupPickerItem | null>(null);
 
   const newRequestSummary = useMemo(() => formToSummaryPreview(form), [form]);
+
+  function beginStandardNewRequest() {
+    setGroupIntakeDraft(null);
+    setForm(emptyRequestForm);
+    setCreationNote("");
+    setMessage("");
+    setError("");
+    setView({ type: "new" });
+  }
+
+  function applyGroupIntakeToForm(draft: GroupIntakeDraft) {
+    const optionById = new Map(draft.inventoryOptions.map((option) => [option.id, option]));
+    const cabinTypes = [
+      ...new Set(
+        draft.bookings
+          .map((booking) => optionById.get(booking.group_inventory_id)?.cabin_type)
+          .filter((value): value is string => Boolean(value)),
+      ),
+    ];
+    const totalCabins = draft.bookings.reduce((sum, booking) => sum + booking.cabins_requested, 0);
+
+    setForm({
+      ...emptyRequestForm,
+      group_id: draft.groupId,
+      group_bookings: draft.bookings,
+      cruise_lines: [draft.groupSummary.cruise_line],
+      ship_name: draft.groupSummary.ship_name,
+      departure_date: draft.groupSummary.sailing_date,
+      return_date: draft.groupSummary.disembarkation_date,
+      cabin_types: cabinTypes,
+      cabins_needed: totalCabins,
+      passengers: Math.max(2, totalCabins * 2),
+    });
+  }
+
+  async function handleGroupInventoryConfirm(
+    bookings: TravelRequestGroupBookingInput[],
+    options: AgencyGroupInventoryOption[],
+  ) {
+    if (!selectedPickerGroup) {
+      return;
+    }
+
+    try {
+      const groupDetail = await fetchAgencyGroup(selectedPickerGroup.id);
+      const draft: GroupIntakeDraft = {
+        groupId: selectedPickerGroup.id,
+        groupSummary: selectedPickerGroup,
+        groupAmenities: groupDetail.group_amenities,
+        bookings,
+        inventoryOptions: options,
+      };
+      setGroupIntakeDraft(draft);
+      applyGroupIntakeToForm(draft);
+      setGroupInventoryOpen(false);
+      setSelectedPickerGroup(null);
+      setMessage("");
+      setError("");
+      setCreationNote("");
+      setView({ type: "new" });
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Unable to load group block details.");
+    }
+  }
 
   async function loadDashboard() {
     setDashboardLoading(true);
@@ -219,6 +301,7 @@ function App() {
         } catch (noteError) {
           setForm(emptyRequestForm);
           setCreationNote("");
+          setGroupIntakeDraft(null);
           await loadDashboard();
           setView({ type: "edit", requestId: created.id });
           setError(
@@ -232,6 +315,7 @@ function App() {
 
       setForm(emptyRequestForm);
       setCreationNote("");
+      setGroupIntakeDraft(null);
       setMessage(trimmedNote ? "Travel request and note created." : "Travel request created.");
       await loadDashboard();
       setView({ type: "edit", requestId: created.id });
@@ -333,11 +417,7 @@ function App() {
           <Dashboard
             dashboard={dashboard}
             onNewRequest={() => {
-              setForm(emptyRequestForm);
-              setCreationNote("");
-              setMessage("");
-              setError("");
-              setView({ type: "new" });
+              setGroupRequestPromptOpen(true);
             }}
             onOpenRequest={(requestId) => {
               setMessage("");
@@ -496,6 +576,7 @@ function App() {
                   creationNote={creationNote}
                   onCreationNoteChange={setCreationNote}
                   showLeadAttribution
+                  groupIntakeDraft={groupIntakeDraft}
                 />
               </div>
             </div>
@@ -516,6 +597,44 @@ function App() {
           }}
         />
       ) : null}
+
+      <GroupBlockRequestPromptModal
+        open={groupRequestPromptOpen}
+        onCancel={() => setGroupRequestPromptOpen(false)}
+        onChooseStandard={() => {
+          setGroupRequestPromptOpen(false);
+          beginStandardNewRequest();
+        }}
+        onChooseGroupBlock={() => {
+          setGroupRequestPromptOpen(false);
+          setGroupPickerOpen(true);
+        }}
+      />
+
+      <GroupBlockPickerModal
+        open={groupPickerOpen}
+        onClose={() => {
+          setGroupPickerOpen(false);
+          setGroupRequestPromptOpen(true);
+        }}
+        onSelect={(group) => {
+          setSelectedPickerGroup(group);
+          setGroupPickerOpen(false);
+          setGroupInventoryOpen(true);
+        }}
+      />
+
+      <GroupInventoryBookingModal
+        open={groupInventoryOpen}
+        group={selectedPickerGroup}
+        onClose={() => {
+          setGroupInventoryOpen(false);
+          setGroupPickerOpen(true);
+        }}
+        onConfirm={(bookings, options) => {
+          void handleGroupInventoryConfirm(bookings, options);
+        }}
+      />
         </div>
       </div>
     </main>

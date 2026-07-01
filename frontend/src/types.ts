@@ -479,6 +479,9 @@ export type TravelRequest = {
   lead_source: string | null;
   referral_source_name: string | null;
   marketing_campaign_id: string | null;
+  ship_name?: string | null;
+  group_id?: string | null;
+  group_inventory_id?: string | null;
   created_by: UserAudit;
   updated_by: UserAudit;
   created_at: string;
@@ -649,6 +652,8 @@ export type OpenRequestsPage = {
 };
 
 export type TravelRequestDetail = TravelRequest & {
+  group_summary?: AgencyGroupIntakeSummary | null;
+  group_bookings?: TravelRequestGroupBooking[];
   last_worked_at: string;
   last_worked_by: UserAudit;
   request_passengers: RequestPassenger[];
@@ -708,6 +713,14 @@ export type TravelRequestInput = {
   lead_source?: string;
   referral_source_name?: string;
   marketing_campaign_id?: string;
+  ship_name?: string;
+  group_id?: string;
+  group_bookings?: TravelRequestGroupBookingInput[];
+};
+
+export type TravelRequestGroupBookingInput = {
+  group_inventory_id: string;
+  cabins_requested: number;
 };
 
 export type TravelRequestUpdateInput = Partial<TravelRequestInput> & {
@@ -980,6 +993,7 @@ export type AgencyGroupInventory = {
   cabin_type: string;
   cabin_description: string | null;
   price_per_cabin: number;
+  deposit_per_cabin: number;
   cabins_allocated: number;
   cabins_reserved: number;
   cabins_remaining: number;
@@ -1013,6 +1027,7 @@ export type AgencyGroupInventoryInput = {
   cabin_type: string;
   cabin_description?: string;
   price_per_cabin: number;
+  deposit_per_cabin?: number;
   cabins_allocated: number;
   cabins_reserved?: number;
 };
@@ -1042,6 +1057,57 @@ export type AgencyGroupListPage = {
   page: number;
   page_size: number;
   total_pages: number;
+};
+
+export type AgencyGroupPickerItem = {
+  id: string;
+  group_name: string;
+  cruise_line: string;
+  ship_name: string;
+  sailing_date: string;
+  disembarkation_date: string;
+};
+
+export type AgencyGroupInventoryOption = {
+  id: string;
+  cabin_category: string;
+  cabin_type: string;
+  cabin_description: string | null;
+  price_per_cabin: number;
+  deposit_per_cabin: number;
+  cabins_remaining: number;
+  label: string;
+  is_selectable: boolean;
+};
+
+export type AgencyGroupIntakeSummary = {
+  id: string;
+  group_name: string;
+  cruise_line: string;
+  ship_name: string;
+  sailing_date: string;
+  disembarkation_date: string;
+  group_id_code: string | null;
+  group_amenities: string | null;
+};
+
+export type TravelRequestGroupBooking = {
+  id: string;
+  group_inventory_id: string;
+  cabins_requested: number;
+  cabin_category: string;
+  cabin_type: string;
+  cabin_description: string | null;
+  price_per_cabin: number;
+  cabins_remaining: number;
+};
+
+export type GroupIntakeDraft = {
+  groupId: string;
+  groupSummary: AgencyGroupPickerItem;
+  groupAmenities: string | null;
+  bookings: TravelRequestGroupBookingInput[];
+  inventoryOptions: AgencyGroupInventoryOption[];
 };
 
 export type AgencyGroupsQuery = {
