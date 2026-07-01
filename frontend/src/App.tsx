@@ -14,6 +14,7 @@ import ReportViewPage from "./ReportViewPage";
 import ReportsPage from "./ReportsPage";
 import RequestWorkspace from "./RequestWorkspace";
 import WorkflowsPage from "./WorkflowsPage";
+import GroupBlocksPage from "./GroupBlocksPage";
 import TeamPage from "./TeamPage";
 import { formatCruiseLines } from "./CruiseLineMultiSelect";
 import {
@@ -110,7 +111,7 @@ function App() {
 
   useEffect(() => {
     if (
-      (view.type === "team" || view.type === "workflows") &&
+      (view.type === "team" || view.type === "workflows" || view.type === "group-blocks") &&
       currentUser &&
       !isTenantSuperUser(currentUser.role)
     ) {
@@ -137,6 +138,10 @@ function App() {
     }
     if (view.type === "workflows") {
       document.title = brandedDocumentTitle("Workflows & Tasks");
+      return;
+    }
+    if (view.type === "group-blocks") {
+      document.title = brandedDocumentTitle("Group Blocks");
       return;
     }
     if (view.type === "marketing-campaigns") {
@@ -306,6 +311,10 @@ function App() {
                 setView({ type: "workflows" });
                 return;
               }
+              if (item === "group-blocks") {
+                setView({ type: "group-blocks" });
+                return;
+              }
               if (item === "clients") {
                 setView({ type: "clients" });
                 return;
@@ -362,6 +371,8 @@ function App() {
       {view.type === "marketing-campaigns" ? <MarketingCampaignsPage /> : null}
 
       {view.type === "workflows" && currentUser ? <WorkflowsPage /> : null}
+
+      {view.type === "group-blocks" && currentUser ? <GroupBlocksPage /> : null}
 
       {view.type === "clients" ? <ClientsPage /> : null}
 

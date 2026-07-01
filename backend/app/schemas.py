@@ -1951,3 +1951,11 @@ class AgencyGroupListItemRead(BaseModel):
     summary: AgencyGroupSummaryRead
     created_at: datetime
     updated_at: datetime
+
+
+class AgencyGroupListPageRead(BaseModel):
+    items: list[AgencyGroupListItemRead]
+    total: int = Field(ge=0)
+    page: int = Field(ge=1)
+    page_size: int = Field(ge=1)
+    total_pages: int = Field(ge=0)

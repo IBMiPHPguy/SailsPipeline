@@ -118,6 +118,18 @@ export function WorkflowsNavIcon() {
   );
 }
 
+export function GroupBlocksNavIcon() {
+  return (
+    <SidebarIcon>
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.75">
+        <rect x="5" y="5" width="14" height="5" rx="1" />
+        <rect x="7" y="11" width="14" height="5" rx="1" />
+        <rect x="9" y="17" width="14" height="5" rx="1" />
+      </svg>
+    </SidebarIcon>
+  );
+}
+
 export function SalesFinancialCategoryIcon() {
   return (
     <NavStrokeIcon className="reports-category-icon">

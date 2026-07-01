@@ -10,6 +10,7 @@ from app.services.agency_group_service import (
     compute_cabins_remaining,
     get_agency_group_for_agency,
     group_summary_rollups,
+    list_agency_groups_page,
     validate_group_create,
     validate_group_dates,
     validate_inventory_counts,
@@ -192,3 +193,41 @@ def test_seed_agency_groups_is_idempotent(db):
     )
     assert len(groups) == 1
     assert len(groups[0].inventory_items) == 3
+
+
+def test_list_agency_groups_page_search_and_pagination(db):
+    for index in range(8):
+        group = AgencyGroup(
+            id=f"44444444-4444-4444-8444-44444444440{index}",
+            agency_id=DEFAULT_AGENCY_ID,
+            group_name=f"Paged Block {index}",
+            cruise_line="Royal Caribbean International",
+            ship_name=f"Paged Ship {index}",
+            sailing_date=date(2027, 5, index + 1),
+            disembarkation_date=date(2027, 5, index + 8),
+            group_id_code=f"PAGE-{index:03d}",
+            is_active=True,
+        )
+        db.add(group)
+    db.commit()
+
+    page_one, total = list_agency_groups_page(
+        db,
+        agency_id=DEFAULT_AGENCY_ID,
+        is_active=True,
+        page=1,
+        page_size=7,
+    )
+    assert total >= 8
+    assert len(page_one) == 7
+
+    search_results, search_total = list_agency_groups_page(
+        db,
+        agency_id=DEFAULT_AGENCY_ID,
+        is_active=True,
+        query="PAGE-003",
+        page=1,
+        page_size=7,
+    )
+    assert search_total == 1
+    assert search_results[0].ship_name == "Paged Ship 3"

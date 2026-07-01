@@ -4,6 +4,7 @@ import {
   BarChartNavIcon,
   CruiseShipNavIcon,
   FunnelNavIcon,
+  GroupBlocksNavIcon,
   PersonNavIcon,
   ReportsNavIcon,
   TeamNavIcon,
@@ -42,9 +43,15 @@ const WORKFLOWS_NAV_ITEM = {
   icon: WorkflowsNavIcon,
 };
 
+const GROUP_BLOCKS_NAV_ITEM = {
+  id: "group-blocks" as const,
+  label: "Group Blocks",
+  icon: GroupBlocksNavIcon,
+};
+
 export default function AppSidebar({ activeItem, currentUser, onNavigate }: AppSidebarProps) {
   const navItems = isTenantSuperUser(currentUser.role)
-    ? [...BASE_NAV_ITEMS, WORKFLOWS_NAV_ITEM, TEAM_NAV_ITEM]
+    ? [...BASE_NAV_ITEMS, WORKFLOWS_NAV_ITEM, GROUP_BLOCKS_NAV_ITEM, TEAM_NAV_ITEM]
     : BASE_NAV_ITEMS;
 
   return (
@@ -94,6 +101,9 @@ export function activeNavItemForView(viewType: string): AppNavItem | null {
   }
   if (viewType === "workflows" || viewType === "tasks") {
     return "workflows";
+  }
+  if (viewType === "group-blocks") {
+    return "group-blocks";
   }
   return null;
 }

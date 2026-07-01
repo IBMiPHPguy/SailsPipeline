@@ -52,6 +52,15 @@ import type {
   AgencyTaskAvailability,
   AgencyTaskInventoryItem,
   AgencyCustomTaskDefinition,
+  AgencyGroup,
+  AgencyGroupActiveFilter,
+  AgencyGroupInput,
+  AgencyGroupInventoryInput,
+  AgencyGroupInventoryUpdateInput,
+  AgencyGroupListItem,
+  AgencyGroupListPage,
+  AgencyGroupUpdateInput,
+  AgencyGroupsQuery,
 } from "./types";
 
 import { API_BASE } from "./apiClient";
@@ -1253,4 +1262,121 @@ export async function deleteMarketingCampaign(campaignId: string): Promise<void>
   if (!response.ok) {
     throw new Error(await parseApiError(response, "Unable to delete marketing campaign."));
   }
+}
+
+function agencyGroupActiveFilterQuery(filter: AgencyGroupActiveFilter): string {
+  if (filter === "active") {
+    return "true";
+  }
+  if (filter === "archived") {
+    return "false";
+  }
+  return "all";
+}
+
+export async function fetchAgencyGroups(query: AgencyGroupsQuery = {}): Promise<AgencyGroupListPage> {
+  const params = new URLSearchParams();
+  params.set("is_active", agencyGroupActiveFilterQuery(query.filter ?? "all"));
+  if (query.q?.trim()) {
+    params.set("q", query.q.trim());
+  }
+  if (query.page) {
+    params.set("page", String(query.page));
+  }
+  if (query.pageSize) {
+    params.set("page_size", String(query.pageSize));
+  }
+  const response = await apiFetch(`${API_BASE}/agency-groups?${params.toString()}`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to load group blocks."));
+  }
+  return response.json();
+}
+
+export async function fetchAgencyGroup(groupId: string): Promise<AgencyGroup> {
+  const response = await apiFetch(`${API_BASE}/agency-groups/${groupId}`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to load group block."));
+  }
+  return response.json();
+}
+
+export async function createAgencyGroup(payload: AgencyGroupInput): Promise<AgencyGroup> {
+  const response = await apiFetch(`${API_BASE}/agency-groups`, {
+    method: "POST",
+    headers: authHeaders(true),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to create group block."));
+  }
+  return response.json();
+}
+
+export async function updateAgencyGroup(groupId: string, payload: AgencyGroupUpdateInput): Promise<AgencyGroup> {
+  const response = await apiFetch(`${API_BASE}/agency-groups/${groupId}`, {
+    method: "PATCH",
+    headers: authHeaders(true),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to update group block."));
+  }
+  return response.json();
+}
+
+export async function archiveAgencyGroup(groupId: string): Promise<AgencyGroup> {
+  const response = await apiFetch(`${API_BASE}/agency-groups/${groupId}/archive`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to archive group block."));
+  }
+  return response.json();
+}
+
+export async function createAgencyGroupInventory(
+  groupId: string,
+  payload: AgencyGroupInventoryInput,
+): Promise<AgencyGroup> {
+  const response = await apiFetch(`${API_BASE}/agency-groups/${groupId}/inventory`, {
+    method: "POST",
+    headers: authHeaders(true),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to add inventory row."));
+  }
+  return response.json();
+}
+
+export async function updateAgencyGroupInventory(
+  inventoryId: string,
+  payload: AgencyGroupInventoryUpdateInput,
+): Promise<AgencyGroup> {
+  const response = await apiFetch(`${API_BASE}/agency-groups/inventory/${inventoryId}`, {
+    method: "PATCH",
+    headers: authHeaders(true),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to update inventory row."));
+  }
+  return response.json();
+}
+
+export async function deleteAgencyGroupInventory(inventoryId: string): Promise<AgencyGroup> {
+  const response = await apiFetch(`${API_BASE}/agency-groups/inventory/${inventoryId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to remove inventory row."));
+  }
+  return response.json();
 }

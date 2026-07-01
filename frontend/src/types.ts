@@ -728,6 +728,7 @@ export type AppView =
   | { type: "sales-analytics" }
   | { type: "marketing-campaigns" }
   | { type: "workflows" }
+  | { type: "group-blocks" }
   | { type: "tasks" }
   | { type: "clients" }
   | { type: "reports" }
@@ -742,6 +743,7 @@ export type AppNavItem =
   | "sales-analytics"
   | "marketing-campaigns"
   | "workflows"
+  | "group-blocks"
   | "clients"
   | "reports"
   | "team";
@@ -962,4 +964,89 @@ export type PassengerDemographicsPage = {
   page: number;
   page_size: number;
   total_pages: number;
+};
+
+export type AgencyGroupSummary = {
+  inventory_row_count: number;
+  total_cabins_allocated: number;
+  total_cabins_reserved: number;
+  total_cabins_remaining: number;
+};
+
+export type AgencyGroupInventory = {
+  id: string;
+  group_id: string;
+  cabin_category: string;
+  cabin_type: string;
+  cabin_description: string | null;
+  price_per_cabin: number;
+  cabins_allocated: number;
+  cabins_reserved: number;
+  cabins_remaining: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AgencyGroupListItem = {
+  id: string;
+  agency_id: string;
+  group_name: string;
+  cruise_line: string;
+  ship_name: string;
+  sailing_date: string;
+  disembarkation_date: string;
+  group_id_code: string | null;
+  is_active: boolean;
+  summary: AgencyGroupSummary;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AgencyGroup = AgencyGroupListItem & {
+  group_amenities: string | null;
+  tc_ratio: string | null;
+  inventory_items: AgencyGroupInventory[];
+};
+
+export type AgencyGroupInventoryInput = {
+  cabin_category: string;
+  cabin_type: string;
+  cabin_description?: string;
+  price_per_cabin: number;
+  cabins_allocated: number;
+  cabins_reserved?: number;
+};
+
+export type AgencyGroupInput = {
+  group_name: string;
+  cruise_line: string;
+  ship_name: string;
+  sailing_date: string;
+  disembarkation_date: string;
+  group_id_code?: string;
+  group_amenities?: string;
+  tc_ratio?: string;
+  is_active?: boolean;
+  inventory_items?: AgencyGroupInventoryInput[];
+};
+
+export type AgencyGroupUpdateInput = Partial<Omit<AgencyGroupInput, "inventory_items">>;
+
+export type AgencyGroupInventoryUpdateInput = Partial<AgencyGroupInventoryInput>;
+
+export type AgencyGroupActiveFilter = "all" | "active" | "archived";
+
+export type AgencyGroupListPage = {
+  items: AgencyGroupListItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+};
+
+export type AgencyGroupsQuery = {
+  q?: string;
+  page?: number;
+  pageSize?: number;
+  filter?: AgencyGroupActiveFilter;
 };
