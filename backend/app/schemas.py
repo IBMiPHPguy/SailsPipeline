@@ -303,6 +303,9 @@ class TravelRequestBase(BaseModel):
     lead_source: str | None = Field(default=None, max_length=100)
     referral_source_name: str | None = Field(default=None, max_length=255)
     marketing_campaign_id: str | None = Field(default=None, max_length=36)
+    ship_name: str | None = Field(default=None, max_length=100)
+    group_id: str | None = Field(default=None, max_length=36)
+    group_inventory_id: str | None = Field(default=None, max_length=36)
 
     @field_validator("lead_source")
     @classmethod
@@ -636,6 +639,9 @@ class TravelRequestUpdate(BaseModel):
     lead_source: str | None = Field(default=None, max_length=100)
     referral_source_name: str | None = Field(default=None, max_length=255)
     marketing_campaign_id: str | None = Field(default=None, max_length=36)
+    ship_name: str | None = Field(default=None, max_length=100)
+    group_id: str | None = Field(default=None, max_length=36)
+    group_inventory_id: str | None = Field(default=None, max_length=36)
 
     @field_validator("lead_source")
     @classmethod
@@ -1850,3 +1856,98 @@ class MarketingCampaignSummaryRead(BaseModel):
     top_roi_campaign_name: str | None = None
     top_roi_percent: float | None = None
     total_attributed_volume: float
+
+
+class AgencyGroupInventoryBase(BaseModel):
+    cabin_category: str = Field(min_length=1, max_length=50)
+    cabin_type: str = Field(min_length=1, max_length=100)
+    cabin_description: str | None = None
+    price_per_cabin: float = Field(ge=0, default=0)
+    cabins_allocated: int = Field(ge=0, default=0)
+
+
+class AgencyGroupInventoryCreate(AgencyGroupInventoryBase):
+    cabins_reserved: int = Field(ge=0, default=0)
+
+
+class AgencyGroupInventoryUpdate(BaseModel):
+    cabin_category: str | None = Field(default=None, min_length=1, max_length=50)
+    cabin_type: str | None = Field(default=None, min_length=1, max_length=100)
+    cabin_description: str | None = None
+    price_per_cabin: float | None = Field(default=None, ge=0)
+    cabins_allocated: int | None = Field(default=None, ge=0)
+    cabins_reserved: int | None = Field(default=None, ge=0)
+
+
+class AgencyGroupInventoryRead(AgencyGroupInventoryBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    group_id: str
+    cabins_reserved: int
+    cabins_remaining: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class AgencyGroupBase(BaseModel):
+    group_name: str = Field(min_length=1, max_length=255)
+    cruise_line: str = Field(min_length=1, max_length=100)
+    ship_name: str = Field(min_length=1, max_length=100)
+    sailing_date: date
+    disembarkation_date: date
+    group_id_code: str | None = Field(default=None, max_length=100)
+    group_amenities: str | None = None
+    tc_ratio: str | None = Field(default="1:16", max_length=50)
+    is_active: bool = True
+
+
+class AgencyGroupCreate(AgencyGroupBase):
+    inventory_items: list[AgencyGroupInventoryCreate] = Field(default_factory=list)
+
+
+class AgencyGroupUpdate(BaseModel):
+    group_name: str | None = Field(default=None, min_length=1, max_length=255)
+    cruise_line: str | None = Field(default=None, min_length=1, max_length=100)
+    ship_name: str | None = Field(default=None, min_length=1, max_length=100)
+    sailing_date: date | None = None
+    disembarkation_date: date | None = None
+    group_id_code: str | None = Field(default=None, max_length=100)
+    group_amenities: str | None = None
+    tc_ratio: str | None = Field(default=None, max_length=50)
+    is_active: bool | None = None
+
+
+class AgencyGroupSummaryRead(BaseModel):
+    inventory_row_count: int
+    total_cabins_allocated: int
+    total_cabins_reserved: int
+    total_cabins_remaining: int
+
+
+class AgencyGroupRead(AgencyGroupBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    agency_id: str
+    inventory_items: list[AgencyGroupInventoryRead] = Field(default_factory=list)
+    summary: AgencyGroupSummaryRead
+    created_at: datetime
+    updated_at: datetime
+
+
+class AgencyGroupListItemRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    agency_id: str
+    group_name: str
+    cruise_line: str
+    ship_name: str
+    sailing_date: date
+    disembarkation_date: date
+    group_id_code: str | None = None
+    is_active: bool
+    summary: AgencyGroupSummaryRead
+    created_at: datetime
+    updated_at: datetime

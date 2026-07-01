@@ -26,6 +26,9 @@ TRAVEL_REQUEST_AUDIT_FIELDS = (
     "lead_source",
     "referral_source_name",
     "marketing_campaign_id",
+    "ship_name",
+    "group_id",
+    "group_inventory_id",
 )
 
 PASSENGER_AUDIT_FIELDS = (

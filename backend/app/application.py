@@ -45,6 +45,19 @@ def seed_admin_user(db) -> None:
 
     if settings.app_env != "test":
         try:
+            from app.services.agency_group_seed import seed_all_agency_groups
+
+            seed_all_agency_groups(db)
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "Agency group seed skipped; apply db/migrate_agency_groups.sql if needed."
+            )
+            db.rollback()
+
+    if settings.app_env != "test":
+        try:
             refresh_agency_rollups(db, default_agency.id)
         except Exception:
             import logging

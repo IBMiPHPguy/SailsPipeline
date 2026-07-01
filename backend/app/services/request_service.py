@@ -431,6 +431,15 @@ def create_request(db: Session, payload: TravelRequestCreate, current_user: User
 
         get_marketing_campaign_for_agency(db, payload.marketing_campaign_id, current_user.agency_id)
 
+    from app.services.agency_group_service import validate_travel_request_group_linkage
+
+    validate_travel_request_group_linkage(
+        db,
+        agency_id=current_user.agency_id,
+        group_id=payload.group_id,
+        group_inventory_id=payload.group_inventory_id,
+    )
+
     request = TravelRequest(
         **data,
         agency_id=current_user.agency_id,
@@ -518,6 +527,21 @@ def update_request(
         from app.services.agency_service import get_marketing_campaign_for_agency
 
         get_marketing_campaign_for_agency(db, updates["marketing_campaign_id"], current_user.agency_id)
+
+    if "group_id" in updates and updates.get("group_id") is None:
+        updates["group_inventory_id"] = None
+
+    if "group_id" in updates or "group_inventory_id" in updates:
+        from app.services.agency_group_service import validate_travel_request_group_linkage
+
+        next_group_id = updates.get("group_id", request.group_id)
+        next_inventory_id = updates.get("group_inventory_id", request.group_inventory_id)
+        validate_travel_request_group_linkage(
+            db,
+            agency_id=current_user.agency_id,
+            group_id=next_group_id,
+            group_inventory_id=next_inventory_id,
+        )
 
     sync_primary_passenger_from_request(request, db, current_user)
     touch_request(request, current_user)

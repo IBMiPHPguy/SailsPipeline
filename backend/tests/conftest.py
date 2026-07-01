@@ -51,6 +51,56 @@ def _create_test_engine():
     return create_engine(database_url, pool_pre_ping=True)
 
 
+def _ensure_agency_groups_schema(engine) -> None:
+    database_url = os.environ["DATABASE_URL"]
+    if database_url.startswith("sqlite"):
+        return
+
+    from app.models import AgencyGroup, AgencyGroupInventory  # noqa: WPS433
+
+    inspector = inspect(engine)
+    table_names = set(inspector.get_table_names())
+    if "agency_groups" not in table_names:
+        Base.metadata.create_all(
+            bind=engine,
+            tables=[AgencyGroup.__table__, AgencyGroupInventory.__table__],
+        )
+        inspector = inspect(engine)
+
+    if "travel_requests" in inspector.get_table_names():
+        request_columns = {column["name"] for column in inspector.get_columns("travel_requests")}
+        alters: list[str] = []
+        added_group_columns = False
+        if "ship_name" not in request_columns:
+            alters.append("ADD COLUMN ship_name VARCHAR(100) NULL AFTER destination_details")
+        if "group_id" not in request_columns:
+            alters.append("ADD COLUMN group_id CHAR(36) NULL AFTER marketing_campaign_id")
+            added_group_columns = True
+        if "group_inventory_id" not in request_columns:
+            alters.append("ADD COLUMN group_inventory_id CHAR(36) NULL AFTER group_id")
+            added_group_columns = True
+        if alters:
+            with engine.begin() as connection:
+                connection.execute(text(f"ALTER TABLE travel_requests {', '.join(alters)}"))
+        if added_group_columns:
+            with engine.begin() as connection:
+                connection.execute(
+                    text(
+                        "ALTER TABLE travel_requests "
+                        "ADD CONSTRAINT fk_travel_requests_group "
+                        "FOREIGN KEY (group_id) REFERENCES agency_groups(id) ON DELETE SET NULL"
+                    )
+                )
+                connection.execute(
+                    text(
+                        "ALTER TABLE travel_requests "
+                        "ADD CONSTRAINT fk_travel_requests_group_inventory "
+                        "FOREIGN KEY (group_inventory_id) REFERENCES agency_group_inventory(id) ON DELETE SET NULL"
+                    )
+                )
+                connection.execute(text("CREATE INDEX idx_travel_requests_group ON travel_requests(group_id)"))
+
+
 def _ensure_workflow_engine_schema(engine) -> None:
     database_url = os.environ["DATABASE_URL"]
     if database_url.startswith("sqlite"):
@@ -122,6 +172,7 @@ def engine():
         Base.metadata.create_all(bind=test_engine)
     else:
         _ensure_workflow_engine_schema(test_engine)
+        _ensure_agency_groups_schema(test_engine)
     yield test_engine
     if database_url.startswith("sqlite"):
         Base.metadata.drop_all(bind=test_engine)
@@ -144,6 +195,9 @@ def db(session_factory, engine):
     from app.tenant_constants import DEFAULT_AGENCY_ID
 
     seed_agency_workflow_templates(session, DEFAULT_AGENCY_ID)
+    from app.services.agency_group_seed import seed_agency_groups
+
+    seed_agency_groups(session, DEFAULT_AGENCY_ID)
     session.commit()
     set_current_agency_id(DEFAULT_AGENCY_ID)
 
