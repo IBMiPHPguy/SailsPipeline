@@ -38,6 +38,9 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash-lite}
       EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS:-notifications@sailspipeline.com}
+      CC_AUTH_PORTAL_BASE_URL: ${CC_AUTH_PORTAL_BASE_URL:-http://localhost:5173/cc-auth}
+      CC_AUTH_ENCRYPTION_KEY: ${CC_AUTH_ENCRYPTION_KEY:-}
+      CC_AUTH_VAULT_ACCESS_KEY: ${CC_AUTH_VAULT_ACCESS_KEY:-dev-vault-access-change-me}
     ports:
       - "${BACKEND_PORT}:8000"
     volumes:
@@ -116,9 +119,12 @@ services:
     depends_on:
       test-db:
         condition: service_healthy
-    command: >
-      sh -c "pip install --no-cache-dir -r requirements.txt -r requirements-dev.txt &&
-             pytest tests/ -v --cov=app --cov-report=term-missing"
+    entrypoint:
+      - sh
+      - -c
+      - pip install --no-cache-dir -r requirements.txt -r requirements-dev.txt && exec "$@"
+      - --
+    command: ["pytest", "tests/", "-v", "--cov=app", "--cov-report=term-missing"]
 
   frontend-test:
     profiles: ["test"]

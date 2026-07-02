@@ -14,6 +14,7 @@ SUBSCRIPTION_EXEMPT_PREFIXES = (
     "/api/auth/",
     "/api/onboarding/",
     "/api/bridge/",
+    "/api/cc-auth/",
 )
 
 BLOCKED_SUBSCRIPTION_STATES = {

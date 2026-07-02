@@ -12,6 +12,8 @@ from app.email_config import (
     resolve_email_delivery_settings,
 )
 
+DEFAULT_DEV_CC_AUTH_VAULT_ACCESS_KEY = "dev-vault-access-change-me"
+
 
 class Settings(BaseSettings):
     database_url: str = "mysql+pymysql://cruiseapp:cruisesecret@db:3306/sailspipeline"
@@ -49,6 +51,9 @@ class Settings(BaseSettings):
     email_api_provider: str = "resend"
     email_api_key: str | None = None
     email_api_key_staging: str | None = None
+    cc_auth_portal_base_url: str = "http://localhost:5173/cc-auth"
+    cc_auth_encryption_key: str | None = None
+    cc_auth_vault_access_key: str | None = None
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -75,6 +80,14 @@ class Settings(BaseSettings):
             return value.strip().lower() in {"1", "true", "yes", "on"}
         return value
 
+    @field_validator("cc_auth_encryption_key", "cc_auth_vault_access_key", mode="before")
+    @classmethod
+    def empty_optional_secret_to_none(cls, value: object) -> object:
+        if value is None:
+            return None
+        stripped = str(value).strip()
+        return stripped or None
+
     @property
     def cors_origin_list(self) -> list[str]:
         origins = [item.strip() for item in self.cors_origins.split(",") if item.strip()]
@@ -98,6 +111,24 @@ class Settings(BaseSettings):
 
     def resolve_email_delivery_settings(self) -> EmailDeliverySettings:
         return resolve_email_delivery_settings(self)
+
+    def resolve_cc_auth_encryption_key(self) -> str:
+        if self.cc_auth_encryption_key and self.cc_auth_encryption_key.strip():
+            return self.cc_auth_encryption_key.strip()
+        if self.app_env in {APP_ENV_DEVELOPMENT, "test"}:
+            import base64
+            import hashlib
+
+            digest = hashlib.sha256(f"{self.jwt_secret}:sailspipeline-cc-auth-vault".encode()).digest()
+            return base64.urlsafe_b64encode(digest).decode()
+        raise ValueError("CC_AUTH_ENCRYPTION_KEY must be set for card vault encryption.")
+
+    def resolve_cc_auth_vault_access_key(self) -> str:
+        if self.cc_auth_vault_access_key and self.cc_auth_vault_access_key.strip():
+            return self.cc_auth_vault_access_key.strip()
+        if self.app_env in {APP_ENV_DEVELOPMENT, "test"}:
+            return DEFAULT_DEV_CC_AUTH_VAULT_ACCESS_KEY
+        raise ValueError("CC_AUTH_VAULT_ACCESS_KEY must be set for card vault access.")
 
 
 settings = Settings()

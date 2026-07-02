@@ -5,6 +5,7 @@ from app.routers import (
     agency_groups,
     auth,
     bridge,
+    cc_auth,
     communications,
     dashboard,
     health,
@@ -32,6 +33,8 @@ def register_routers(application: FastAPI) -> None:
     application.include_router(passengers.router)
     application.include_router(passengers.request_passengers_router)
     application.include_router(communications.router)
+    application.include_router(cc_auth.router)
+    application.include_router(cc_auth.agent_router)
     application.include_router(workflows.templates_router)
     application.include_router(workflows.settings_router)
     application.include_router(workflows.catalog_router)

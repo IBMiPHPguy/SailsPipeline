@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
+import re
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
@@ -1400,6 +1401,124 @@ class GenerateResearchCommunicationResponse(BaseModel):
 class SendResearchCommunicationResponse(BaseModel):
     message: str
     communication: RequestCommunicationRead
+
+
+class SendCcAuthEmailRequest(BaseModel):
+    travel_request_id: int = Field(gt=0)
+
+
+class SendCcAuthEmailResponse(BaseModel):
+    message: str
+    portal_url: str
+    email_sent: bool
+    recipient: str
+    total_deposit_due: str
+    accepted_cruise_count: int
+
+
+class CcAuthPortalCruiseRead(BaseModel):
+    cruise_line: str
+    ship: str
+    sailing_date: date
+    cabin_type: str
+    deposit_amount: str
+    final_payment_due_date: date
+    itinerary_name: str
+    number_of_nights: int
+
+
+class CcAuthValidateResponse(BaseModel):
+    valid: bool = True
+    passenger_name: str
+    passenger_email: str
+    agency_name: str
+    cruises: list[CcAuthPortalCruiseRead]
+    total_deposit_due: str
+    expires_at: datetime
+    authorization_id: str
+
+
+class CcAuthCompleteResponse(BaseModel):
+    message: str
+    status: str
+    completed_at: datetime
+    authorization_id: str
+
+
+class CcAuthCardPayload(BaseModel):
+    cardholder_name: str = Field(min_length=2, max_length=120)
+    card_number: str = Field(min_length=13, max_length=23)
+    expiration: str = Field(min_length=5, max_length=7)
+    security_code: str = Field(min_length=3, max_length=4)
+
+    @field_validator("cardholder_name")
+    @classmethod
+    def validate_cardholder_name(cls, value: str) -> str:
+        stripped = value.strip()
+        if len(stripped) < 2:
+            raise ValueError("Cardholder name is required.")
+        return stripped
+
+    @field_validator("card_number")
+    @classmethod
+    def validate_card_number(cls, value: str) -> str:
+        digits = re.sub(r"\D", "", value)
+        if len(digits) < 13 or len(digits) > 19:
+            raise ValueError("Enter a valid card number.")
+        return digits
+
+    @field_validator("expiration")
+    @classmethod
+    def validate_expiration(cls, value: str) -> str:
+        stripped = value.strip()
+        match = re.fullmatch(r"(\d{2})\s*/\s*(\d{2})", stripped)
+        if not match:
+            raise ValueError("Expiration must use MM/YY format.")
+        month = int(match.group(1))
+        if month < 1 or month > 12:
+            raise ValueError("Expiration month must be between 01 and 12.")
+        return f"{match.group(1)}/{match.group(2)}"
+
+    @field_validator("security_code")
+    @classmethod
+    def validate_security_code(cls, value: str) -> str:
+        digits = re.sub(r"\D", "", value)
+        if len(digits) not in {3, 4}:
+            raise ValueError("Security code must be 3 or 4 digits.")
+        return digits
+
+
+class CcAuthVaultAccessRequest(BaseModel):
+    vault_access_key: str = Field(min_length=1, max_length=255)
+
+
+class CcAuthSummaryRead(BaseModel):
+    id: str
+    status: str
+    created_at: datetime
+    completed_at: datetime | None
+    expires_at: datetime
+    has_card_data: bool
+    card_data_purged: bool
+
+
+class CcAuthRevealedCardRead(BaseModel):
+    cardholder_name: str
+    card_number: str
+    expiration: str
+    security_code: str
+
+
+class CcAuthRevealResponse(BaseModel):
+    authorization_id: str
+    card: CcAuthRevealedCardRead
+
+
+class CcAuthPurgeResponse(BaseModel):
+    message: str
+    authorization_id: str
+    status: str
+    card_data_purged: bool
 
 
 class ResearchDocumentRead(BaseModel):

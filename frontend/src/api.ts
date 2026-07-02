@@ -40,6 +40,7 @@ import type {
   GeneratedProposedCruisesResponse,
   GeneratedResearchCommunicationResponse,
   SendResearchCommunicationResponse,
+  SendCcAuthEmailResponse,
   QuotedInsurance,
   QuotedInsuranceInput,
   RequestCommunication,
@@ -1122,6 +1123,18 @@ export async function sendResearchCommunicationViaSailsPipeline(
   });
   if (!response.ok) {
     throw new Error(await parseApiError(response, "Unable to send communication via SailsPipeline."));
+  }
+  return response.json();
+}
+
+export async function sendCcAuthEmail(requestId: number): Promise<SendCcAuthEmailResponse> {
+  const response = await apiFetch(`${API_BASE}/cc-auth/send`, {
+    method: "POST",
+    headers: authHeaders(true),
+    body: JSON.stringify({ travel_request_id: requestId }),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to send credit card authorization email."));
   }
   return response.json();
 }
