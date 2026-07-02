@@ -39,6 +39,7 @@ import type {
   ProposedCruiseInput,
   GeneratedProposedCruisesResponse,
   GeneratedResearchCommunicationResponse,
+  SendResearchCommunicationResponse,
   QuotedInsurance,
   QuotedInsuranceInput,
   RequestCommunication,
@@ -1107,6 +1108,20 @@ export async function updateCommunication(
   });
   if (!response.ok) {
     throw new Error(await parseApiError(response, "Unable to update communication."));
+  }
+  return response.json();
+}
+
+export async function sendResearchCommunicationViaSailsPipeline(
+  requestId: number,
+  communicationId: number,
+): Promise<SendResearchCommunicationResponse> {
+  const response = await apiFetch(`${API_BASE}/requests/${requestId}/communications/${communicationId}/send`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to send communication via SailsPipeline."));
   }
   return response.json();
 }

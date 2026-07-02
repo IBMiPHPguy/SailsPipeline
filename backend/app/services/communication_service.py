@@ -15,10 +15,11 @@ from app.gemini_service import (
     GeminiParseError,
     generate_research_communication_from_proposals,
 )
-from app.models import ProposedCruise, RequestCommunication, RequestWorkflowLive, TravelRequest, User
+from app.models import Agency, ProposedCruise, RequestCommunication, RequestWorkflowLive, TravelRequest, User
 from app.research_proposal_email import build_research_proposal_email_html
 from app.schemas import GenerateResearchCommunicationResponse
 from app.services.agency_service import assert_child_belongs_to_request, require_record_for_agency
+from app.services.email_service import EmailDeliveryService, extract_communication_html_content, render_email_base_html
 from app.services.gemini_context_service import (
     build_request_context_for_gemini,
     proposed_cruise_to_gemini_dict,
@@ -239,6 +240,63 @@ def update_communication_record(
     touch_request(request, current_user)
     db.commit()
     return load_communication(db, communication.id)
+
+
+async def send_research_communication_via_email(
+    db: Session,
+    *,
+    request: TravelRequest,
+    communication: RequestCommunication,
+    current_user: User,
+) -> RequestCommunication:
+    if communication.communication_type != COMMUNICATION_TYPE_RESEARCH_PROPOSAL:
+        raise HTTPException(
+            status_code=400,
+            detail="Only research proposal communications can be sent via SailsPipeline.",
+        )
+    if communication.status == COMMUNICATION_STATUS_SENT:
+        raise HTTPException(status_code=400, detail="This communication has already been sent.")
+
+    recipient = request.email.strip()
+    if not recipient:
+        raise HTTPException(status_code=400, detail="Travel request has no client email address.")
+
+    agency = db.get(Agency, request.agency_id)
+    if agency is None:
+        raise HTTPException(status_code=404, detail="Agency not found.")
+
+    inner_content = extract_communication_html_content(communication.body)
+    html_content = render_email_base_html(
+        content=inner_content,
+        agent_name=current_user.username,
+        agency_name=agency.name,
+    )
+
+    email_service = EmailDeliveryService(db)
+    success = await email_service.send_transactional_email(
+        agency_id=request.agency_id,
+        user_id=str(current_user.id),
+        user_name=current_user.username,
+        user_email=current_user.email,
+        recipient=recipient,
+        email_type=COMMUNICATION_TYPE_RESEARCH_PROPOSAL,
+        subject=communication.subject,
+        html_content=html_content,
+        travel_request_id=str(request.id),
+    )
+    if not success:
+        raise HTTPException(
+            status_code=502,
+            detail="Failed to send email. Check agency email logs for details.",
+        )
+
+    return update_communication_record(
+        db,
+        request=request,
+        communication=communication,
+        current_user=current_user,
+        updates={"status": COMMUNICATION_STATUS_SENT},
+    )
 
 
 def delete_draft_communication(

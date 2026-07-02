@@ -5979,6 +5979,19 @@ button.modal-secondary:hover:not(:disabled) {
   grid-template-columns: 1fr;
 }
 
+.send-research-communication-action-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.send-research-communication-action-row .modal-secondary,
+.send-research-communication-action-row .modal-primary {
+  width: 100%;
+  justify-content: center;
+}
+
 .record-client-response-cruise-list {
   list-style: none;
   margin: 0;

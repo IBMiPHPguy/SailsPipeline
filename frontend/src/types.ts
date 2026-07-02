@@ -407,6 +407,11 @@ export type GeneratedResearchCommunicationResponse = {
   communication: RequestCommunication;
 };
 
+export type SendResearchCommunicationResponse = {
+  message: string;
+  communication: RequestCommunication;
+};
+
 export type ProposedCruiseInput = {
   departure_date: string;
   cruise_line: string;

@@ -10,6 +10,7 @@ from app.schemas import (
     RequestCommunicationCreate,
     RequestCommunicationRead,
     RequestCommunicationUpdate,
+    SendResearchCommunicationResponse,
 )
 from app.services.agency_service import (
     assert_child_belongs_to_request,
@@ -21,6 +22,7 @@ from app.services.communication_service import (
     delete_draft_communication,
     generate_research_communication_from_proposed_cruises,
     load_communication,
+    send_research_communication_via_email,
     update_communication_record,
 )
 from app.services.request_service import get_open_request
@@ -85,6 +87,34 @@ def generate_research_communication_from_proposed_cruises_route(
         request=request,
         current_user=current_user,
         request_workflow_live_id=payload.request_workflow_id,
+    )
+
+
+@router.post(
+    "/{request_id}/communications/{communication_id}/send",
+    response_model=SendResearchCommunicationResponse,
+)
+async def send_research_communication_route(
+    request_id: int,
+    communication_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> SendResearchCommunicationResponse:
+    request = get_open_request(db, request_id)
+    communication = _load_communication_for_request(
+        db,
+        request_id=request_id,
+        communication_id=communication_id,
+    )
+    updated = await send_research_communication_via_email(
+        db,
+        request=request,
+        communication=communication,
+        current_user=current_user,
+    )
+    return SendResearchCommunicationResponse(
+        message="Research communication sent via SailsPipeline.",
+        communication=updated,
     )
 
 

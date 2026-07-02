@@ -29,6 +29,7 @@ def test_validate_production_settings_accepts_secure_configuration():
         allow_public_registration=False,
         cors_origins="https://sailspipeline.example",
         expose_openapi=False,
+        email_api_key="re_live_production_key",
     )
 
     validate_production_settings(settings)

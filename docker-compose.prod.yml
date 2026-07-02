@@ -16,6 +16,7 @@ services:
       ALLOW_PUBLIC_REGISTRATION: "false"
       EXPOSE_OPENAPI: "false"
       CORS_ORIGINS: ${CORS_ORIGINS:-https://localhost}
+      EMAIL_API_KEY: ${EMAIL_API_KEY}
 
   frontend:
     ports: !reset []

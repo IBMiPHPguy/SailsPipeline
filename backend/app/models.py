@@ -978,3 +978,29 @@ class RequestTaskLive(Base):
     travel_request: Mapped[TravelRequest] = relationship()
     completed_by: Mapped[User | None] = relationship(foreign_keys=[completed_by_id])
     template_task: Mapped["AgencyTaskTemplate | None"] = relationship(foreign_keys=[template_task_id])
+
+
+class AgencyEmailLog(Base):
+    __tablename__ = "agency_email_logs"
+    __table_args__ = (
+        Index("idx_agency_email_logs_agency_created", "agency_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    agency_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("agencies.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    travel_request_id: Mapped[int | None] = mapped_column(
+        ForeignKey("travel_requests.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    recipient_email: Mapped[str] = mapped_column(String(255), nullable=False)
+    email_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    subject_line: Mapped[str] = mapped_column(String(255), nullable=False)
+    status: Mapped[str] = mapped_column(String(40), nullable=False)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    agency: Mapped["Agency"] = relationship()
+    user: Mapped["User"] = relationship(foreign_keys=[user_id])
+    travel_request: Mapped["TravelRequest | None"] = relationship(foreign_keys=[travel_request_id])

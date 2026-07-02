@@ -9,6 +9,7 @@ TENANT_SCOPED_MODELS: tuple[type, ...] = ()
 def configure_tenant_session() -> None:
     global TENANT_SCOPED_MODELS
     from app.models import (
+        AgencyEmailLog,
         AgencyTaskTemplate,
         AgencyWorkflowTemplate,
         CallTranscript,
@@ -39,6 +40,7 @@ def configure_tenant_session() -> None:
         ChatLog,
         RequestResearchDocument,
         QuotedInsurance,
+        AgencyEmailLog,
     )
 
     @event.listens_for(Session, "do_orm_execute")

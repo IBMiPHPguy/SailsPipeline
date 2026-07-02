@@ -188,6 +188,18 @@ def _ensure_workflow_engine_schema(engine) -> None:
             )
 
 
+def _ensure_agency_email_logs_schema(engine) -> None:
+    database_url = os.environ["DATABASE_URL"]
+    if database_url.startswith("sqlite"):
+        return
+
+    from app.models import AgencyEmailLog  # noqa: WPS433
+
+    inspector = inspect(engine)
+    if "agency_email_logs" not in inspector.get_table_names():
+        Base.metadata.create_all(bind=engine, tables=[AgencyEmailLog.__table__])
+
+
 @pytest.fixture(scope="session")
 def engine():
     test_engine = _create_test_engine()
@@ -197,6 +209,7 @@ def engine():
     else:
         _ensure_workflow_engine_schema(test_engine)
         _ensure_agency_groups_schema(test_engine)
+        _ensure_agency_email_logs_schema(test_engine)
     yield test_engine
     if database_url.startswith("sqlite"):
         Base.metadata.drop_all(bind=test_engine)
