@@ -200,6 +200,39 @@ def _ensure_agency_email_logs_schema(engine) -> None:
         Base.metadata.create_all(bind=engine, tables=[AgencyEmailLog.__table__])
 
 
+def _ensure_credit_card_authorizations_schema(engine) -> None:
+    database_url = os.environ["DATABASE_URL"]
+    if database_url.startswith("sqlite"):
+        return
+
+    from app.models import CreditCardAuthorization  # noqa: WPS433
+
+    inspector = inspect(engine)
+    if "credit_card_authorizations" not in inspector.get_table_names():
+        Base.metadata.create_all(bind=engine, tables=[CreditCardAuthorization.__table__])
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("credit_card_authorizations")}
+    if "encrypted_card_data" not in columns:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "ALTER TABLE credit_card_authorizations "
+                    "ADD COLUMN encrypted_card_data TEXT NULL AFTER completed_at"
+                )
+            )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def configure_cc_auth_vault_keys():
+    from cryptography.fernet import Fernet
+
+    from app.config import settings
+
+    settings.cc_auth_encryption_key = Fernet.generate_key().decode()
+    settings.cc_auth_vault_access_key = "test-vault-access-key"
+
+
 @pytest.fixture(scope="session")
 def engine():
     test_engine = _create_test_engine()
@@ -210,6 +243,7 @@ def engine():
         _ensure_workflow_engine_schema(test_engine)
         _ensure_agency_groups_schema(test_engine)
         _ensure_agency_email_logs_schema(test_engine)
+        _ensure_credit_card_authorizations_schema(test_engine)
     yield test_engine
     if database_url.startswith("sqlite"):
         Base.metadata.drop_all(bind=test_engine)

@@ -272,6 +272,11 @@ class TravelRequest(Base):
         cascade="all, delete-orphan",
         order_by="RequestResearchDocument.id.desc()",
     )
+    credit_card_authorizations: Mapped[list["CreditCardAuthorization"]] = relationship(
+        back_populates="travel_request",
+        cascade="all, delete-orphan",
+        order_by="CreditCardAuthorization.created_at.desc()",
+    )
 
 
 class Passenger(Base):
@@ -978,6 +983,29 @@ class RequestTaskLive(Base):
     travel_request: Mapped[TravelRequest] = relationship()
     completed_by: Mapped[User | None] = relationship(foreign_keys=[completed_by_id])
     template_task: Mapped["AgencyTaskTemplate | None"] = relationship(foreign_keys=[template_task_id])
+
+
+class CreditCardAuthorization(Base):
+    __tablename__ = "credit_card_authorizations"
+    __table_args__ = (
+        Index("idx_cc_auth_status_expires", "status", "expires_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    agency_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("agencies.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    travel_request_id: Mapped[int] = mapped_column(
+        ForeignKey("travel_requests.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    secure_token: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    status: Mapped[str] = mapped_column(String(40), nullable=False, default="pending")
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    encrypted_card_data: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    travel_request: Mapped["TravelRequest"] = relationship(back_populates="credit_card_authorizations")
 
 
 class AgencyEmailLog(Base):

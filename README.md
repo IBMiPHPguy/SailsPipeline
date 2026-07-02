@@ -570,6 +570,12 @@ docker compose --profile test run --rm backend-test
 docker compose --profile test run --rm frontend-test
 ```
 
+To run a subset of backend tests, pass arguments after the service name (dev dependencies are installed automatically):
+
+```powershell
+docker compose --profile test run --rm backend-test pytest tests/unit -q
+```
+
 Backend layout:
 
 - `backend/tests/unit/` — domain/helper tests (workflow logic, cabin normalization, passenger activation, audit/security helpers, dashboard assembly, research email HTML, **reports service**, sales analytics, **agency invites**, **Bridge**, **auth**, multi-tenant schema)

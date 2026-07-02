@@ -412,6 +412,80 @@ export type SendResearchCommunicationResponse = {
   communication: RequestCommunication;
 };
 
+export type SendCcAuthEmailResponse = {
+  message: string;
+  portal_url: string;
+  email_sent: boolean;
+  recipient: string;
+  total_deposit_due: string;
+  accepted_cruise_count: number;
+};
+
+export type CcAuthPortalCruise = {
+  cruise_line: string;
+  ship: string;
+  sailing_date: string;
+  cabin_type: string;
+  deposit_amount: string;
+  final_payment_due_date: string;
+  itinerary_name: string;
+  number_of_nights: number;
+};
+
+export type CcAuthValidateResponse = {
+  valid: boolean;
+  passenger_name: string;
+  passenger_email: string;
+  agency_name: string;
+  cruises: CcAuthPortalCruise[];
+  total_deposit_due: string;
+  expires_at: string;
+  authorization_id: string;
+};
+
+export type CcAuthCompleteResponse = {
+  message: string;
+  status: string;
+  completed_at: string;
+  authorization_id: string;
+};
+
+export type CcAuthCardPayload = {
+  cardholder_name: string;
+  card_number: string;
+  expiration: string;
+  security_code: string;
+};
+
+export type CcAuthSummary = {
+  id: string;
+  status: string;
+  created_at: string;
+  completed_at: string | null;
+  expires_at: string;
+  has_card_data: boolean;
+  card_data_purged: boolean;
+};
+
+export type CcAuthRevealedCard = {
+  cardholder_name: string;
+  card_number: string;
+  expiration: string;
+  security_code: string;
+};
+
+export type CcAuthRevealResponse = {
+  authorization_id: string;
+  card: CcAuthRevealedCard;
+};
+
+export type CcAuthPurgeResponse = {
+  message: string;
+  authorization_id: string;
+  status: string;
+  card_data_purged: boolean;
+};
+
 export type ProposedCruiseInput = {
   departure_date: string;
   cruise_line: string;

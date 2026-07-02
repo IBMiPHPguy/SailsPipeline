@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { updateProposedCruise, updateTask } from "./api";
+import { sendCcAuthEmail, updateProposedCruise, updateTask } from "./api";
 import {
   buildCabinPaymentRows,
   formatMoney,
   normalizeCabinPricing,
   readPaymentCollectionState,
+  sumCabinPricing,
   type CabinPaymentRow,
   type CabinPricing,
 } from "./cabinPricing";
@@ -16,6 +17,7 @@ import {
 } from "./formOptions";
 import type { ProposedCruise, RequestTask } from "./types";
 import AcceptedCruiseSummary from "./AcceptedCruiseSummary";
+import CcAuthVaultSection from "./CcAuthVaultSection";
 import { formatDate } from "./utils";
 import { formatPassengerNames, proposedRoomLabel } from "./proposedCruiseRooms";
 
@@ -66,6 +68,13 @@ function buildCruisePaymentSection(cruise: ProposedCruise, cabinsNeeded: number)
   return { cruise, cabinPricing, rows };
 }
 
+function computeSectionDepositTotal(section: CruisePaymentSection): number {
+  if (section.rows.length > 0) {
+    return section.rows.reduce((sum, row) => sum + row.amount, 0);
+  }
+  return sumCabinPricing(section.cabinPricing).deposit_amount;
+}
+
 export default function CollectPaymentAndBookingCommunicationTaskPanel({
   requestId,
   cabinsNeeded,
@@ -92,6 +101,8 @@ export default function CollectPaymentAndBookingCommunicationTaskPanel({
 
   const [collected, setCollected] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
+  const [sendingCcAuth, setSendingCcAuth] = useState(false);
+  const [ccAuthMessage, setCcAuthMessage] = useState("");
 
   useEffect(() => {
     setCollected(readPaymentCollectionState(task.result));
@@ -99,6 +110,32 @@ export default function CollectPaymentAndBookingCommunicationTaskPanel({
 
   const allCollected = paymentRows.length > 0 && paymentRows.every((row) => collected[row.key]);
   const allCruisesHaveReservations = paymentSections.every((section) => section.rows.length > 0);
+
+  const totalDepositDue = useMemo(
+    () => paymentSections.reduce((total, section) => total + computeSectionDepositTotal(section), 0),
+    [paymentSections],
+  );
+
+  async function handleSendCcAuthEmail() {
+    if (acceptedCruises.length === 0) {
+      onError("An accepted cruise is required before sending a credit card authorization email.");
+      return;
+    }
+
+    setSendingCcAuth(true);
+    onError("");
+    setCcAuthMessage("");
+    try {
+      const result = await sendCcAuthEmail(requestId);
+      setCcAuthMessage(
+        `Authorization email sent to ${result.recipient}. Total deposit due: ${formatMoney(Number(result.total_deposit_due))}.`,
+      );
+    } catch (sendError) {
+      onError(sendError instanceof Error ? sendError.message : "Unable to send credit card authorization email.");
+    } finally {
+      setSendingCcAuth(false);
+    }
+  }
 
   async function handleSaveAndComplete() {
     if (acceptedCruises.length === 0) {
@@ -168,17 +205,47 @@ export default function CollectPaymentAndBookingCommunicationTaskPanel({
     );
   }
 
-  if (paymentRows.length === 0) {
-    return (
-      <div className="workflow-task-guidance">
-        <p>Enter cabin hold reservation IDs for each room on every accepted cruise before collecting payment.</p>
-      </div>
-    );
-  }
-
   return (
     <div className="collect-payment-booking-panel">
-      <p className="field-hint">
+      <section className="collect-payment-cc-auth-card">
+        <header className="collect-payment-cc-auth-header">
+          <div>
+            <h3>Credit card authorization</h3>
+            <p className="muted">
+              Generate a secure 48-hour link and email it to the passenger for all accepted sailings.
+            </p>
+          </div>
+        </header>
+        <div className="collect-payment-cc-auth-body">
+          <p className="field-hint">
+            Total deposit due across {acceptedCruises.length} accepted sailing
+            {acceptedCruises.length === 1 ? "" : "s"}: <strong>{formatMoney(totalDepositDue)}</strong>
+          </p>
+          {!readOnly ? (
+            <div className="send-research-communication-action-row">
+              <button
+                type="button"
+                className="modal-primary collect-payment-cc-auth-send"
+                disabled={sendingCcAuth || saving}
+                onClick={() => void handleSendCcAuthEmail()}
+              >
+                {sendingCcAuth ? "Sending..." : "Generate & Send CC Auth Email"}
+              </button>
+            </div>
+          ) : null}
+          {ccAuthMessage ? <p className="collect-payment-cc-auth-success">{ccAuthMessage}</p> : null}
+        </div>
+      </section>
+
+      <CcAuthVaultSection requestId={requestId} disabled={readOnly} />
+
+      {paymentRows.length === 0 ? (
+        <div className="workflow-task-guidance">
+          <p>Enter cabin hold reservation IDs for each room on every accepted cruise before collecting payment.</p>
+        </div>
+      ) : (
+        <>
+          <p className="field-hint">
         {paymentSections.length === 1
           ? "Send the cruise line booking communication for each reservation, collect the amount shown, then check payment collected for every room."
           : "This request has multiple accepted cruises. Send booking communications and collect payment for each reservation on every accepted cruise below."}
@@ -249,6 +316,8 @@ export default function CollectPaymentAndBookingCommunicationTaskPanel({
           {saving ? "Saving..." : "Mark payments collected and complete task"}
         </button>
       ) : null}
+        </>
+      )}
     </div>
   );
 }
