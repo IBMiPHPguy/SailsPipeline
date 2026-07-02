@@ -104,3 +104,40 @@ def require_record_for_agency(
         raise NOT_FOUND
     assert_same_agency(entity_agency_id=record_agency_id, expected_agency_id=agency_id)
     return record
+
+
+def _normalize_optional_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    cleaned = value.strip()
+    return cleaned or None
+
+
+def get_agency_profile(db: Session, *, agency_id: str) -> Agency:
+    agency = db.get(Agency, agency_id)
+    if agency is None:
+        raise NOT_FOUND
+    return agency
+
+
+def update_agency_business_address(
+    db: Session,
+    *,
+    agency_id: str,
+    business_address_line_1: str | None = None,
+    business_address_line_2: str | None = None,
+    business_city: str | None = None,
+    business_state_or_province: str | None = None,
+    business_postal_code: str | None = None,
+    business_country: str | None = None,
+) -> Agency:
+    agency = get_agency_profile(db, agency_id=agency_id)
+    agency.business_address_line_1 = _normalize_optional_text(business_address_line_1)
+    agency.business_address_line_2 = _normalize_optional_text(business_address_line_2)
+    agency.business_city = _normalize_optional_text(business_city)
+    agency.business_state_or_province = _normalize_optional_text(business_state_or_province)
+    agency.business_postal_code = _normalize_optional_text(business_postal_code)
+    agency.business_country = _normalize_optional_text(business_country)
+    db.commit()
+    db.refresh(agency)
+    return agency

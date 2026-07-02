@@ -279,6 +279,7 @@ export const TASK_KEY_DRAFT_RESEARCH_COMMUNICATION = "draft_research_communicati
 export const TASK_KEY_SEND_RESEARCH_COMMUNICATION = "send_research_communication";
 export const TASK_KEY_FOLLOW_UP_RESEARCH = "follow_up_research";
 export const TASK_KEY_CLIENT_RESPONSE = "client_response";
+export const TASK_KEY_ACCEPT_MASTER_TERMS = "accept_master_terms_and_conditions";
 export const TASK_KEY_VERIFY_PASSENGER_DETAILS = "verify_passenger_details";
 export const TASK_KEY_COLLECT_PASSENGER_ADDRESSES = "collect_passenger_addresses";
 export const TASK_KEY_CREATE_CABIN_HOLDS = "create_cabin_holds";

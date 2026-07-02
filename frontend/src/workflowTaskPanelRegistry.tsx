@@ -10,6 +10,7 @@ import DraftResearchCommunicationTaskPanel from "./DraftResearchCommunicationTas
 import FollowUpResearchTaskPanel from "./FollowUpResearchTaskPanel";
 import {
   LEGACY_TASK_KEY_COLLECT_LEAD_PASSENGER_ADDRESSES,
+  TASK_KEY_ACCEPT_MASTER_TERMS,
   TASK_KEY_CLIENT_RESPONSE,
   TASK_KEY_COLLECT_PAYMENT_AND_SEND_BOOKING,
   TASK_KEY_COLLECT_PASSENGER_ADDRESSES,
@@ -23,6 +24,7 @@ import {
   TASK_KEY_UPLOAD_RESEARCH_DOCUMENT,
   TASK_KEY_VERIFY_PASSENGER_DETAILS,
 } from "./formOptions";
+import MasterTermsTaskPanel from "./MasterTermsTaskPanel";
 import ProposedCruisesTaskPanel from "./ProposedCruisesTaskPanel";
 import RecordClientResponseTaskPanel from "./RecordClientResponseTaskPanel";
 import ResearchTaskBriefPanel from "./ResearchTaskBriefPanel";
@@ -147,6 +149,18 @@ export const WORKFLOW_TASK_PANEL_REGISTRY: Record<string, WorkflowTaskPanelDefin
           onSaved={context.onSaved}
         />
       ) : null,
+  },
+  [TASK_KEY_ACCEPT_MASTER_TERMS]: {
+    showGuidanceWhenReadOnly: true,
+    render: (context) => (
+      <MasterTermsTaskPanel
+        requestId={context.request.id}
+        disabled={context.disabled}
+        isDone={context.isDone}
+        onChanged={context.onChanged}
+        onError={context.onError}
+      />
+    ),
   },
   [TASK_KEY_VERIFY_PASSENGER_DETAILS]: {
     usesCustomSave: true,

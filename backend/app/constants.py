@@ -315,6 +315,7 @@ COMMUNICATION_TYPE_RESEARCH_FOLLOW_UP = "research_follow_up"
 COMMUNICATION_TYPE_BOOKING = "booking_confirmation"
 COMMUNICATION_TYPE_AGENCY = "agency_follow_up"
 COMMUNICATION_TYPE_CC_AUTH = "cc_authorization"
+COMMUNICATION_TYPE_MASTER_TERMS = "master_terms"
 COMMUNICATION_TYPES = [
     COMMUNICATION_TYPE_RESEARCH_FINDINGS,
     COMMUNICATION_TYPE_RESEARCH_PROPOSAL,
@@ -322,6 +323,7 @@ COMMUNICATION_TYPES = [
     COMMUNICATION_TYPE_BOOKING,
     COMMUNICATION_TYPE_AGENCY,
     COMMUNICATION_TYPE_CC_AUTH,
+    COMMUNICATION_TYPE_MASTER_TERMS,
 ]
 
 CC_AUTH_STATUS_PENDING = "pending"
@@ -335,3 +337,77 @@ CC_AUTH_STATUSES = [
 
 CC_AUTH_TTL_HOURS = 48
 CC_AUTH_EMAIL_SUBJECT = "Secure Action Required: Credit Card Authorization for your upcoming sailing"
+
+# Master Terms & Conditions (clickwrap)
+TC_STATUS_ACCEPTED = "accepted"
+TC_STATUS_REVOKED = "revoked"
+TC_STATUSES = [TC_STATUS_ACCEPTED, TC_STATUS_REVOKED]
+
+TC_REQUEST_STATUS_PENDING = "pending"
+TC_REQUEST_STATUS_COMPLETED = "completed"
+TC_REQUEST_STATUS_EXPIRED = "expired"
+TC_REQUEST_STATUSES = [
+    TC_REQUEST_STATUS_PENDING,
+    TC_REQUEST_STATUS_COMPLETED,
+    TC_REQUEST_STATUS_EXPIRED,
+]
+
+TC_TTL_HOURS = 48
+TC_EMAIL_SUBJECT = "Action Required: Review and Accept Master Terms & Conditions"
+
+MASTER_TERMS_DEFAULT_BUSINESS_NAME = "Cruise Seakers Travel LLC"
+MASTER_TERMS_DEFAULT_GOVERNING_LAW_STATE = "Utah"
+
+MASTER_TERMS_BOILERPLATE_TEMPLATE = """{business_name} — MASTER TERMS AND CONDITIONS
+
+(Applicable to Current and All Future Cruise Bookings)
+
+This Master Terms and Conditions Agreement (the "Agreement") constitutes a binding legal contract between {business_name} ("the Agency") and the undersigned traveler and/or booking party ("the Client").
+
+SCOPE OF AGREEMENT: This Agreement governs all travel planning, consultation, and booking services provided by the Agency to the Client, whether for the initial booking or any subsequent cruise bookings made hereafter. By signing below, the Client explicitly agrees that these terms apply to the current transaction and shall remain in full force and effect for all future bookings made through the Agency, unless explicitly terminated or amended in writing.
+
+1. Agency Disclosure and Role
+
+{business_name} acts solely as an independent booking intermediary for third-party cruise lines and associated suppliers (the "Cruise Line"). The Agency does not own, manage, or operate any cruise ships, shore excursions, or ground transportation. All bookings are subject to the specific guest ticket contract, rules, policies, terms, and conditions issued by the individual Cruise Line.
+
+2. Cruise Line Contracts and Rules
+
+By completing a booking through the Agency, the Client acknowledges and agrees that they are independently bound by the Cruise Line's passenger ticket contract. The Cruise Line retains the absolute right to alter itineraries, change ports of call, substitute vessels, or cancel sailings at any time for any reason. {business_name} assumes no responsibility or financial liability for any such changes, schedule disruptions, or cancellations.
+
+3. Pricing, Deposits, and Promotions
+
+Price Volatility: Cruise pricing, cabin availability, and promotional offers change frequently. Fares and specific cabin categories are not guaranteed until the required deposit is successfully paid and fully processed by the Cruise Line.
+
+Special Promotions: Any promotional perks (including but not limited to beverage packages, onboard credit, wifi, or pre-paid gratuities) are subject strictly to the Cruise Line's specific eligibility requirements, terms, and limitations.
+
+{governing_law_state} Governing Law & Forum Selection: This Agreement shall be governed by, construed, and enforced in accordance with the laws of the State of {governing_law_state}. Any dispute, claim, or legal action between the Client and {business_name} shall be resolved exclusively in a court of competent jurisdiction located within the State of {governing_law_state}.
+
+4. Fees, Schedules, and Payments
+
+Deposits: All deposits are subject to the specific cancellation and refund policies enforced by the booked Cruise Line.
+
+No Agency Refunds: {business_name} does not charge standalone planning or booking fees; however, the Agency is not responsible for reimbursing any funds, penalties, or losses imposed by the Cruise Line due to client cancellation or modification.
+
+Final Payment Deadlines: Final payment deadlines are strictly enforced by the Cruise Line. Failure to remit full payment by the established deadline will result in automatic booking cancellation by the Cruise Line and the complete forfeiture of all previous payments and deposits.
+
+5. Boarding Requirements and Travel Documents
+
+Passport Validity: Passports must be valid for at least six (6) months beyond the scheduled cruise return date.
+
+Closed-Loop Cruises: For cruises starting and ending at the exact same U.S. port, specific government identification rules apply (such as a certified, state-issued birth certificate alongside a government-issued photo ID). The Client is solely responsible for confirming, obtaining, and bringing the exact documentation required for their specific itinerary.
+
+Denial of Boarding: {business_name} assumes zero financial liability or responsibility if the Cruise Line, customs officials, or port authorities deny boarding to any traveler due to invalid documentation, health status, or behavioral issues.
+
+6. Travel Insurance Acknowledgment and Waiver
+
+Because Cruise Line cancellation penalties are highly restrictive and strictly enforced, {business_name} strongly advises the purchase of comprehensive travel insurance. By signing below or proceeding with a booking without coverage, the Client acknowledges they have been offered travel insurance and voluntarily decline it. The Client accepts full financial responsibility for any losses resulting from trip cancellation, medical emergencies at sea, missed port connections, or lost luggage.
+
+7. Term, Future Bookings, and Amendments
+
+Continuous Effect: This Agreement applies to all cruise bookings, revisions, or additions requested by the Client at any time following the date of execution. A new signature is not required for each individual booking.
+
+Client Right to Review: For each future booking, the Client will receive a booking confirmation invoice. It is the Client's responsibility to review the specific cruise line policies, payment schedules, and passport requirements tied to that specific itinerary.
+
+Amendments: {business_name} reserves the right to amend these Master Terms at any time. If updates are made, the Agency will notify the Client via email or provide the updated terms with the next booking confirmation invoice. Continued use of the Agency's services after notification constitutes acceptance of the amended terms."""
+
+

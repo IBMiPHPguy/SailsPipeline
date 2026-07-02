@@ -5,6 +5,12 @@ CREATE TABLE IF NOT EXISTS agencies (
     organization_handle VARCHAR(50) NOT NULL,
     subscription_state VARCHAR(40) NOT NULL DEFAULT 'Active',
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    business_address_line_1 VARCHAR(120) NULL,
+    business_address_line_2 VARCHAR(120) NULL,
+    business_city VARCHAR(80) NULL,
+    business_state_or_province VARCHAR(50) NULL,
+    business_postal_code VARCHAR(20) NULL,
+    business_country VARCHAR(80) NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT uq_agencies_organization_handle UNIQUE (organization_handle)

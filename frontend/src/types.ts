@@ -122,6 +122,27 @@ export type AgencyTeamSummary = {
   invitations: AgencyPendingInvite[];
 };
 
+export type AgencyProfile = {
+  id: string;
+  name: string;
+  organization_handle: string;
+  business_address_line_1?: string | null;
+  business_address_line_2?: string | null;
+  business_city?: string | null;
+  business_state_or_province?: string | null;
+  business_postal_code?: string | null;
+  business_country?: string | null;
+};
+
+export type AgencyBusinessAddressUpdate = {
+  business_address_line_1?: string | null;
+  business_address_line_2?: string | null;
+  business_city?: string | null;
+  business_state_or_province?: string | null;
+  business_postal_code?: string | null;
+  business_country?: string | null;
+};
+
 export type AgencyInviteCreate = {
   invite_email: string;
   role?: UserRole;

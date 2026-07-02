@@ -1,12 +1,14 @@
+import { useEffect, useState } from "react";
 import { getCrmEntryProposedCruises } from "./crmEntrySummary";
 import type { RequestTask, TravelRequestDetail, TravelRequestInput } from "./types";
+import { fetchTermsStatusForRequest } from "./termsApi";
 import { getActiveWorkflow, getTaskDisplayStatus, getTaskWorkspaceHint, taskDisplayStatusClass } from "./workflowForm";
 import {
   getWorkflowTaskPanelDefinition,
   taskUsesCustomSave,
   type WorkflowTaskPanelContext,
 } from "./workflowTaskPanelRegistry";
-import { TASK_STATUS_DONE } from "./formOptions";
+import { TASK_KEY_ACCEPT_MASTER_TERMS, TASK_STATUS_DONE } from "./formOptions";
 import { formatTimestamp } from "./utils";
 
 type WorkflowTaskModalProps = {
@@ -57,6 +59,35 @@ export default function WorkflowTaskModal({
   onError,
   onCloseRequest,
 }: WorkflowTaskModalProps) {
+  const isMasterTermsTask = task?.task_key === TASK_KEY_ACCEPT_MASTER_TERMS;
+  const [masterTermsOnFile, setMasterTermsOnFile] = useState(false);
+
+  useEffect(() => {
+    if (!open || !task || !isMasterTermsTask) {
+      setMasterTermsOnFile(false);
+      return;
+    }
+
+    let cancelled = false;
+    async function loadMasterTermsStatus() {
+      try {
+        const status = await fetchTermsStatusForRequest(request.id);
+        if (!cancelled) {
+          setMasterTermsOnFile(Boolean(status.on_file));
+        }
+      } catch {
+        if (!cancelled) {
+          setMasterTermsOnFile(false);
+        }
+      }
+    }
+
+    void loadMasterTermsStatus();
+    return () => {
+      cancelled = true;
+    };
+  }, [isMasterTermsTask, open, request.id, task]);
+
   if (!open || !task) {
     return null;
   }
@@ -94,6 +125,8 @@ export default function WorkflowTaskModal({
   const showFallbackGuidance =
     workspaceHint &&
     (panelDefinition === null || (panelDefinition.showGuidanceWhenReadOnly && (isDone || disabled)));
+
+  const showReopenTask = !disabled && isDone && !(isMasterTermsTask && masterTermsOnFile);
 
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
@@ -137,7 +170,7 @@ export default function WorkflowTaskModal({
           <button type="button" className="modal-secondary" disabled={saving} onClick={onClose}>
             Close
           </button>
-          {!disabled && isDone ? (
+          {showReopenTask ? (
             <button type="button" className="modal-secondary" disabled={saving} onClick={() => void onReopen()}>
               {saving ? "Updating..." : "Reopen task"}
             </button>

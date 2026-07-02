@@ -1,6 +1,7 @@
 import { StrictMode, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { readCcAuthTokenFromPath } from "./ccAuthApi";
+import { readTermsTokenFromPath } from "./termsApi";
 import App from "./App";
 import "./index.css";
 
@@ -9,6 +10,7 @@ const OnboardingRegisterPage = lazy(() => import("./OnboardingRegisterPage"));
 const RegisterAgentPage = lazy(() => import("./RegisterAgentPage"));
 const SubscriptionRestorePage = lazy(() => import("./SubscriptionRestorePage"));
 const CcAuthPortalPage = lazy(() => import("./CcAuthPortalPage"));
+const TermsPortalPage = lazy(() => import("./TermsPortalPage"));
 
 function resolvePathname(): string {
   return window.location.pathname.replace(/\/+$/, "") || "/";
@@ -55,6 +57,15 @@ function RootRouter() {
     return (
       <Suspense fallback={<RouteFallback />}>
         <SubscriptionRestorePage />
+      </Suspense>
+    );
+  }
+
+  if (path.startsWith("/accept-terms/")) {
+    const token = readTermsTokenFromPath(path);
+    return (
+      <Suspense fallback={<RouteFallback />}>
+        <TermsPortalPage token={token} />
       </Suspense>
     );
   }
