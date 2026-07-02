@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import AgencyBusinessProfileCard from "./AgencyBusinessProfileCard";
 import ChickenSwitchModal from "./ChickenSwitchModal";
 import DeactivateIcon from "./DeactivateIcon";
 import EditIcon from "./EditIcon";
@@ -224,6 +225,8 @@ export default function TeamPage({ currentUser }: TeamPageProps) {
 
   return (
     <div className="team-page-grid">
+      <AgencyBusinessProfileCard />
+
       <section className="card section-card team-invite-card">
         <header className="section-card-header">
           <h3>Invite team member</h3>

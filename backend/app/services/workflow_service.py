@@ -12,6 +12,7 @@ from app.constants import (
     WORKFLOW_STATUS_ACTIVE,
     WORKFLOW_STATUS_COMPLETED,
     WORKFLOW_STATUS_TERMINATED,
+    WORKFLOW_TYPE_ENTER_TRIP_CRM,
 )
 from app.models import AgencyTaskTemplate, AgencyWorkflowTemplate, RequestTaskLive, RequestWorkflowLive, TravelRequest, User
 from app.schemas import (
@@ -229,6 +230,10 @@ def start_workflow(
         current_user=current_user,
         parent_workflow_live_id=parent_workflow_live_id,
     )
+    if template.workflow_type_key == WORKFLOW_TYPE_ENTER_TRIP_CRM:
+        from app.services.tc_workflow_service import sync_master_terms_tasks_for_request
+
+        sync_master_terms_tasks_for_request(db, travel_request_id=request.id)
     touch_request(request, current_user)
     db.commit()
     return load_workflow(db, workflow.id)

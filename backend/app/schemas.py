@@ -259,6 +259,45 @@ class AgencyTeamSummary(BaseModel):
     invitations: list[AgencyPendingInvite]
 
 
+class AgencyProfileRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    name: str
+    organization_handle: str
+    business_address_line_1: str | None = None
+    business_address_line_2: str | None = None
+    business_city: str | None = None
+    business_state_or_province: str | None = None
+    business_postal_code: str | None = None
+    business_country: str | None = None
+
+
+class AgencyBusinessAddressUpdate(BaseModel):
+    business_address_line_1: str | None = Field(default=None, max_length=120)
+    business_address_line_2: str | None = Field(default=None, max_length=120)
+    business_city: str | None = Field(default=None, max_length=80)
+    business_state_or_province: str | None = Field(default=None, max_length=50)
+    business_postal_code: str | None = Field(default=None, max_length=20)
+    business_country: str | None = Field(default=None, max_length=80)
+
+    @model_validator(mode="after")
+    def validate_at_least_one_field(self) -> "AgencyBusinessAddressUpdate":
+        if not any(
+            value is not None
+            for value in (
+                self.business_address_line_1,
+                self.business_address_line_2,
+                self.business_city,
+                self.business_state_or_province,
+                self.business_postal_code,
+                self.business_country,
+            )
+        ):
+            raise ValueError("At least one business address field must be provided.")
+        return self
+
+
 class AgentInviteRead(BaseModel):
     agency_name: str
     organization_handle: str
@@ -1519,6 +1558,43 @@ class CcAuthPurgeResponse(BaseModel):
     authorization_id: str
     status: str
     card_data_purged: bool
+
+
+class SendMasterTermsEmailRequest(BaseModel):
+    travel_request_id: int = Field(gt=0)
+
+
+class SendMasterTermsEmailResponse(BaseModel):
+    message: str
+    portal_url: str
+    email_sent: bool
+    recipient: str
+
+
+class TermsValidateResponse(BaseModel):
+    valid: bool
+    passenger_name: str
+    passenger_email: str
+    agency_name: str
+    terms_text: str
+    expires_at: str
+    request_id: str
+
+
+class TermsAcceptResponse(BaseModel):
+    message: str
+    accepted: bool
+
+
+class TermsRequestStatusResponse(BaseModel):
+    on_file: bool
+    client_id: int
+    agency_id: str
+    travel_request_id: int | None = None
+    accepted_at: str | None = None
+    version_hash: str | None = None
+    ip_address: str | None = None
+    task_auto_completed: bool = False
 
 
 class ResearchDocumentRead(BaseModel):

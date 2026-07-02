@@ -1,11 +1,37 @@
 import { apiFetch, API_BASE, authHeaders, parseApiError } from "./apiClient";
 import type {
+  AgencyBusinessAddressUpdate,
   AgencyInviteCreate,
   AgencyInviteCreated,
+  AgencyProfile,
   AgencyTeamSummary,
   AgencyUserUpdate,
   User,
 } from "./types";
+
+export async function fetchAgencyProfile(): Promise<AgencyProfile> {
+  const response = await apiFetch(`${API_BASE}/agency/profile`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to load agency profile."));
+  }
+  return response.json();
+}
+
+export async function updateAgencyBusinessAddress(
+  payload: AgencyBusinessAddressUpdate,
+): Promise<AgencyProfile> {
+  const response = await apiFetch(`${API_BASE}/agency/profile`, {
+    method: "PATCH",
+    headers: authHeaders(true),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to update agency business address."));
+  }
+  return response.json();
+}
 
 export async function fetchAgencyTeam(): Promise<AgencyTeamSummary> {
   const response = await apiFetch(`${API_BASE}/agency/team`, {

@@ -7,9 +7,11 @@ from app.deps import get_current_user, require_tenant_super_user
 from app.models import User
 from app.rate_limit import limiter
 from app.schemas import (
+    AgencyBusinessAddressUpdate,
     AgencyInviteCreate,
     AgencyInviteCreated,
     AgencyPendingInvite,
+    AgencyProfileRead,
     AgencyTeamMember,
     AgencyTeamSummary,
     AgencyUserUpdate,
@@ -22,8 +24,37 @@ from app.services.agency_invite_service import (
     get_agency_team,
     update_agency_user,
 )
+from app.services.agency_service import get_agency_profile, update_agency_business_address
 
 router = APIRouter(prefix="/api/agency", tags=["agency"])
+
+
+@router.get("/profile", response_model=AgencyProfileRead)
+def read_agency_profile(
+    current_user: User = Depends(require_tenant_super_user),
+    db: Session = Depends(get_db),
+) -> AgencyProfileRead:
+    agency = get_agency_profile(db, agency_id=current_user.agency_id)
+    return AgencyProfileRead.model_validate(agency)
+
+
+@router.patch("/profile", response_model=AgencyProfileRead)
+def patch_agency_business_address(
+    payload: AgencyBusinessAddressUpdate,
+    current_user: User = Depends(require_tenant_super_user),
+    db: Session = Depends(get_db),
+) -> AgencyProfileRead:
+    agency = update_agency_business_address(
+        db,
+        agency_id=current_user.agency_id,
+        business_address_line_1=payload.business_address_line_1,
+        business_address_line_2=payload.business_address_line_2,
+        business_city=payload.business_city,
+        business_state_or_province=payload.business_state_or_province,
+        business_postal_code=payload.business_postal_code,
+        business_country=payload.business_country,
+    )
+    return AgencyProfileRead.model_validate(agency)
 
 
 @router.get("/team", response_model=AgencyTeamSummary)

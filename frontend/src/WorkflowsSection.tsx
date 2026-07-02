@@ -1,9 +1,11 @@
 import { FormEvent, useEffect, useState } from "react";
 import { fetchWorkflowTemplates, startWorkflow, updateTask, updateWorkflow, uploadResearchDocument } from "./api";
+import { fetchTermsStatusForRequest } from "./termsApi";
 import WorkflowTaskModal from "./WorkflowTaskModal";
 import type { RequestTask, RequestWorkflow, TravelRequestDetail, TravelRequestInput, WorkflowTemplate } from "./types";
 import { formatTimestamp } from "./utils";
 import {
+  TASK_KEY_ACCEPT_MASTER_TERMS,
   TASK_KEY_FOLLOW_UP_RESEARCH,
   TASK_STATUS_DONE,
   TASK_STATUS_OPEN,
@@ -151,6 +153,38 @@ export default function WorkflowsSection({
   }
 
   const openTaskCount = activeWorkflow ? countOpenTasks(activeWorkflow) : 0;
+
+  const pendingMasterTermsTask = activeWorkflow?.tasks.find(
+    (task) => task.task_key === TASK_KEY_ACCEPT_MASTER_TERMS && task.status !== TASK_STATUS_DONE,
+  );
+
+  useEffect(() => {
+    if (!pendingMasterTermsTask || disabled) {
+      return;
+    }
+
+    let cancelled = false;
+    async function pollMasterTermsStatus() {
+      try {
+        const status = await fetchTermsStatusForRequest(requestId);
+        if (!cancelled && (status.on_file || status.task_auto_completed)) {
+          await onChanged();
+        }
+      } catch {
+        // Ignore transient polling errors; the agent can still refresh manually.
+      }
+    }
+
+    void pollMasterTermsStatus();
+    const intervalId = window.setInterval(() => {
+      void pollMasterTermsStatus();
+    }, 8000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [disabled, onChanged, pendingMasterTermsTask, requestId]);
 
   async function handleTaskStatus(taskId: string, status: string) {
     setSavingTask(true);

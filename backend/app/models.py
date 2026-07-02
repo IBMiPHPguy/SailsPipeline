@@ -24,6 +24,12 @@ class Agency(Base):
         String(40), nullable=False, default=SUBSCRIPTION_STATE_ACTIVE, index=True
     )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    business_address_line_1: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    business_address_line_2: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    business_city: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    business_state_or_province: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
+    business_postal_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    business_country: Mapped[str | None] = mapped_column(String(80), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
@@ -276,6 +282,11 @@ class TravelRequest(Base):
         back_populates="travel_request",
         cascade="all, delete-orphan",
         order_by="CreditCardAuthorization.created_at.desc()",
+    )
+    client_terms_requests: Mapped[list["ClientTermsRequest"]] = relationship(
+        back_populates="travel_request",
+        cascade="all, delete-orphan",
+        order_by="ClientTermsRequest.created_at.desc()",
     )
 
 
@@ -1006,6 +1017,58 @@ class CreditCardAuthorization(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     travel_request: Mapped["TravelRequest"] = relationship(back_populates="credit_card_authorizations")
+
+
+class ClientTermsAgreement(Base):
+    __tablename__ = "client_terms_agreements"
+    __table_args__ = (
+        UniqueConstraint("agency_id", "client_id", name="uq_client_terms_agreements_agency_client"),
+        Index("idx_client_terms_agreements_agency_status", "agency_id", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    agency_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("agencies.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    client_id: Mapped[int] = mapped_column(ForeignKey("passengers.id", ondelete="CASCADE"), nullable=False, index=True)
+    travel_request_id: Mapped[int | None] = mapped_column(
+        ForeignKey("travel_requests.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    status: Mapped[str] = mapped_column(String(40), nullable=False, default="accepted")
+    accepted_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    version_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    client: Mapped["Passenger"] = relationship()
+    travel_request: Mapped["TravelRequest | None"] = relationship()
+
+
+class ClientTermsRequest(Base):
+    __tablename__ = "client_terms_requests"
+    __table_args__ = (
+        Index("idx_client_terms_requests_status_expires", "status", "expires_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    agency_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("agencies.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    client_id: Mapped[int] = mapped_column(ForeignKey("passengers.id", ondelete="CASCADE"), nullable=False, index=True)
+    travel_request_id: Mapped[int] = mapped_column(
+        ForeignKey("travel_requests.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    secure_token: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    status: Mapped[str] = mapped_column(String(40), nullable=False, default="pending")
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    travel_request: Mapped["TravelRequest"] = relationship(back_populates="client_terms_requests")
+    client: Mapped["Passenger"] = relationship()
 
 
 class AgencyEmailLog(Base):

@@ -8478,6 +8478,32 @@ button.modal-ghost:hover:not(:disabled) {
   align-items: start;
 }
 
+.agency-business-profile-card {
+  grid-column: 1 / -1;
+  padding: 0;
+  overflow: hidden;
+}
+
+.agency-business-profile-form {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.agency-business-profile-name {
+  margin: 0 0 0.25rem;
+}
+
+.agency-business-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.agency-business-profile-form label {
+  display: grid;
+  gap: 0.35rem;
+}
+
 .team-invite-card,
 .team-members-card,
 .team-pending-card {
@@ -8635,6 +8661,10 @@ button.modal-ghost:hover:not(:disabled) {
 
 @media (max-width: 960px) {
   .team-page-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .agency-business-profile-grid {
     grid-template-columns: 1fr;
   }
 }

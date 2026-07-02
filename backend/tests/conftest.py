@@ -200,6 +200,30 @@ def _ensure_agency_email_logs_schema(engine) -> None:
         Base.metadata.create_all(bind=engine, tables=[AgencyEmailLog.__table__])
 
 
+def _ensure_agency_business_address_schema(engine) -> None:
+    database_url = os.environ["DATABASE_URL"]
+    if database_url.startswith("sqlite"):
+        return
+
+    inspector = inspect(engine)
+    if "agencies" not in inspector.get_table_names():
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("agencies")}
+    additions = [
+        ("business_address_line_1", "VARCHAR(120) NULL"),
+        ("business_address_line_2", "VARCHAR(120) NULL"),
+        ("business_city", "VARCHAR(80) NULL"),
+        ("business_state_or_province", "VARCHAR(50) NULL"),
+        ("business_postal_code", "VARCHAR(20) NULL"),
+        ("business_country", "VARCHAR(80) NULL"),
+    ]
+    with engine.begin() as connection:
+        for column_name, column_type in additions:
+            if column_name not in columns:
+                connection.execute(text(f"ALTER TABLE agencies ADD COLUMN {column_name} {column_type}"))
+
+
 def _ensure_credit_card_authorizations_schema(engine) -> None:
     database_url = os.environ["DATABASE_URL"]
     if database_url.startswith("sqlite"):
@@ -243,6 +267,7 @@ def engine():
         _ensure_workflow_engine_schema(test_engine)
         _ensure_agency_groups_schema(test_engine)
         _ensure_agency_email_logs_schema(test_engine)
+        _ensure_agency_business_address_schema(test_engine)
         _ensure_credit_card_authorizations_schema(test_engine)
     yield test_engine
     if database_url.startswith("sqlite"):

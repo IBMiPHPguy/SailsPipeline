@@ -98,34 +98,40 @@ WORKFLOW_TASK_TEMPLATES: dict[str, list[WorkflowTaskTemplate]] = {
     ],
     WORKFLOW_TYPE_ENTER_TRIP_CRM: [
         WorkflowTaskTemplate(
+            "accept_master_terms_and_conditions",
+            "Master Terms & Conditions",
+            "Verify or collect the client's signed Master Terms & Conditions before continuing.",
+            1,
+        ),
+        WorkflowTaskTemplate(
             "verify_passenger_details",
             "Verify passenger details",
             "Verify names, dates of birth, and contact information for each passenger.",
-            1,
+            2,
         ),
         WorkflowTaskTemplate(
             "collect_passenger_addresses",
             "Collect passenger addresses",
             "Collect the primary passenger's home address. Other passenger addresses are optional.",
-            2,
+            3,
         ),
         WorkflowTaskTemplate(
             "create_cabin_holds",
             "Create cabin holds with cruise lines",
             "Enter cruise line reservation IDs for each cabin on this request.",
-            3,
+            4,
         ),
         WorkflowTaskTemplate(
             "collect_payment_and_send_booking_communication",
             "Collect deposit or final payment and send cruise line communications",
             "Collect payment for each cabin hold, send booking communications, then mark this task done.",
-            4,
+            5,
         ),
         WorkflowTaskTemplate(
             "create_trip_in_crm",
             "Enter Trip in CRM",
             "Create the trip and bookings in your agency CRM, send the agency invoice, then check off each step below.",
-            5,
+            6,
         ),
     ],
 }
