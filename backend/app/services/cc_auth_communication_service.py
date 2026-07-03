@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.agency_email_branding import load_agency_email_branding
 from app.cc_auth_email import CC_AUTH_CONTENT_END, CC_AUTH_CONTENT_START, build_cc_auth_email_html
 from app.cc_auth_helpers import build_cc_auth_cruise_summaries
 from app.constants import (
@@ -10,7 +11,7 @@ from app.constants import (
     COMMUNICATION_TYPE_CC_AUTH,
     PROPOSED_CRUISE_STATUS_ACCEPTED,
 )
-from app.models import Agency, ProposedCruise, TravelRequest, User
+from app.models import ProposedCruise, TravelRequest, User
 from app.services.cc_auth_service import CCAuthService
 from app.services.email_service import EmailDeliveryService, render_email_base_html
 
@@ -58,20 +59,22 @@ async def send_cc_auth_email(
     portal_url = await auth_service.create_auth_request(request.id)
 
     passenger_name = f"{request.first_name} {request.last_name}".strip()
+    branding = load_agency_email_branding(db, agency_id=request.agency_id)
     inner_content = build_cc_auth_email_html(
         passenger_name=passenger_name,
+        agency_name=branding.agency_name,
         cruises=cruise_summaries,
         total_deposit_due=total_deposit,
         portal_url=portal_url,
+        primary_color=branding.primary_color,
+        primary_text_color=branding.primary_text_color,
     )
     inner_html = _extract_cc_auth_inner_content(inner_content)
 
-    agency = db.get(Agency, request.agency_id)
-    agency_name = agency.name if agency else "Your travel agency"
     html_content = render_email_base_html(
         content=inner_html,
         agent_name=current_user.username,
-        agency_name=agency_name,
+        branding=branding,
     )
 
     email_service = EmailDeliveryService(db)

@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from email.utils import parseaddr
 
+from app.agency_email_branding import AgencyEmailBranding
 from app.branding import BRAND_NAME
 from app.config import Settings
 from app.email_config import (
@@ -143,17 +144,47 @@ def test_extract_communication_html_content_returns_fragment_as_is():
     assert extract_communication_html_content(fragment) == fragment
 
 
+def _sample_email_branding(**overrides) -> AgencyEmailBranding:
+    base = {
+        "agency_id": DEFAULT_AGENCY_ID,
+        "agency_name": "Ocean & Voyages",
+        "brand_logo_url": None,
+        "brand_logo_absolute_url": None,
+        "primary_color": "#0d5c75",
+        "secondary_color": "#17a2b8",
+        "primary_text_color": "#ffffff",
+        "email_signature_block": None,
+    }
+    base.update(overrides)
+    return AgencyEmailBranding(**base)
+
+
 def test_render_email_base_html_escapes_agent_and_agency_names():
     html = render_email_base_html(
         content="<p>Body</p>",
         agent_name='Jane <script>alert("x")</script>',
-        agency_name="Ocean & Voyages",
+        branding=_sample_email_branding(agency_name="Ocean & Voyages"),
     )
 
     assert "<script>" not in html
     assert "Jane &lt;script&gt;" in html
     assert "Ocean &amp; Voyages" in html
     assert "<p>Body</p>" in html
+
+
+def test_render_email_base_html_includes_signature_and_branded_header():
+    html = render_email_base_html(
+        content="<p>Body</p>",
+        agent_name="Jane Agent",
+        branding=_sample_email_branding(
+            agency_name="Cruise Seakers Travel LLC",
+            email_signature_block="<p>Best regards,<br/>Jane</p>",
+        ),
+    )
+
+    assert "Cruise Seakers Travel LLC" in html
+    assert "Best regards" in html
+    assert BRAND_NAME in html
 
 
 # --- Header construction ---

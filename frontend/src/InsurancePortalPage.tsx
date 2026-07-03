@@ -1,8 +1,10 @@
 import { FormEvent, useEffect, useState } from "react";
+import PortalBrandingHeader from "./PortalBrandingHeader";
 import { signInsuranceWaiver, validateInsuranceWaiverToken } from "./insuranceApi";
 import type { InsuranceWaiverValidateResponse } from "./insuranceApi";
-import { BRAND_APP_TITLE, BRAND_NAME } from "./branding";
+import { portalAgencyName, portalBrandingStyle } from "./portalBranding";
 import "./bridge-portal.css";
+import "./portal-branding.css";
 import "./insurance-portal.css";
 
 type InsurancePortalPageProps = {
@@ -103,17 +105,13 @@ export default function InsurancePortalPage({ token }: InsurancePortalPageProps)
   }
 
   return (
-    <main className="page auth-page insurance-portal-page">
+    <main className="page auth-page insurance-portal-page" style={portalBrandingStyle(portal?.branding)}>
       <section className="card bridge-card insurance-portal-card">
-        <header className="bridge-card-header insurance-portal-header">
-          <div className="insurance-portal-brand">
-            <img src="/sailspipeline-logo.png" alt={BRAND_APP_TITLE} className="auth-logo" />
-            <div>
-              <h1>Travel Protection Declination</h1>
-              <p className="muted">Secure client portal · {BRAND_NAME}</p>
-            </div>
-          </div>
-        </header>
+        <PortalBrandingHeader
+          branding={portal?.branding}
+          title="Travel Protection Declination"
+          className="insurance-portal-header"
+        />
 
         <div className="bridge-card-body insurance-portal-body">
           {loading ? <p className="muted">Verifying your secure waiver link…</p> : null}
@@ -136,8 +134,8 @@ export default function InsurancePortalPage({ token }: InsurancePortalPageProps)
                   Hello <strong>{portal.passenger_name}</strong>,
                 </p>
                 <p>
-                  {portal.agency_name} requires your electronic signature on the declination waiver below because you
-                  have chosen not to purchase travel protection for this cruise.
+                  {portalAgencyName(portal.branding, portal.agency_name)} requires your electronic signature on the
+                  declination waiver below because you have chosen not to purchase travel protection for this cruise.
                 </p>
                 <p className="insurance-portal-expiry muted">Link expires: {formatExpiryDate(portal.expires_at)}</p>
               </section>

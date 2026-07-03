@@ -3,13 +3,14 @@ from __future__ import annotations
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.agency_email_branding import load_agency_email_branding
 from app.constants import COMMUNICATION_TYPE_INSURANCE_WAIVER, INSURANCE_WAIVER_EMAIL_SUBJECT
 from app.insurance_email import (
     INSURANCE_WAIVER_CONTENT_END,
     INSURANCE_WAIVER_CONTENT_START,
     build_insurance_waiver_email_html,
 )
-from app.models import Agency, TravelRequest, User
+from app.models import TravelRequest, User
 from app.services.email_service import EmailDeliveryService, render_email_base_html
 from app.services.insurance_service import InsuranceService
 
@@ -35,19 +36,20 @@ async def send_insurance_waiver_email(
     portal_url = await insurance_service.create_waiver_request(request.id)
 
     passenger_name = f"{request.first_name} {request.last_name}".strip()
-    agency = db.get(Agency, request.agency_id)
-    agency_name = agency.name if agency else "Your travel agency"
+    branding = load_agency_email_branding(db, agency_id=request.agency_id)
 
     inner_content = build_insurance_waiver_email_html(
         passenger_name=passenger_name,
-        agency_name=agency_name,
+        agency_name=branding.agency_name,
         portal_url=portal_url,
+        primary_color=branding.primary_color,
+        primary_text_color=branding.primary_text_color,
     )
     inner_html = _extract_waiver_inner_content(inner_content)
     html_content = render_email_base_html(
         content=inner_html,
         agent_name=current_user.username,
-        agency_name=agency_name,
+        branding=branding,
     )
 
     email_service = EmailDeliveryService(db)

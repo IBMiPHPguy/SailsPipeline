@@ -475,6 +475,7 @@ export type CcAuthValidateResponse = {
   total_deposit_due: string;
   expires_at: string;
   authorization_id: string;
+  branding?: import("./portalBranding").PortalBranding;
 };
 
 export type CcAuthCompleteResponse = {
@@ -862,6 +863,7 @@ export type AppView =
   | { type: "reports" }
   | { type: "report"; reportId: ReportId }
   | { type: "team" }
+  | { type: "agency-settings" }
   | { type: "closed" }
   | { type: "new" }
   | { type: "edit"; requestId: number };
@@ -874,7 +876,8 @@ export type AppNavItem =
   | "group-blocks"
   | "clients"
   | "reports"
-  | "team";
+  | "team"
+  | "agency-settings";
 
 export type MarketingCampaign = {
   id: string;

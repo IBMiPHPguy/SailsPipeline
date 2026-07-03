@@ -16,7 +16,8 @@ from app.constants import (
     TC_STATUS_ACCEPTED,
     TC_TTL_HOURS,
 )
-from app.models import ClientTermsAgreement, ClientTermsRequest, TravelRequest
+from app.models import Agency, ClientTermsAgreement, ClientTermsRequest, TravelRequest
+from app.services.agency_settings_service import resolve_terms_text
 from app.services.passenger_service import get_primary_passenger
 from app.services.tc_workflow_service import complete_open_master_terms_tasks, sync_master_terms_tasks_for_request
 from app.tc_helpers import master_terms_version_hash, render_master_terms_for_agency
@@ -253,4 +254,6 @@ class TCService:
         return True
 
     def render_terms_for_agency(self, *, agency: Agency | None) -> str:
-        return render_master_terms_for_agency(agency)
+        if agency is None:
+            return render_master_terms_for_agency(None)
+        return resolve_terms_text(self.db, agency_id=agency.id, agency=agency)

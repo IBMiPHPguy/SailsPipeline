@@ -19,6 +19,9 @@ import GroupBlockPickerModal from "./GroupBlockPickerModal";
 import GroupBlockRequestPromptModal from "./GroupBlockRequestPromptModal";
 import GroupInventoryBookingModal from "./GroupInventoryBookingModal";
 import TeamPage from "./TeamPage";
+import AgencySettingsPage from "./AgencySettingsPage";
+import AgencyBrandMark from "./AgencyBrandMark";
+import { fetchAgencyBrandingChrome } from "./agencySettingsApi";
 import { formatCruiseLines } from "./CruiseLineMultiSelect";
 import {
   LEAD_SOURCE_MARKETING_CAMPAIGN,
@@ -26,6 +29,7 @@ import {
 } from "./formOptions";
 import { buildQuickNoteInput } from "./noteForm";
 import { BRAND_APP_TITLE, brandedDocumentTitle, REQUEST_DASHBOARD_PAGE_TITLE } from "./branding";
+import { applyCrmBrandingStyles, type PortalBranding } from "./portalBranding";
 import type {
   AgencyGroupInventoryOption,
   AgencyGroupPickerItem,
@@ -85,8 +89,20 @@ function App() {
   const [groupPickerOpen, setGroupPickerOpen] = useState(false);
   const [groupInventoryOpen, setGroupInventoryOpen] = useState(false);
   const [selectedPickerGroup, setSelectedPickerGroup] = useState<AgencyGroupPickerItem | null>(null);
+  const [agencyBranding, setAgencyBranding] = useState<PortalBranding | null>(null);
 
   const newRequestSummary = useMemo(() => formToSummaryPreview(form), [form]);
+
+  async function loadAgencyBranding() {
+    try {
+      const branding = await fetchAgencyBrandingChrome();
+      setAgencyBranding(branding);
+      applyCrmBrandingStyles(branding);
+    } catch {
+      setAgencyBranding(null);
+      applyCrmBrandingStyles(null);
+    }
+  }
 
   function beginStandardNewRequest() {
     setGroupIntakeDraft(null);
@@ -174,6 +190,7 @@ function App() {
       try {
         const user = await fetchCurrentUser();
         setCurrentUser(user);
+        void loadAgencyBranding();
         void loadDashboard();
       } catch {
         setCurrentUser(null);
@@ -193,7 +210,10 @@ function App() {
 
   useEffect(() => {
     if (
-      (view.type === "team" || view.type === "workflows" || view.type === "group-blocks") &&
+      (view.type === "team" ||
+        view.type === "agency-settings" ||
+        view.type === "workflows" ||
+        view.type === "group-blocks") &&
       currentUser &&
       !isTenantSuperUser(currentUser.role)
     ) {
@@ -218,6 +238,10 @@ function App() {
       document.title = brandedDocumentTitle("Team");
       return;
     }
+    if (view.type === "agency-settings") {
+      document.title = brandedDocumentTitle("Agency Settings");
+      return;
+    }
     if (view.type === "workflows") {
       document.title = brandedDocumentTitle("Workflows & Tasks");
       return;
@@ -236,6 +260,8 @@ function App() {
   function handleLogout() {
     logout();
     setCurrentUser(null);
+    setAgencyBranding(null);
+    applyCrmBrandingStyles(null);
     setDashboard(null);
     setView({ type: "dashboard" });
     setMessage("");
@@ -246,6 +272,7 @@ function App() {
     setCurrentUser(user);
     setView({ type: "dashboard" });
     setError("");
+    void loadAgencyBranding();
     loadDashboard().catch(() => setError(`Unable to load ${REQUEST_DASHBOARD_PAGE_TITLE.toLowerCase()}.`));
   }
 
@@ -347,11 +374,7 @@ function App() {
       <section className="hero">
         <div className="hero-top">
           <div className="hero-brand">
-            <img
-              src="/sailspipeline-logo.png"
-              alt={BRAND_APP_TITLE}
-              className="app-logo"
-            />
+            <AgencyBrandMark branding={agencyBranding} className="app-logo" />
           </div>
           <div className="user-panel">
             <span>Signed in as {currentUser.username}</span>
@@ -367,6 +390,7 @@ function App() {
           <AppSidebar
             activeItem={activeNavItemForView(view.type)}
             currentUser={currentUser}
+            agencyBranding={agencyBranding}
             onNavigate={(item) => {
               setMessage("");
               setError("");
@@ -389,6 +413,10 @@ function App() {
               }
               if (item === "team") {
                 setView({ type: "team" });
+                return;
+              }
+              if (item === "agency-settings") {
+                setView({ type: "agency-settings" });
                 return;
               }
               if (item === "workflows") {
@@ -457,6 +485,9 @@ function App() {
       {view.type === "clients" ? <ClientsPage /> : null}
 
       {view.type === "team" && currentUser ? <TeamPage currentUser={currentUser} /> : null}
+      {view.type === "agency-settings" && currentUser ? (
+        <AgencySettingsPage onBrandingUpdated={() => void loadAgencyBranding()} />
+      ) : null}
 
       {view.type === "reports" ? (
         <ReportsPage

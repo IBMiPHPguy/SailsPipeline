@@ -4,7 +4,7 @@ from datetime import date
 from decimal import Decimal
 from html import escape
 
-from app.branding import BRAND_NAME
+from app.agency_email_branding import render_email_cta_button
 from app.cc_auth_helpers import CcAuthCruiseSummary
 
 CC_AUTH_CONTENT_START = "<!-- sailspipeline-cc-auth-content-start -->"
@@ -23,9 +23,12 @@ def _format_display_date(value: date) -> str:
 def build_cc_auth_email_html(
     *,
     passenger_name: str,
+    agency_name: str,
     cruises: list[CcAuthCruiseSummary],
     total_deposit_due: Decimal,
     portal_url: str,
+    primary_color: str,
+    primary_text_color: str | None = None,
 ) -> str:
     cruise_blocks: list[str] = []
     for index, cruise in enumerate(cruises, start=1):
@@ -91,7 +94,14 @@ def build_cc_auth_email_html(
 
     cruise_html = "".join(cruise_blocks)
     safe_passenger = escape(passenger_name.strip())
+    safe_agency = escape(agency_name.strip())
     safe_portal_url = escape(portal_url, quote=True)
+    cta = render_email_cta_button(
+        href=portal_url,
+        label="Securely Authorize Card",
+        primary_color=primary_color,
+        text_color=primary_text_color,
+    )
 
     inner = f"""
     {CC_AUTH_CONTENT_START}
@@ -99,8 +109,8 @@ def build_cc_auth_email_html(
       Dear {safe_passenger},
     </p>
     <p style="margin:0 0 20px;font-size:16px;line-height:1.65;color:#243b53;">
-      Your travel advisor has requested a secure credit card authorization to hold your upcoming
-      sailing reservation with {BRAND_NAME}. Please review the details below and complete
+      Your travel advisor at {safe_agency} has requested a secure credit card authorization to hold your upcoming
+      sailing reservation. Please review the details below and complete
       authorization at your earliest convenience.
     </p>
 
@@ -127,12 +137,7 @@ def build_cc_auth_email_html(
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:28px 0 24px;">
       <tr>
         <td align="center">
-          <a href="{safe_portal_url}"
-            style="display:inline-block;padding:16px 32px;background:#0b7285;color:#ffffff;
-              font-size:16px;font-weight:700;text-decoration:none;border-radius:10px;
-              box-shadow:0 4px 14px rgba(11,114,133,0.35);letter-spacing:0.02em;">
-            Securely Authorize Card
-          </a>
+          {cta}
         </td>
       </tr>
     </table>

@@ -298,6 +298,84 @@ class AgencyBusinessAddressUpdate(BaseModel):
         return self
 
 
+class AgencySettingsRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    agency_id: str
+    agency_name: str
+    brand_logo_url: str | None = None
+    primary_color: str
+    secondary_color: str
+    custom_master_tc: str | None = None
+    email_signature_block: str | None = None
+    business_address: str | None = None
+    business_phone: str | None = None
+
+
+class AgencySettingsUpdate(BaseModel):
+    agency_name: str | None = Field(default=None, min_length=1, max_length=255)
+    primary_color: str | None = Field(default=None, max_length=7)
+    secondary_color: str | None = Field(default=None, max_length=7)
+    custom_master_tc: str | None = None
+    email_signature_block: str | None = None
+    business_address: str | None = Field(default=None, max_length=512)
+    business_phone: str | None = Field(default=None, max_length=50)
+
+    @model_validator(mode="after")
+    def validate_at_least_one_field(self) -> "AgencySettingsUpdate":
+        if not any(
+            value is not None
+            for value in (
+                self.agency_name,
+                self.primary_color,
+                self.secondary_color,
+                self.custom_master_tc,
+                self.email_signature_block,
+                self.business_address,
+                self.business_phone,
+            )
+        ):
+            raise ValueError("At least one settings field must be provided.")
+        return self
+
+
+class AgencyBrandingChromeRead(BaseModel):
+    agency_name: str
+    brand_logo_url: str | None = None
+    primary_color: str
+    secondary_color: str
+
+
+class AgencyPublicBrandingRead(BaseModel):
+    agency_id: str
+    agency_name: str
+    brand_logo_url: str | None = None
+    primary_color: str
+    secondary_color: str
+    business_address: str | None = None
+    business_phone: str | None = None
+    custom_master_tc: str | None = None
+
+
+class AgencySettingsLogoUploadResponse(BaseModel):
+    brand_logo_url: str
+    message: str = "Brand logo uploaded."
+
+
+class AgencySignatureImageUploadResponse(BaseModel):
+    image_url: str
+    message: str = "Signature image uploaded."
+
+
+class PortalBrandingPayload(BaseModel):
+    agency_name: str
+    brand_logo_url: str | None = None
+    primary_color: str
+    secondary_color: str
+    business_address: str | None = None
+    business_phone: str | None = None
+
+
 class AgentInviteRead(BaseModel):
     agency_name: str
     organization_handle: str
