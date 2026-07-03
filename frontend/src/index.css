@@ -15,6 +15,12 @@
   --app-nav-active-border: #627d98;
   --app-nav-active-accent: #334e68;
   --app-nav-hover-bg: #d5dee8;
+  --app-brand-primary: #0d5c75;
+  --app-brand-secondary: #17a2b8;
+  --app-brand-primary-text: #ffffff;
+  --app-section-header-border: #1864ab;
+  --app-action-bg: #0b7285;
+  --app-action-text: #ffffff;
 }
 
 * {

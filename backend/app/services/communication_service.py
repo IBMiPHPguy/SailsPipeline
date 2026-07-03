@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
 
+from app.agency_email_branding import load_agency_email_branding
 from app.config import settings
 from app.constants import (
     COMMUNICATION_STATUS_DRAFT,
@@ -15,7 +16,7 @@ from app.gemini_service import (
     GeminiParseError,
     generate_research_communication_from_proposals,
 )
-from app.models import Agency, ProposedCruise, RequestCommunication, RequestWorkflowLive, TravelRequest, User
+from app.models import ProposedCruise, RequestCommunication, RequestWorkflowLive, TravelRequest, User
 from app.research_proposal_email import build_research_proposal_email_html
 from app.schemas import GenerateResearchCommunicationResponse
 from app.services.agency_service import assert_child_belongs_to_request, require_record_for_agency
@@ -261,15 +262,12 @@ async def send_research_communication_via_email(
     if not recipient:
         raise HTTPException(status_code=400, detail="Travel request has no client email address.")
 
-    agency = db.get(Agency, request.agency_id)
-    if agency is None:
-        raise HTTPException(status_code=404, detail="Agency not found.")
-
+    branding = load_agency_email_branding(db, agency_id=request.agency_id)
     inner_content = extract_communication_html_content(communication.body)
     html_content = render_email_base_html(
         content=inner_content,
         agent_name=current_user.username,
-        agency_name=agency.name,
+        branding=branding,
     )
 
     email_service = EmailDeliveryService(db)

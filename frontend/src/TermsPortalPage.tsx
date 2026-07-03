@@ -1,8 +1,10 @@
 import { FormEvent, useEffect, useState } from "react";
+import PortalBrandingHeader from "./PortalBrandingHeader";
 import { acceptMasterTerms, validateTermsToken } from "./termsApi";
-import { BRAND_APP_TITLE, BRAND_NAME } from "./branding";
 import type { TermsValidateResponse } from "./termsApi";
+import { portalAgencyName, portalBrandingStyle } from "./portalBranding";
 import "./bridge-portal.css";
+import "./portal-branding.css";
 import "./terms-portal.css";
 
 type TermsPortalPageProps = {
@@ -103,17 +105,13 @@ export default function TermsPortalPage({ token }: TermsPortalPageProps) {
   }
 
   return (
-    <main className="page auth-page terms-portal-page">
+    <main className="page auth-page terms-portal-page" style={portalBrandingStyle(portal?.branding)}>
       <section className="card bridge-card terms-portal-card">
-        <header className="bridge-card-header terms-portal-header">
-          <div className="terms-portal-brand">
-            <img src="/sailspipeline-logo.png" alt={BRAND_APP_TITLE} className="auth-logo" />
-            <div>
-              <h1>Master Terms &amp; Conditions</h1>
-              <p className="muted">Secure client portal · {BRAND_NAME}</p>
-            </div>
-          </div>
-        </header>
+        <PortalBrandingHeader
+          branding={portal?.branding}
+          title="Master Terms & Conditions"
+          className="terms-portal-header"
+        />
 
         <div className="bridge-card-body terms-portal-body">
           {loading ? <p className="muted">Verifying your secure review link…</p> : null}
@@ -136,15 +134,15 @@ export default function TermsPortalPage({ token }: TermsPortalPageProps) {
                   Hello <strong>{portal.passenger_name}</strong>,
                 </p>
                 <p>
-                  {portal.agency_name} requires your one-time acceptance of our Master Terms &amp; Conditions before we
-                  continue with your cruise booking.
+                  {portalAgencyName(portal.branding, portal.agency_name)} requires your one-time acceptance of our
+                  Master Terms &amp; Conditions before we continue with your cruise booking.
                 </p>
                 <p className="terms-portal-expiry muted">Link expires: {formatExpiryDate(portal.expires_at)}</p>
               </section>
 
               <section className="terms-portal-text-card">
                 <header className="terms-portal-text-header">
-                  <h2>{portal.agency_name} — Master Terms and Conditions</h2>
+                  <h2>{portalAgencyName(portal.branding, portal.agency_name)} — Master Terms and Conditions</h2>
                   <p className="muted">Please scroll through the full agreement below.</p>
                 </header>
                 <div className="terms-portal-text-box" tabIndex={0}>
@@ -161,7 +159,7 @@ export default function TermsPortalPage({ token }: TermsPortalPageProps) {
                       onChange={(event) => setAcceptedCheckbox(event.target.checked)}
                       required
                     />
-                    <span>{buildAcceptanceCertification(portal.agency_name)}</span>
+                    <span>{buildAcceptanceCertification(portalAgencyName(portal.branding, portal.agency_name))}</span>
                   </label>
 
                   {error ? <p className="terms-portal-inline-error">{error}</p> : null}
@@ -179,8 +177,9 @@ export default function TermsPortalPage({ token }: TermsPortalPageProps) {
               <h2>Acceptance recorded</h2>
               <p>{completionMessage || "Thank you, your agency profile is up to date!"}</p>
               <p className="muted">
-                Thank you, {portal?.passenger_name ?? "traveler"}. Your acceptance is on file with{" "}
-                {portal?.agency_name ?? "your travel agency"} for this and future bookings.
+                Thank you,                 {portal?.passenger_name ?? "traveler"}. Your acceptance is on file with{" "}
+                {portalAgencyName(portal?.branding, portal?.agency_name ?? "your travel agency")} for this and future
+                bookings.
               </p>
             </section>
           ) : null}

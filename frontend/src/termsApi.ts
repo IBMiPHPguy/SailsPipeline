@@ -1,5 +1,7 @@
 import { API_BASE, apiFetch, authHeaders, parseApiError } from "./apiClient";
 
+import type { PortalBranding } from "./portalBranding";
+
 export type TermsValidateResponse = {
   valid: boolean;
   passenger_name: string;
@@ -8,6 +10,7 @@ export type TermsValidateResponse = {
   terms_text: string;
   expires_at: string;
   request_id: string;
+  branding?: PortalBranding;
 };
 
 export type TermsAcceptResponse = {

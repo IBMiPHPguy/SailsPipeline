@@ -1,0 +1,80 @@
+.portal-branding-header {
+  background: linear-gradient(135deg, var(--portal-primary, #0d5c75), color-mix(in srgb, var(--portal-primary, #0d5c75) 72%, #ffffff));
+  border-bottom: 2px solid var(--portal-secondary, #17a2b8);
+  color: var(--portal-primary-text, #ffffff);
+}
+
+.portal-branding-header .muted,
+.portal-branding-header .portal-branding-subtitle,
+.portal-branding-header .portal-branding-contact,
+.portal-branding-header .portal-branding-powered {
+  color: color-mix(in srgb, var(--portal-primary-text, #ffffff) 82%, var(--portal-primary, #0d5c75));
+}
+
+.portal-branding-header-inner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.portal-branding-logo {
+  flex-shrink: 0;
+  max-height: 52px;
+  width: auto;
+  object-fit: contain;
+}
+
+.portal-branding-agency-name {
+  flex-shrink: 0;
+  max-width: 9rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.portal-branding-copy {
+  min-width: 0;
+}
+
+.portal-branding-copy h1 {
+  margin: 0;
+  font-size: 1.35rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.portal-branding-subtitle,
+.portal-branding-contact,
+.portal-branding-powered {
+  margin: 0.2rem 0 0;
+  font-size: 0.92rem;
+  overflow-wrap: anywhere;
+}
+
+.portal-branding-powered {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+}
+
+.portal-branding-submit,
+.terms-portal-submit,
+.insurance-portal-submit,
+.cc-auth-portal-submit {
+  background: var(--portal-primary, #0d5c75);
+  border: 1px solid color-mix(in srgb, var(--portal-primary, #0d5c75) 80%, #000000);
+  color: var(--portal-primary-text, #ffffff);
+}
+
+.portal-branding-submit:disabled,
+.terms-portal-submit:disabled,
+.insurance-portal-submit:disabled,
+.cc-auth-portal-submit:disabled {
+  opacity: 0.65;
+}
+
+.portal-branding-accent-border {
+  border-color: var(--portal-secondary, #17a2b8);
+}

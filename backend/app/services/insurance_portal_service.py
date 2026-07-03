@@ -4,7 +4,8 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.insurance_waiver import render_insurance_waiver_text
-from app.models import Agency, TravelRequest
+from app.models import TravelRequest
+from app.services.agency_settings_service import build_portal_branding_payload, get_agency_settings_row
 from app.services.insurance_service import InsuranceService
 from app.tenant_context import set_current_agency_id
 
@@ -42,10 +43,11 @@ async def get_insurance_waiver_portal_context(db: Session, token: str) -> dict:
     if request is None or request.agency_id != agency_id:
         raise HTTPException(status_code=404, detail="Travel request not found.")
 
-    agency = db.get(Agency, agency_id)
-    agency_name = agency.name if agency else "Your travel agency"
+    settings_row = get_agency_settings_row(db, agency_id=agency_id)
+    agency_name = settings_row.agency_name
     passenger_name = f"{request.first_name} {request.last_name}".strip()
     waiver_text = render_insurance_waiver_text(agency_name=agency_name, passenger_name=passenger_name)
+    branding = build_portal_branding_payload(settings_row)
 
     return {
         "valid": True,
@@ -55,6 +57,7 @@ async def get_insurance_waiver_portal_context(db: Session, token: str) -> dict:
         "waiver_text": waiver_text,
         "expires_at": validation["expires_at"],
         "request_id": travel_request_id,
+        "branding": branding,
     }
 
 

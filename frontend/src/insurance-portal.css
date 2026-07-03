@@ -46,8 +46,8 @@
 
 .insurance-portal-text-header {
   padding: 1rem 1.25rem;
-  border-bottom: 2px solid #0b7285;
-  background: linear-gradient(135deg, #e6fffa 0%, #f0f4f8 100%);
+  border-bottom: 2px solid var(--portal-secondary, #17a2b8);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--portal-primary, #0d5c75) 10%, #ffffff) 0%, #f0f4f8 100%);
 }
 
 .insurance-portal-text-header h2 {
@@ -107,8 +107,8 @@
   padding: 0.85rem 1rem;
   border: none;
   border-radius: 8px;
-  background: #0b7285;
-  color: #fff;
+  background: var(--portal-primary, #0d5c75);
+  color: var(--portal-primary-text, #ffffff);
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
@@ -165,8 +165,8 @@
 
 .travel-insurance-task-header {
   padding: 1rem 1.25rem;
-  border-bottom: 2px solid #0b7285;
-  background: linear-gradient(135deg, #e6fffa 0%, #f0f4f8 100%);
+  border-bottom: 2px solid var(--portal-secondary, #17a2b8);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--portal-primary, #0d5c75) 10%, #ffffff) 0%, #f0f4f8 100%);
 }
 
 .travel-insurance-task-header h3 {
@@ -215,7 +215,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #0b7285;
+  color: var(--portal-primary, #0d5c75);
   margin: 0 0 0.75rem;
 }
 
@@ -289,7 +289,7 @@
   text-transform: uppercase;
   flex-shrink: 0;
   background: #e3fafc;
-  color: #0b7285;
+  color: var(--portal-primary, #0d5c75);
   border: 1px solid #99e9f2;
 }
 
@@ -333,7 +333,7 @@
 
 .quote-mailed-toggle-option.is-active {
   background: #ffffff;
-  color: #0b7285;
+  color: var(--portal-primary, #0d5c75);
   box-shadow: 0 1px 3px rgba(16, 42, 67, 0.12);
 }
 
@@ -376,7 +376,7 @@
 .travel-insurance-waiver-pending {
   border: 1px solid #99e9f2;
   background: #e3fafc;
-  color: #0b7285;
+  color: var(--portal-primary, #0d5c75);
   border-radius: 8px;
   padding: 0.75rem 1rem;
   margin: 0;

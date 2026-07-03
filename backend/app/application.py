@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -15,6 +17,9 @@ from app.rate_limit import limiter
 from app.security_config import validate_production_settings
 from app.subscription_gatekeeper import SubscriptionGatekeeperMiddleware
 from app.tenant_middleware import TenantContextMiddleware
+
+STATIC_ROOT = Path(__file__).resolve().parent.parent / "static"
+BRAND_UPLOADS_DIR = STATIC_ROOT / "uploads"
 
 
 def seed_admin_user(db) -> None:
@@ -61,6 +66,19 @@ def seed_admin_user(db) -> None:
 
             logging.getLogger(__name__).warning(
                 "Initial agency rollup refresh skipped; apply db/migrate_multi_tenant_phase3_rollups.sql if needed."
+            )
+            db.rollback()
+
+    if settings.app_env != "test":
+        try:
+            from app.services.agency_settings_service import seed_default_agency_settings
+
+            seed_default_agency_settings(db)
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "Agency settings seed skipped; apply db/migrate_agency_settings.sql if needed."
             )
             db.rollback()
 
@@ -181,6 +199,9 @@ def create_app() -> FastAPI:
     from app.routers import register_routers
 
     register_routers(application)
+
+    BRAND_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    application.mount("/static", StaticFiles(directory=str(STATIC_ROOT)), name="static")
 
     return application
 

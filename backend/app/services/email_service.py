@@ -12,6 +12,12 @@ from pathlib import Path
 import aiosmtplib
 from sqlalchemy.orm import Session
 
+from app.agency_email_branding import (
+    AgencyEmailBranding,
+    render_email_brand_header_html,
+    render_email_signature_section,
+    render_platform_compliance_footer,
+)
 from app.branding import BRAND_NAME
 from app.email_config import (
     ALLOWED_DEVELOPMENT_SMTP_HOSTS,
@@ -61,12 +67,25 @@ def extract_communication_html_content(body: str) -> str:
     return stripped
 
 
-def render_email_base_html(*, content: str, agent_name: str, agency_name: str) -> str:
+def render_email_base_html(*, content: str, agent_name: str, branding: AgencyEmailBranding) -> str:
     template = _TEMPLATE_PATH.read_text(encoding="utf-8")
+    preview_text = f"Message from {agent_name} at {branding.agency_name}."
     return (
-        template.replace("{{ content }}", content)
-        .replace("{{ agent_name }}", escape(agent_name))
-        .replace("{{ agency_name }}", escape(agency_name))
+        template.replace("{{ page_title }}", escape(branding.agency_name))
+        .replace("{{ preview_text }}", escape(preview_text))
+        .replace(
+            "{{ agency_header }}",
+            render_email_brand_header_html(branding, agent_name=agent_name),
+        )
+        .replace("{{ content }}", content)
+        .replace("{{ email_signature }}", render_email_signature_section(branding.email_signature_block))
+        .replace(
+            "{{ platform_footer }}",
+            render_platform_compliance_footer(
+                agent_name=agent_name,
+                agency_name=branding.agency_name,
+            ),
+        )
     )
 
 

@@ -29,6 +29,8 @@ export type AnnualInsuranceUpdate = {
   annual_insurance_policy_number?: string | null;
 };
 
+import type { PortalBranding } from "./portalBranding";
+
 export type InsuranceWaiverValidateResponse = {
   valid: boolean;
   passenger_name: string;
@@ -37,6 +39,7 @@ export type InsuranceWaiverValidateResponse = {
   waiver_text: string;
   expires_at: string;
   request_id: number;
+  branding?: PortalBranding;
 };
 
 export type InsuranceWaiverSignResponse = {

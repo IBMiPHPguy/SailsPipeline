@@ -56,6 +56,11 @@ class Settings(BaseSettings):
     insurance_portal_base_url: str = "http://localhost:5173/insurance-auth"
     cc_auth_encryption_key: str | None = None
     cc_auth_vault_access_key: str | None = None
+    brand_uploads_dir: str = "static/uploads"
+    s3_brand_bucket: str | None = None
+    s3_brand_region: str = "us-east-1"
+    s3_brand_public_base_url: str | None = None
+    public_app_base_url: str = "http://localhost:8080"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -110,6 +115,19 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.app_env == APP_ENV_PRODUCTION
+
+    @property
+    def ENVIRONMENT(self) -> str:
+        """Deployment tier alias used by asset upload modules (dev | stage | prod)."""
+        if self.is_development or self.app_env == "test":
+            return "dev"
+        if self.is_staging:
+            return "stage"
+        return "prod"
+
+    @property
+    def uses_local_brand_uploads(self) -> bool:
+        return self.ENVIRONMENT == "dev"
 
     def resolve_email_delivery_settings(self) -> EmailDeliverySettings:
         return resolve_email_delivery_settings(self)

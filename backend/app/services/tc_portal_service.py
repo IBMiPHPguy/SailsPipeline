@@ -4,6 +4,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.models import Agency, TravelRequest
+from app.services.agency_settings_service import build_portal_branding_payload, get_agency_settings_row, resolve_terms_text
 from app.services.tc_service import TCService
 from app.tenant_context import set_current_agency_id
 
@@ -42,8 +43,10 @@ async def get_terms_portal_context(db: Session, token: str) -> dict:
         raise HTTPException(status_code=404, detail="Travel request not found.")
 
     agency = db.get(Agency, agency_id)
-    agency_name = agency.name if agency else "Your travel agency"
-    terms_text = tc_service.render_terms_for_agency(agency=agency)
+    settings_row = get_agency_settings_row(db, agency_id=agency_id)
+    agency_name = settings_row.agency_name
+    terms_text = resolve_terms_text(db, agency_id=agency_id, agency=agency)
+    branding = build_portal_branding_payload(settings_row)
 
     return {
         "valid": True,
@@ -53,6 +56,7 @@ async def get_terms_portal_context(db: Session, token: str) -> dict:
         "terms_text": terms_text,
         "expires_at": validation["expires_at"],
         "request_id": validation["request_id"],
+        "branding": branding,
     }
 
 

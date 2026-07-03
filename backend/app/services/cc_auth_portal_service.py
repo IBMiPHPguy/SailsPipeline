@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.cc_auth_helpers import build_cc_auth_cruise_summaries
 from app.constants import PROPOSED_CRUISE_STATUS_ACCEPTED
-from app.models import Agency, ProposedCruise, TravelRequest
+from app.models import ProposedCruise, TravelRequest
+from app.services.agency_settings_service import build_portal_branding_payload, get_agency_settings_row
 from app.services.cc_auth_service import CCAuthService
 from app.tenant_context import set_current_agency_id
 
@@ -60,8 +61,9 @@ async def get_cc_auth_portal_context(db: Session, token: str) -> dict:
         )
 
     cruise_summaries, total_deposit = build_cc_auth_cruise_summaries(request, accepted_cruises)
-    agency = db.get(Agency, agency_id)
-    agency_name = agency.name if agency else "Your travel agency"
+    settings_row = get_agency_settings_row(db, agency_id=agency_id)
+    agency_name = settings_row.agency_name
+    branding = build_portal_branding_payload(settings_row)
 
     cruises_payload = []
     for summary, cruise in zip(cruise_summaries, sorted(accepted_cruises, key=lambda item: (item.departure_date, item.id))):
@@ -87,6 +89,7 @@ async def get_cc_auth_portal_context(db: Session, token: str) -> dict:
         "total_deposit_due": str(total_deposit),
         "expires_at": validation["expires_at"],
         "authorization_id": validation["authorization_id"],
+        "branding": branding,
     }
 
 

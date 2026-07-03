@@ -93,6 +93,7 @@ def test_build_cc_auth_cruise_summaries_for_back_to_back():
 def test_build_cc_auth_email_html_includes_cta_and_security_notice():
     html = build_cc_auth_email_html(
         passenger_name="Jane Cruise",
+        agency_name="Cruise Seakers Travel LLC",
         cruises=[
             CcAuthCruiseSummary(
                 cruise_line="Royal Caribbean International",
@@ -105,6 +106,7 @@ def test_build_cc_auth_email_html_includes_cta_and_security_notice():
         ],
         total_deposit_due=Decimal("500.00"),
         portal_url="https://portal.example/cc-auth/abc123",
+        primary_color="#0d5c75",
     )
     assert CC_AUTH_CONTENT_START in html
     assert CC_AUTH_CONTENT_END in html

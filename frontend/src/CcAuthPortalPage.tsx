@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import PortalBrandingHeader from "./PortalBrandingHeader";
 import { completeCcAuth, validateCcAuthToken } from "./ccAuthApi";
 import {
   formatCardNumberInput,
@@ -7,10 +8,11 @@ import {
   validateCcAuthCardForm,
   type CcAuthCardForm,
 } from "./ccAuthCardValidation";
-import { BRAND_APP_TITLE, BRAND_NAME } from "./branding";
 import type { CcAuthValidateResponse } from "./types";
 import { formatDate } from "./utils";
+import { portalAgencyName, portalBrandingStyle } from "./portalBranding";
 import "./bridge-portal.css";
+import "./portal-branding.css";
 import "./cc-auth-portal.css";
 
 type CcAuthPortalPageProps = {
@@ -120,17 +122,14 @@ export default function CcAuthPortalPage({ token }: CcAuthPortalPageProps) {
   }
 
   return (
-    <main className="page auth-page cc-auth-portal-page">
+    <main className="page auth-page cc-auth-portal-page" style={portalBrandingStyle(portal?.branding)}>
       <section className="card bridge-card cc-auth-portal-card">
-        <header className="bridge-card-header cc-auth-portal-header">
-          <div className="cc-auth-portal-brand">
-            <img src="/sailspipeline-logo.png" alt={BRAND_APP_TITLE} className="auth-logo" />
-            <div>
-              <h1>Secure card authorization</h1>
-              <p className="muted">Encrypted passenger portal · {BRAND_NAME}</p>
-            </div>
-          </div>
-        </header>
+        <PortalBrandingHeader
+          branding={portal?.branding}
+          title="Secure card authorization"
+          subtitle="Encrypted passenger portal"
+          className="cc-auth-portal-header"
+        />
 
         <div className="bridge-card-body cc-auth-portal-body">
           {loading ? (
@@ -155,8 +154,8 @@ export default function CcAuthPortalPage({ token }: CcAuthPortalPageProps) {
                   Hello <strong>{portal.passenger_name}</strong>,
                 </p>
                 <p>
-                  {portal.agency_name} has requested authorization for the deposit below. Review your sailing details,
-                  then enter your card securely for your travel advisor.
+                  {portalAgencyName(portal.branding, portal.agency_name)} has requested authorization for the deposit
+                  below. Review your sailing details, then enter your card securely for your travel advisor.
                 </p>
                 <div className="cc-auth-portal-total">
                   <span className="cc-auth-portal-total-label">Total deposit authorizing</span>

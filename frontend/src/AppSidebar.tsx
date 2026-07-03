@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
+import AgencyBrandMark from "./AgencyBrandMark";
 import { REQUEST_DASHBOARD_PAGE_TITLE } from "./branding";
+import type { PortalBranding } from "./portalBranding";
 import {
   BarChartNavIcon,
   CruiseShipNavIcon,
@@ -9,6 +11,7 @@ import {
   ReportsNavIcon,
   TeamNavIcon,
   WorkflowsNavIcon,
+  SettingsNavIcon,
 } from "./SidebarNavIcons";
 import { isTenantSuperUser } from "./tenantRoles";
 import type { AppNavItem, User } from "./types";
@@ -16,6 +19,7 @@ import type { AppNavItem, User } from "./types";
 type AppSidebarProps = {
   activeItem: AppNavItem | null;
   currentUser: User;
+  agencyBranding?: PortalBranding | null;
   onNavigate: (item: AppNavItem) => void;
 };
 
@@ -37,6 +41,12 @@ const TEAM_NAV_ITEM = {
   icon: TeamNavIcon,
 };
 
+const AGENCY_SETTINGS_NAV_ITEM = {
+  id: "agency-settings" as const,
+  label: "Agency Settings",
+  icon: SettingsNavIcon,
+};
+
 const WORKFLOWS_NAV_ITEM = {
   id: "workflows" as const,
   label: "Workflows & Tasks",
@@ -49,13 +59,16 @@ const GROUP_BLOCKS_NAV_ITEM = {
   icon: GroupBlocksNavIcon,
 };
 
-export default function AppSidebar({ activeItem, currentUser, onNavigate }: AppSidebarProps) {
+export default function AppSidebar({ activeItem, currentUser, agencyBranding, onNavigate }: AppSidebarProps) {
   const navItems = isTenantSuperUser(currentUser.role)
-    ? [...BASE_NAV_ITEMS, WORKFLOWS_NAV_ITEM, GROUP_BLOCKS_NAV_ITEM, TEAM_NAV_ITEM]
+    ? [...BASE_NAV_ITEMS, WORKFLOWS_NAV_ITEM, GROUP_BLOCKS_NAV_ITEM, AGENCY_SETTINGS_NAV_ITEM, TEAM_NAV_ITEM]
     : BASE_NAV_ITEMS;
 
   return (
     <nav className="app-sidebar" aria-label="Main navigation">
+      <div className="app-sidebar-brand">
+        <AgencyBrandMark branding={agencyBranding} className="app-sidebar-brand-logo" />
+      </div>
       <ul className="app-sidebar-list">
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -98,6 +111,9 @@ export function activeNavItemForView(viewType: string): AppNavItem | null {
   }
   if (viewType === "team") {
     return "team";
+  }
+  if (viewType === "agency-settings") {
+    return "agency-settings";
   }
   if (viewType === "workflows" || viewType === "tasks") {
     return "workflows";

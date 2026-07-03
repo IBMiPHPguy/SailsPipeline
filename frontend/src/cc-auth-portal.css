@@ -104,7 +104,7 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #0b7285;
+  color: var(--portal-primary, #0d5c75);
 }
 
 .cc-auth-portal-cruise-grid {
@@ -201,7 +201,8 @@
   padding: 0.9rem 1rem;
   border: 0;
   border-radius: 10px;
-  background: #0b7285;
+  background: var(--portal-primary, #0d5c75);
+  color: var(--portal-primary-text, #ffffff);
   color: #fff;
   font-size: 1rem;
   font-weight: 700;

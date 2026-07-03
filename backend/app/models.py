@@ -47,6 +47,27 @@ class Agency(Base):
     )
     marketing_campaigns: Mapped[list["MarketingCampaign"]] = relationship(back_populates="agency")
     agency_groups: Mapped[list["AgencyGroup"]] = relationship(back_populates="agency")
+    settings: Mapped["AgencySettings | None"] = relationship(back_populates="agency", uselist=False)
+
+
+class AgencySettings(Base):
+    __tablename__ = "agency_settings"
+
+    agency_id: Mapped[str] = mapped_column(String(36), ForeignKey("agencies.id"), primary_key=True)
+    agency_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    brand_logo_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    primary_color: Mapped[str] = mapped_column(String(7), nullable=False, default="#0d5c75")
+    secondary_color: Mapped[str] = mapped_column(String(7), nullable=False, default="#17a2b8")
+    custom_master_tc: Mapped[str | None] = mapped_column(Text, nullable=True)
+    email_signature_block: Mapped[str | None] = mapped_column(Text, nullable=True)
+    business_address: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    business_phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    agency: Mapped["Agency"] = relationship(back_populates="settings")
 
 
 class MarketingCampaign(Base):
