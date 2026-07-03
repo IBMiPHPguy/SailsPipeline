@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 import CollectPaymentAndBookingCommunicationTaskPanel from "./CollectPaymentAndBookingCommunicationTaskPanel";
 import CreateCabinHoldsTaskPanel from "./CreateCabinHoldsTaskPanel";
 import CollectPassengerAddressesTaskPanel, {
@@ -23,6 +23,7 @@ import {
   TASK_KEY_SEND_RESEARCH_COMMUNICATION,
   TASK_KEY_UPLOAD_RESEARCH_DOCUMENT,
   TASK_KEY_VERIFY_PASSENGER_DETAILS,
+  TASK_KEY_VERIFY_TRAVEL_INSURANCE,
 } from "./formOptions";
 import MasterTermsTaskPanel from "./MasterTermsTaskPanel";
 import ProposedCruisesTaskPanel from "./ProposedCruisesTaskPanel";
@@ -30,6 +31,7 @@ import RecordClientResponseTaskPanel from "./RecordClientResponseTaskPanel";
 import ResearchTaskBriefPanel from "./ResearchTaskBriefPanel";
 import ResearchUploadPanel from "./ResearchUploadPanel";
 import SendResearchCommunicationTaskPanel from "./SendResearchCommunicationTaskPanel";
+import TravelInsuranceTaskPanel from "./TravelInsuranceTaskPanel";
 import VerifyPassengerDetailsTaskPanel from "./VerifyPassengerDetailsTaskPanel";
 import type { RequestTask, RequestWorkflow, TravelRequestDetail, TravelRequestInput } from "./types";
 import { isManualCheckTask } from "./workflowForm";
@@ -49,6 +51,8 @@ export type WorkflowTaskPanelContext = {
   onCloseRequest: (closeReason: string) => Promise<void>;
   onUploadResearch: (file: File) => Promise<void>;
   onSaved: () => void;
+  onNavigateToQuotedInsurance?: () => void;
+  setPanelFooterAction: Dispatch<SetStateAction<ReactNode>>;
 };
 
 export type WorkflowTaskPanelDefinition = {
@@ -190,6 +194,26 @@ export const WORKFLOW_TASK_PANEL_REGISTRY: Record<string, WorkflowTaskPanelDefin
         onChanged={context.onChanged}
         onError={context.onError}
         onSaved={context.onSaved}
+      />
+    ),
+  },
+  [TASK_KEY_VERIFY_TRAVEL_INSURANCE]: {
+    usesCustomSave: true,
+    showGuidanceWhenReadOnly: true,
+    render: (context) => (
+      <TravelInsuranceTaskPanel
+        requestId={context.request.id}
+        passengers={context.request.request_passengers}
+        quotes={context.request.quoted_insurance}
+        task={context.task}
+        taskId={context.task.id}
+        disabled={context.disabled}
+        isDone={context.isDone}
+        onChanged={context.onChanged}
+        onError={context.onError}
+        onSaved={context.onSaved}
+        onNavigateToQuotedInsurance={context.onNavigateToQuotedInsurance}
+        setPanelFooterAction={context.setPanelFooterAction}
       />
     ),
   },

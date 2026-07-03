@@ -82,6 +82,7 @@ def list_passenger_registry(
                 date_of_birth=passenger.date_of_birth,
                 qualifiers=passenger.qualifiers or [],
                 is_active=passenger.is_active,
+                has_annual_insurance=passenger.has_annual_insurance,
                 request_count=request_count,
             )
             for passenger, request_count in rows
@@ -114,6 +115,9 @@ def create_passenger_registry(
         postal_code=payload.postal_code,
         country=payload.country,
         qualifiers=payload.qualifiers,
+        has_annual_insurance=payload.has_annual_insurance,
+        annual_insurance_expires_at=payload.annual_insurance_expires_at,
+        annual_insurance_policy_number=payload.annual_insurance_policy_number,
         created_by_id=current_user.id,
     )
     db.commit()
@@ -140,6 +144,9 @@ def update_passenger_registry(
     passenger = get_passenger_for_agency(db, passenger_id, current_user.agency_id)
 
     updates = payload.model_dump(exclude_unset=True)
+    if updates.get("has_annual_insurance") is False:
+        updates["annual_insurance_expires_at"] = None
+        updates["annual_insurance_policy_number"] = None
     for field, value in updates.items():
         setattr(passenger, field, value)
     passenger.updated_at = datetime.now(UTC).replace(tzinfo=None)

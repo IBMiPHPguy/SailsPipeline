@@ -79,6 +79,9 @@ def create_client_record(
     postal_code: str | None = None,
     country: str | None = None,
     qualifiers: list[str] | None = None,
+    has_annual_insurance: bool = False,
+    annual_insurance_expires_at=None,
+    annual_insurance_policy_number: str | None = None,
     created_by_id: int | None,
 ) -> Passenger:
     passenger = Passenger(
@@ -95,6 +98,11 @@ def create_client_record(
         postal_code=_normalize_optional_text(postal_code),
         country=_normalize_optional_text(country),
         qualifiers=qualifiers or [],
+        has_annual_insurance=has_annual_insurance,
+        annual_insurance_expires_at=annual_insurance_expires_at if has_annual_insurance else None,
+        annual_insurance_policy_number=_normalize_optional_text(annual_insurance_policy_number)
+        if has_annual_insurance
+        else None,
         created_by_id=created_by_id,
         is_active=True,
     )

@@ -23,6 +23,31 @@ export function formatTimestamp(value: string): string {
   return new Date(value).toLocaleString();
 }
 
+export function formatWaiverTimeRemaining(expiresAt: string, now = new Date()): string {
+  const expiresMs = new Date(expiresAt).getTime();
+  if (Number.isNaN(expiresMs)) {
+    return "—";
+  }
+
+  const remainingMs = expiresMs - now.getTime();
+  if (remainingMs <= 0) {
+    return "expired";
+  }
+
+  const totalMinutes = Math.ceil(remainingMs / (1000 * 60));
+  const days = Math.floor(totalMinutes / (60 * 24));
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+  const minutes = totalMinutes % 60;
+
+  if (days > 0) {
+    return hours > 0 ? `${days} day${days === 1 ? "" : "s"} ${hours} hr` : `${days} day${days === 1 ? "" : "s"}`;
+  }
+  if (hours > 0) {
+    return minutes > 0 ? `${hours} hr ${minutes} min` : `${hours} hr`;
+  }
+  return `${minutes} min`;
+}
+
 export function formatDate(value: string): string {
   const isoMatch = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
   if (isoMatch) {

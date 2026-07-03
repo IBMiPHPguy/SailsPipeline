@@ -197,6 +197,9 @@ export type PassengerProfile = {
   date_of_birth: string | null;
   qualifiers: string[];
   is_active: boolean;
+  has_annual_insurance?: boolean;
+  annual_insurance_expires_at?: string | null;
+  annual_insurance_policy_number?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -210,6 +213,7 @@ export type ClientListItem = {
   date_of_birth: string | null;
   qualifiers: string[];
   is_active: boolean;
+  has_annual_insurance?: boolean;
   request_count: number;
 };
 
@@ -245,6 +249,9 @@ export type ClientUpdateInput = {
   postal_code?: string | null;
   country?: string | null;
   qualifiers?: string[];
+  has_annual_insurance?: boolean;
+  annual_insurance_expires_at?: string | null;
+  annual_insurance_policy_number?: string | null;
 };
 
 export type ClientCreateInput = {
@@ -279,6 +286,9 @@ export type RequestPassenger = {
   postal_code: string | null;
   country: string | null;
   qualifiers: string[];
+  has_annual_insurance?: boolean;
+  annual_insurance_expires_at?: string | null;
+  annual_insurance_policy_number?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -297,6 +307,9 @@ export type RequestPassengerInput = {
   postal_code?: string | null;
   country?: string | null;
   qualifiers?: string[];
+  has_annual_insurance?: boolean;
+  annual_insurance_expires_at?: string | null;
+  annual_insurance_policy_number?: string | null;
 };
 
 export type RequestNoteAudit = {
@@ -542,6 +555,7 @@ export type QuotedInsurance = {
   medical_evac_coverage: number;
   status: string;
   declined_at: string | null;
+  quote_mailed: boolean;
   created_by: UserAudit;
   updated_by: UserAudit;
   created_at: string;
@@ -556,6 +570,7 @@ export type QuotedInsuranceInput = {
   medical_coverage: number;
   medical_evac_coverage: number;
   status?: string;
+  quote_mailed?: boolean;
 };
 
 export type TravelRequest = {

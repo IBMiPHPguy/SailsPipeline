@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { activateClient, createClient, deactivateClient, fetchClient, updateClient } from "./api";
+import AnnualInsuranceFields from "./AnnualInsuranceFields";
 import ChickenSwitchModal from "./ChickenSwitchModal";
 import InactiveClientBadge from "./InactiveClientBadge";
 import PassengerQualifierBadges from "./PassengerQualifierBadges";
@@ -8,6 +9,7 @@ import { formatPassengerAddressLine, passengerAddressToInput } from "./passenger
 import { formatDisplayPhone } from "./passengerDisplay";
 import type { ClientDetail, RequestPassengerInput } from "./types";
 import { formatDate } from "./utils";
+import "./insurance-portal.css";
 
 type ClientModalMode = "view" | "edit" | "create";
 
@@ -19,6 +21,9 @@ type ClientModalProps = {
   onModeChange: (mode: ClientModalMode) => void;
   onSaved: () => void;
   onDeactivated: () => void;
+  /** Opens a focused annual-insurance editor stacked above another modal. */
+  annualInsuranceQuickEdit?: boolean;
+  stacked?: boolean;
 };
 
 function clientToForm(client: ClientDetail): RequestPassengerInput {
@@ -29,6 +34,9 @@ function clientToForm(client: ClientDetail): RequestPassengerInput {
     phone: client.phone,
     date_of_birth: client.date_of_birth ?? "",
     qualifiers: client.qualifiers ?? [],
+    has_annual_insurance: client.has_annual_insurance ?? false,
+    annual_insurance_expires_at: client.annual_insurance_expires_at ?? "",
+    annual_insurance_policy_number: client.annual_insurance_policy_number ?? "",
     ...passengerAddressToInput(client),
   };
 }
@@ -47,6 +55,11 @@ function buildClientPayload(payload: RequestPassengerInput) {
     postal_code: payload.postal_code,
     country: payload.country,
     qualifiers: payload.qualifiers,
+    has_annual_insurance: payload.has_annual_insurance ?? false,
+    annual_insurance_expires_at:
+      payload.has_annual_insurance ? payload.annual_insurance_expires_at?.trim() || null : null,
+    annual_insurance_policy_number:
+      payload.has_annual_insurance ? payload.annual_insurance_policy_number?.trim() || null : null,
   };
 }
 
@@ -58,6 +71,8 @@ export default function ClientModal({
   onModeChange,
   onSaved,
   onDeactivated,
+  annualInsuranceQuickEdit = false,
+  stacked = false,
 }: ClientModalProps) {
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [editForm, setEditForm] = useState<RequestPassengerInput>(emptyPassengerInput());
@@ -96,7 +111,11 @@ export default function ClientModal({
       .then((detail) => {
         if (!cancelled) {
           setClient(detail);
-          setEditForm(clientToForm(detail));
+          const form = clientToForm(detail);
+          if (annualInsuranceQuickEdit) {
+            form.has_annual_insurance = true;
+          }
+          setEditForm(form);
         }
       })
       .catch((loadError) => {
@@ -113,7 +132,7 @@ export default function ClientModal({
     return () => {
       cancelled = true;
     };
-  }, [open, clientId, mode]);
+  }, [open, clientId, mode, annualInsuranceQuickEdit]);
 
   useEffect(() => {
     if (!open) {
@@ -141,6 +160,11 @@ export default function ClientModal({
     try {
       const payload = toPassengerPayload(editForm);
       const updated = await updateClient(client.id, buildClientPayload(payload));
+      if (annualInsuranceQuickEdit) {
+        onSaved();
+        onClose();
+        return;
+      }
       setClient(updated);
       setEditForm(clientToForm(updated));
       onModeChange("view");
@@ -218,12 +242,24 @@ export default function ClientModal({
   }
 
   const addressLine = client ? formatPassengerAddressLine(client) : "";
-  const modalTitle =
-    mode === "create" ? "Add client" : mode === "view" ? "Client details" : "Edit client";
+  const modalTitle = annualInsuranceQuickEdit
+    ? "Add annual insurance"
+    : mode === "create"
+      ? "Add client"
+      : mode === "view"
+        ? "Client details"
+        : "Edit client";
+  const backdropClassName = [
+    "modal-backdrop",
+    "client-modal-backdrop",
+    stacked ? "modal-backdrop-stacked" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <>
-      <div className="modal-backdrop client-modal-backdrop" role="presentation" onClick={onClose}>
+      <div className={backdropClassName} role="presentation" onClick={onClose}>
         <div
           className="modal-card modal-card-wide client-modal"
           role="dialog"
@@ -233,8 +269,15 @@ export default function ClientModal({
         >
           <header className="modal-card-header">
             <div className="client-modal-header">
-              <h3 id="client-modal-title">{modalTitle}</h3>
-              {client && !client.is_active ? <InactiveClientBadge /> : null}
+              <div>
+                <h3 id="client-modal-title">{modalTitle}</h3>
+                {annualInsuranceQuickEdit && client ? (
+                  <p className="muted client-modal-subtitle">
+                    {client.first_name} {client.last_name}
+                  </p>
+                ) : null}
+              </div>
+              {client && !client.is_active && !annualInsuranceQuickEdit ? <InactiveClientBadge /> : null}
             </div>
           </header>
 
@@ -242,7 +285,30 @@ export default function ClientModal({
             {loading ? <p>Loading client...</p> : null}
             {error ? <p className="status error">{error}</p> : null}
 
-            {!loading && client && mode === "view" ? (
+            {!loading && client && annualInsuranceQuickEdit ? (
+              <div className="modal-section-panel">
+                <p className="field-hint">
+                  Annual insurance is saved on this client&apos;s registry profile and applies across all of their
+                  requests.
+                </p>
+                <AnnualInsuranceFields
+                  value={{
+                    has_annual_insurance: editForm.has_annual_insurance ?? true,
+                    annual_insurance_expires_at: editForm.annual_insurance_expires_at,
+                    annual_insurance_policy_number: editForm.annual_insurance_policy_number,
+                  }}
+                  onChange={(annualValue) =>
+                    setEditForm((current) => ({
+                      ...current,
+                      ...annualValue,
+                    }))
+                  }
+                  disabled={saving}
+                />
+              </div>
+            ) : null}
+
+            {!loading && client && mode === "view" && !annualInsuranceQuickEdit ? (
               <div className="modal-section-panel">
                 <dl className="client-detail-grid">
                   <div>
@@ -274,6 +340,24 @@ export default function ClientModal({
                     </dd>
                   </div>
                   <div>
+                    <dt>Annual travel insurance</dt>
+                    <dd>
+                      {client.has_annual_insurance ? (
+                        <>
+                          <div>Yes</div>
+                          {client.annual_insurance_policy_number ? (
+                            <div className="meta">Policy {client.annual_insurance_policy_number}</div>
+                          ) : null}
+                          {client.annual_insurance_expires_at ? (
+                            <div className="meta">Expires {formatDate(client.annual_insurance_expires_at)}</div>
+                          ) : null}
+                        </>
+                      ) : (
+                        "No"
+                      )}
+                    </dd>
+                  </div>
+                  <div>
                     <dt>Status</dt>
                     <dd>{client.is_active ? "Active" : "Inactive"}</dd>
                   </div>
@@ -281,7 +365,7 @@ export default function ClientModal({
               </div>
             ) : null}
 
-            {!loading && (mode === "edit" || mode === "create") ? (
+            {!loading && (mode === "edit" || mode === "create") && !annualInsuranceQuickEdit ? (
               <div className="modal-section-panel">
                 <PassengerFields
                   value={editForm}
@@ -291,6 +375,20 @@ export default function ClientModal({
                   showAddress
                   showQualifiers
                   qualifierHint="Saved on this client record and used as their default qualifying discounts."
+                />
+                <AnnualInsuranceFields
+                  value={{
+                    has_annual_insurance: editForm.has_annual_insurance ?? false,
+                    annual_insurance_expires_at: editForm.annual_insurance_expires_at,
+                    annual_insurance_policy_number: editForm.annual_insurance_policy_number,
+                  }}
+                  onChange={(annualValue) =>
+                    setEditForm((current) => ({
+                      ...current,
+                      ...annualValue,
+                    }))
+                  }
+                  disabled={saving}
                 />
                 {mode === "edit" ? (
                   <p className="field-hint">
@@ -306,6 +404,17 @@ export default function ClientModal({
           </div>
 
           <div className="modal-actions modal-actions-footer">
+            {annualInsuranceQuickEdit ? (
+              <>
+                <button type="button" className="modal-secondary" disabled={saving} onClick={onClose}>
+                  Cancel
+                </button>
+                <button type="button" className="modal-primary" disabled={saving || loading} onClick={() => void handleSave()}>
+                  {saving ? "Saving..." : "Save annual insurance"}
+                </button>
+              </>
+            ) : (
+              <>
             <button type="button" className="modal-secondary" disabled={saving} onClick={onClose}>
               {mode === "create" ? "Cancel" : "Close"}
             </button>
@@ -345,6 +454,8 @@ export default function ClientModal({
                 {saving ? "Adding..." : "Add client"}
               </button>
             ) : null}
+              </>
+            )}
           </div>
         </div>
       </div>

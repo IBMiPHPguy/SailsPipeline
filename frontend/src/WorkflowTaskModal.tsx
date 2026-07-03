@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { getCrmEntryProposedCruises } from "./crmEntrySummary";
 import type { RequestTask, TravelRequestDetail, TravelRequestInput } from "./types";
 import { fetchTermsStatusForRequest } from "./termsApi";
@@ -27,6 +27,7 @@ type WorkflowTaskModalProps = {
   onChanged: () => Promise<void>;
   onError: (message: string) => void;
   onCloseRequest: (closeReason: string) => Promise<void>;
+  onNavigateToQuotedInsurance?: () => void;
 };
 
 function TaskGuidance({ taskKey }: { taskKey: string }) {
@@ -58,9 +59,15 @@ export default function WorkflowTaskModal({
   onChanged,
   onError,
   onCloseRequest,
+  onNavigateToQuotedInsurance,
 }: WorkflowTaskModalProps) {
   const isMasterTermsTask = task?.task_key === TASK_KEY_ACCEPT_MASTER_TERMS;
   const [masterTermsOnFile, setMasterTermsOnFile] = useState(false);
+  const [panelFooterAction, setPanelFooterAction] = useState<ReactNode>(null);
+
+  useEffect(() => {
+    setPanelFooterAction(null);
+  }, [open, task?.id]);
 
   useEffect(() => {
     if (!open || !task || !isMasterTermsTask) {
@@ -120,6 +127,8 @@ export default function WorkflowTaskModal({
     onCloseRequest,
     onUploadResearch,
     onSaved: onClose,
+    onNavigateToQuotedInsurance,
+    setPanelFooterAction,
   };
 
   const showFallbackGuidance =
@@ -167,6 +176,7 @@ export default function WorkflowTaskModal({
         </div>
 
         <div className="modal-actions modal-actions-footer">
+          {panelFooterAction}
           <button type="button" className="modal-secondary" disabled={saving} onClick={onClose}>
             Close
           </button>

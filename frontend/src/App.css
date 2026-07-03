@@ -4004,6 +4004,15 @@ button:disabled {
   z-index: 1000;
 }
 
+.modal-backdrop-stacked {
+  z-index: 1100;
+}
+
+.client-modal-subtitle {
+  margin: 0.35rem 0 0;
+  font-size: 0.92rem;
+}
+
 .modal-backdrop-scroll {
   display: flex;
   align-items: flex-start;
@@ -7064,6 +7073,7 @@ button.modal-secondary:hover:not(:disabled) {
 }
 
 .crm-entry-cruise-card,
+.crm-entry-insurance-card,
 .crm-entry-room-card,
 .crm-entry-passenger-card {
   border: 1px solid #d9e2ec;
@@ -7073,6 +7083,11 @@ button.modal-secondary:hover:not(:disabled) {
 }
 
 .crm-entry-cruise-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.crm-entry-insurance-card {
   display: grid;
   gap: 1rem;
 }

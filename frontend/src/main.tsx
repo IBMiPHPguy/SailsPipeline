@@ -1,6 +1,7 @@
 import { StrictMode, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { readCcAuthTokenFromPath } from "./ccAuthApi";
+import { readInsuranceTokenFromPath } from "./insuranceApi";
 import { readTermsTokenFromPath } from "./termsApi";
 import App from "./App";
 import "./index.css";
@@ -10,6 +11,7 @@ const OnboardingRegisterPage = lazy(() => import("./OnboardingRegisterPage"));
 const RegisterAgentPage = lazy(() => import("./RegisterAgentPage"));
 const SubscriptionRestorePage = lazy(() => import("./SubscriptionRestorePage"));
 const CcAuthPortalPage = lazy(() => import("./CcAuthPortalPage"));
+const InsurancePortalPage = lazy(() => import("./InsurancePortalPage"));
 const TermsPortalPage = lazy(() => import("./TermsPortalPage"));
 
 function resolvePathname(): string {
@@ -66,6 +68,15 @@ function RootRouter() {
     return (
       <Suspense fallback={<RouteFallback />}>
         <TermsPortalPage token={token} />
+      </Suspense>
+    );
+  }
+
+  if (path.startsWith("/insurance-auth/")) {
+    const token = readInsuranceTokenFromPath(path);
+    return (
+      <Suspense fallback={<RouteFallback />}>
+        <InsurancePortalPage token={token} />
       </Suspense>
     );
   }

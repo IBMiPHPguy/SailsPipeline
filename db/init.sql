@@ -263,6 +263,9 @@ CREATE TABLE IF NOT EXISTS passengers (
     country VARCHAR(80) NULL,
     qualifiers JSON NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    has_annual_insurance BOOLEAN NOT NULL DEFAULT FALSE,
+    annual_insurance_expires_at DATE NULL,
+    annual_insurance_policy_number VARCHAR(80) NULL,
     created_by_id INT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -396,6 +399,7 @@ CREATE TABLE IF NOT EXISTS quoted_insurance (
     medical_evac_coverage DECIMAL(10, 2) NOT NULL,
     status VARCHAR(40) NOT NULL DEFAULT 'Proposed',
     declined_at TIMESTAMP NULL,
+    quote_mailed BOOLEAN NOT NULL DEFAULT FALSE,
     created_by_id INT NOT NULL,
     updated_by_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -404,6 +408,37 @@ CREATE TABLE IF NOT EXISTS quoted_insurance (
     CONSTRAINT fk_quoted_insurance_request FOREIGN KEY (travel_request_id) REFERENCES travel_requests(id) ON DELETE CASCADE,
     CONSTRAINT fk_quoted_insurance_created_by FOREIGN KEY (created_by_id) REFERENCES users(id),
     CONSTRAINT fk_quoted_insurance_updated_by FOREIGN KEY (updated_by_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS request_insurance_tracking (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    agency_id CHAR(36) NOT NULL,
+    travel_request_id INT NOT NULL,
+    insurance_status VARCHAR(40) NOT NULL DEFAULT 'pending',
+    waiver_signed_at DATETIME NULL,
+    waiver_ip VARCHAR(64) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_request_insurance_tracking_agency FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE CASCADE,
+    CONSTRAINT fk_request_insurance_tracking_request FOREIGN KEY (travel_request_id) REFERENCES travel_requests(id) ON DELETE CASCADE,
+    UNIQUE KEY uq_request_insurance_tracking_request (travel_request_id),
+    INDEX idx_request_insurance_tracking_status (insurance_status)
+);
+
+CREATE TABLE IF NOT EXISTS insurance_waiver_requests (
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    agency_id CHAR(36) NOT NULL,
+    travel_request_id INT NOT NULL,
+    secure_token VARCHAR(128) NOT NULL,
+    status VARCHAR(40) NOT NULL DEFAULT 'pending',
+    expires_at DATETIME NOT NULL,
+    completed_at DATETIME NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_insurance_waiver_requests_agency FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE CASCADE,
+    CONSTRAINT fk_insurance_waiver_requests_request FOREIGN KEY (travel_request_id) REFERENCES travel_requests(id) ON DELETE CASCADE,
+    UNIQUE KEY uq_insurance_waiver_requests_token (secure_token),
+    INDEX idx_insurance_waiver_requests_status_expires (status, expires_at),
+    INDEX idx_insurance_waiver_requests_request (travel_request_id)
 );
 
 CREATE TABLE IF NOT EXISTS request_workflows (

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import {
   QUOTED_INSURANCE_STATUS_ACCEPTED,
 } from "./formOptions";
@@ -8,6 +8,8 @@ import TabHeaderAddButton from "./TabHeaderAddButton";
 import type { ProposedCruise, QuotedInsurance, RequestPassenger } from "./types";
 
 type ProposalsTab = "cruises" | "insurance";
+
+export type { ProposalsTab };
 
 type RequestProposalsSectionProps = {
   requestId: number;
@@ -21,6 +23,8 @@ type RequestProposalsSectionProps = {
   onError: (message: string) => void;
   allowAcceptProposedCruise?: boolean;
   embeddedInWorkspace?: boolean;
+  focusedTab?: ProposalsTab | null;
+  onFocusedTabHandled?: () => void;
 };
 
 export default function RequestProposalsSection({
@@ -35,10 +39,20 @@ export default function RequestProposalsSection({
   onError,
   allowAcceptProposedCruise = false,
   embeddedInWorkspace = false,
+  focusedTab = null,
+  onFocusedTabHandled,
 }: RequestProposalsSectionProps) {
   const [activeTab, setActiveTab] = useState<ProposalsTab>("cruises");
   const cruisesSectionRef = useRef<ProposedCruisesSectionHandle>(null);
   const insuranceSectionRef = useRef<QuotedInsuranceSectionHandle>(null);
+
+  useEffect(() => {
+    if (!focusedTab) {
+      return;
+    }
+    setActiveTab(focusedTab);
+    onFocusedTabHandled?.();
+  }, [focusedTab, onFocusedTabHandled]);
 
   const canAddCruise = useMemo(() => !disabled, [disabled]);
 

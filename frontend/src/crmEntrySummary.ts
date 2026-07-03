@@ -5,9 +5,17 @@ import { proposedCruiseToCabinRooms } from "./cabinRooms";
 import {
   PROPOSED_CRUISE_STATUS_ACCEPTED,
   PROPOSED_CRUISE_STATUS_DEPOSITED,
+  QUOTED_INSURANCE_STATUS_ACCEPTED,
 } from "./formOptions";
 import { proposedRoomLabel } from "./proposedCruiseRooms";
-import type { ProposedCruise, ProposedCruiseIncludes, RequestPassenger, TravelRequestDetail, TravelRequestInput } from "./types";
+import type {
+  ProposedCruise,
+  ProposedCruiseIncludes,
+  QuotedInsurance,
+  RequestPassenger,
+  TravelRequestDetail,
+  TravelRequestInput,
+} from "./types";
 import { formatDate } from "./utils";
 
 function displayValue(value: string | null | undefined): string {
@@ -68,6 +76,22 @@ export function getCrmEntryProposedCruises(cruises: ProposedCruise[]): ProposedC
       cruise.status === PROPOSED_CRUISE_STATUS_ACCEPTED ||
       cruise.status === PROPOSED_CRUISE_STATUS_DEPOSITED,
   );
+}
+
+export function getAcceptedQuotedInsurance(quotes: QuotedInsurance[]): QuotedInsurance[] {
+  return quotes.filter((quote) => quote.status === QUOTED_INSURANCE_STATUS_ACCEPTED);
+}
+
+export function buildAcceptedInsuranceDetailLines(quote: QuotedInsurance): string[] {
+  return [
+    line("Carrier", quote.carrier),
+    line("Plan", quote.plan_name),
+    line("Premium", formatMoney(quote.premium_cost)),
+    line("Cancellation coverage", formatMoney(quote.cancellation_coverage)),
+    line("Medical coverage", formatMoney(quote.medical_coverage)),
+    line("Medical evacuation coverage", formatMoney(quote.medical_evac_coverage)),
+    line("Quote mailed to client", quote.quote_mailed ? "Yes" : "No"),
+  ];
 }
 
 export function buildPassengerDetailLines(passenger: RequestPassenger): string[] {
@@ -159,6 +183,19 @@ export function buildCrmEntrySummaryText(
           });
         });
       }
+    });
+  }
+
+  const acceptedInsurance = getAcceptedQuotedInsurance(request.quoted_insurance);
+  if (acceptedInsurance.length > 0) {
+    sections.push("", "INSURANCE DETAILS");
+    acceptedInsurance.forEach((quote, index) => {
+      if (acceptedInsurance.length > 1) {
+        sections.push("", `Option ${index + 1}`);
+      }
+      buildAcceptedInsuranceDetailLines(quote).forEach((detailLine) => {
+        sections.push(detailLine);
+      });
     });
   }
 
