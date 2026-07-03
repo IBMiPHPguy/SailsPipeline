@@ -193,6 +193,7 @@ export default function ClientsPage() {
                       <th scope="col">Date of birth</th>
                       <th scope="col">Phone</th>
                       <th scope="col">Email</th>
+                      <th scope="col">Annual insurance</th>
                       <th scope="col">Requests</th>
                       <th scope="col">
                         <span className="sr-only">Actions</span>
@@ -221,6 +222,7 @@ export default function ClientsPage() {
                         <td>{client.date_of_birth ? formatDate(client.date_of_birth) : "—"}</td>
                         <td>{formatDisplayPhone(client.phone) ?? "—"}</td>
                         <td>{client.email ?? "—"}</td>
+                        <td>{client.has_annual_insurance ? "Yes" : "No"}</td>
                         <td>{client.request_count}</td>
                         <td className="dashboard-table-actions-cell clients-table-actions-cell">
                           <div className="dashboard-table-actions">

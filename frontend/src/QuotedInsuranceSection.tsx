@@ -3,12 +3,15 @@ import { forwardRef, useImperativeHandle, useState } from "react";
 import { addQuotedInsurance, updateQuotedInsurance } from "./api";
 
 import QuotedInsuranceModal from "./QuotedInsuranceModal";
+import { QuoteMailedBadge } from "./QuoteMailedToggle";
 
 import { formatMoney, quotedInsuranceStatusClass } from "./quotedInsuranceForm";
 
 import type { QuotedInsurance, QuotedInsuranceInput } from "./types";
 
 import { formatDate } from "./utils";
+
+import "./insurance-portal.css";
 
 
 
@@ -166,6 +169,7 @@ export default forwardRef<QuotedInsuranceSectionHandle, QuotedInsuranceSectionPr
                   </div>
                   <div className="quoted-insurance-item-actions">
                     <span className={`quote-status ${quotedInsuranceStatusClass(quote.status)}`}>{quote.status}</span>
+                    {quote.quote_mailed ? <QuoteMailedBadge /> : null}
                     {!disabled ? (
                       <button
                         type="button"

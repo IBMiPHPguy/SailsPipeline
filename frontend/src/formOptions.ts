@@ -283,6 +283,7 @@ export const TASK_KEY_ACCEPT_MASTER_TERMS = "accept_master_terms_and_conditions"
 export const TASK_KEY_VERIFY_PASSENGER_DETAILS = "verify_passenger_details";
 export const TASK_KEY_COLLECT_PASSENGER_ADDRESSES = "collect_passenger_addresses";
 export const TASK_KEY_CREATE_CABIN_HOLDS = "create_cabin_holds";
+export const TASK_KEY_VERIFY_TRAVEL_INSURANCE = "verify_travel_insurance";
 export const TASK_KEY_COLLECT_PAYMENT_AND_SEND_BOOKING = "collect_payment_and_send_booking_communication";
 export const TASK_KEY_CREATE_TRIP_IN_CRM = "create_trip_in_crm";
 export const LEGACY_TASK_KEY_COLLECT_LEAD_PASSENGER_ADDRESSES = "collect_lead_passenger_addresses";

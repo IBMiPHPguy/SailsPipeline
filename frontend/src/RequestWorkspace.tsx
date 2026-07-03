@@ -1,9 +1,9 @@
-import { FormEvent, useEffect, useState, type ReactNode } from "react";
+import { FormEvent, useCallback, useEffect, useState, type ReactNode } from "react";
 import { addNote, fetchRequest, generateCommunicationAiSummary, updateRequest, uploadChatLog, uploadTranscript } from "./api";
 import RequestClientContentSection from "./RequestClientContentSection";
 import RequestHistorySection from "./RequestHistorySection";
 import RequestNotesResearchSection from "./RequestNotesResearchSection";
-import RequestProposalsSection from "./RequestProposalsSection";
+import RequestProposalsSection, { type ProposalsTab } from "./RequestProposalsSection";
 import CloseRequestModal from "./CloseRequestModal";
 import { formatCruiseLines } from "./CruiseLineMultiSelect";
 import PassengersSection from "./PassengersSection";
@@ -88,6 +88,7 @@ export default function RequestWorkspace({ requestId, onBack, onClosed }: Reques
   const [request, setRequest] = useState<TravelRequestDetail | null>(null);
   const [form, setForm] = useState<TravelRequestInput>(emptyRequestForm);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("details");
+  const [proposalsFocusTab, setProposalsFocusTab] = useState<ProposalsTab | null>(null);
   const [focusedNoteId, setFocusedNoteId] = useState<number | null>(null);
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -101,6 +102,11 @@ export default function RequestWorkspace({ requestId, onBack, onClosed }: Reques
   const isClosed = request?.status === REQUEST_STATUS_CLOSED;
   const activeWorkflow = request ? getActiveWorkflow(request.request_workflows) : null;
   const enterTripInCrmActive = activeWorkflow?.workflow_type === WORKFLOW_TYPE_ENTER_TRIP_CRM;
+
+  const navigateToQuotedInsurance = useCallback(() => {
+    setActiveTab("proposals");
+    setProposalsFocusTab("insurance");
+  }, []);
 
   async function loadRequest(options?: { silent?: boolean }) {
     const silent = options?.silent ?? false;
@@ -490,6 +496,8 @@ export default function RequestWorkspace({ requestId, onBack, onClosed }: Reques
                   onChanged={refreshRequest}
                   onError={setError}
                   allowAcceptProposedCruise={enterTripInCrmActive && !isClosed}
+                  focusedTab={proposalsFocusTab}
+                  onFocusedTabHandled={() => setProposalsFocusTab(null)}
                 />
               </WorkspaceTabShell>
             </div>
@@ -548,6 +556,7 @@ export default function RequestWorkspace({ requestId, onBack, onClosed }: Reques
                   onChanged={refreshRequest}
                   onError={setError}
                   onCloseRequest={handleCloseRequest}
+                  onNavigateToQuotedInsurance={navigateToQuotedInsurance}
                 />
               </WorkspaceTabShell>
             </div>

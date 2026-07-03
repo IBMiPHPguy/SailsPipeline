@@ -288,6 +288,16 @@ class TravelRequest(Base):
         cascade="all, delete-orphan",
         order_by="ClientTermsRequest.created_at.desc()",
     )
+    insurance_tracking: Mapped["RequestInsuranceTracking | None"] = relationship(
+        back_populates="travel_request",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+    insurance_waiver_requests: Mapped[list["InsuranceWaiverRequest"]] = relationship(
+        back_populates="travel_request",
+        cascade="all, delete-orphan",
+        order_by="InsuranceWaiverRequest.created_at.desc()",
+    )
 
 
 class Passenger(Base):
@@ -314,6 +324,9 @@ class Passenger(Base):
     country: Mapped[str | None] = mapped_column(String(80), nullable=True)
     qualifiers: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, index=True)
+    has_annual_insurance: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    annual_insurance_expires_at: Mapped[date | None] = mapped_column(Date, nullable=True)
+    annual_insurance_policy_number: Mapped[str | None] = mapped_column(String(80), nullable=True)
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -433,6 +446,30 @@ class RequestPassenger(Base):
     @property
     def passenger_is_active(self) -> bool:
         return self.passenger.is_active
+
+    @property
+    def has_annual_insurance(self) -> bool:
+        return self.passenger.has_annual_insurance
+
+    @has_annual_insurance.setter
+    def has_annual_insurance(self, value: bool) -> None:
+        self.passenger.has_annual_insurance = value
+
+    @property
+    def annual_insurance_expires_at(self) -> date | None:
+        return self.passenger.annual_insurance_expires_at
+
+    @annual_insurance_expires_at.setter
+    def annual_insurance_expires_at(self, value: date | None) -> None:
+        self.passenger.annual_insurance_expires_at = value
+
+    @property
+    def annual_insurance_policy_number(self) -> str | None:
+        return self.passenger.annual_insurance_policy_number
+
+    @annual_insurance_policy_number.setter
+    def annual_insurance_policy_number(self, value: str | None) -> None:
+        self.passenger.annual_insurance_policy_number = value
 
 
 class TravelRequestAudit(Base):
@@ -636,6 +673,7 @@ class QuotedInsurance(Base):
     medical_evac_coverage: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     status: Mapped[str] = mapped_column(String(40), nullable=False, default="Proposed")
     declined_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    quote_mailed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     updated_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
@@ -1069,6 +1107,52 @@ class ClientTermsRequest(Base):
 
     travel_request: Mapped["TravelRequest"] = relationship(back_populates="client_terms_requests")
     client: Mapped["Passenger"] = relationship()
+
+
+class RequestInsuranceTracking(Base):
+    __tablename__ = "request_insurance_tracking"
+    __table_args__ = (
+        Index("idx_request_insurance_tracking_status", "insurance_status"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    agency_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("agencies.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    travel_request_id: Mapped[int] = mapped_column(
+        ForeignKey("travel_requests.id", ondelete="CASCADE"), nullable=False, unique=True, index=True
+    )
+    insurance_status: Mapped[str] = mapped_column(String(40), nullable=False, default="pending")
+    waiver_signed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    waiver_ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    travel_request: Mapped["TravelRequest"] = relationship(back_populates="insurance_tracking")
+
+
+class InsuranceWaiverRequest(Base):
+    __tablename__ = "insurance_waiver_requests"
+    __table_args__ = (
+        Index("idx_insurance_waiver_requests_status_expires", "status", "expires_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    agency_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("agencies.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    travel_request_id: Mapped[int] = mapped_column(
+        ForeignKey("travel_requests.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    secure_token: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    status: Mapped[str] = mapped_column(String(40), nullable=False, default="pending")
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    travel_request: Mapped["TravelRequest"] = relationship(back_populates="insurance_waiver_requests")
 
 
 class AgencyEmailLog(Base):

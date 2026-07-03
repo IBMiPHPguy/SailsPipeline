@@ -16,6 +16,7 @@ from app.routers import (
     requests,
     sales_analytics,
     terms,
+    insurance,
     workflows,
 )
 
@@ -38,6 +39,8 @@ def register_routers(application: FastAPI) -> None:
     application.include_router(cc_auth.agent_router)
     application.include_router(terms.router)
     application.include_router(terms.request_router)
+    application.include_router(insurance.router)
+    application.include_router(insurance.request_router)
     application.include_router(workflows.templates_router)
     application.include_router(workflows.settings_router)
     application.include_router(workflows.catalog_router)

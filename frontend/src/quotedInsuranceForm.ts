@@ -18,6 +18,7 @@ export function quotedInsuranceToForm(quote: QuotedInsurance): QuotedInsuranceIn
     medical_coverage: quote.medical_coverage,
     medical_evac_coverage: quote.medical_evac_coverage,
     status: quote.status,
+    quote_mailed: quote.quote_mailed,
   };
 }
 

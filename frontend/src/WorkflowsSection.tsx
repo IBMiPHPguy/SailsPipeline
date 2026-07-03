@@ -41,6 +41,7 @@ type WorkflowsSectionProps = {
   onError: (message: string) => void;
   onCloseRequest: (closeReason: string) => Promise<void>;
   embeddedInWorkspace?: boolean;
+  onNavigateToQuotedInsurance?: () => void;
 };
 
 function formatTemplateTaskCount(count: number): string {
@@ -65,6 +66,7 @@ export default function WorkflowsSection({
   onError,
   onCloseRequest,
   embeddedInWorkspace = false,
+  onNavigateToQuotedInsurance,
 }: WorkflowsSectionProps) {
   const [templates, setTemplates] = useState<WorkflowTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
@@ -495,6 +497,7 @@ export default function WorkflowsSection({
         onChanged={onChanged}
         onError={onError}
         onCloseRequest={onCloseRequest}
+        onNavigateToQuotedInsurance={onNavigateToQuotedInsurance}
       />
     </>
   );

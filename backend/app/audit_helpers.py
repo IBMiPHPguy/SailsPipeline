@@ -44,6 +44,9 @@ PASSENGER_AUDIT_FIELDS = (
     "postal_code",
     "country",
     "qualifiers",
+    "has_annual_insurance",
+    "annual_insurance_expires_at",
+    "annual_insurance_policy_number",
 )
 
 

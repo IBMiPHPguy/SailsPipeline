@@ -122,16 +122,22 @@ WORKFLOW_TASK_TEMPLATES: dict[str, list[WorkflowTaskTemplate]] = {
             4,
         ),
         WorkflowTaskTemplate(
+            "verify_travel_insurance",
+            "Travel insurance validation",
+            "Confirm annual insurance coverage or verify per-trip insurance quotes and waiver compliance.",
+            5,
+        ),
+        WorkflowTaskTemplate(
             "collect_payment_and_send_booking_communication",
             "Collect deposit or final payment and send cruise line communications",
             "Collect payment for each cabin hold, send booking communications, then mark this task done.",
-            5,
+            6,
         ),
         WorkflowTaskTemplate(
             "create_trip_in_crm",
             "Enter Trip in CRM",
             "Create the trip and bookings in your agency CRM, send the agency invoice, then check off each step below.",
-            6,
+            7,
         ),
     ],
 }

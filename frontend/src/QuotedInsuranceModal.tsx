@@ -2,7 +2,9 @@ import { FormEvent, useEffect, useState } from "react";
 import { QUOTED_INSURANCE_STATUSES } from "./formOptions";
 import { emptyQuotedInsuranceForm, quotedInsuranceStatusOptionClass, quotedInsuranceToForm } from "./quotedInsuranceForm";
 import StatusPicker from "./StatusPicker";
+import QuoteMailedToggle from "./QuoteMailedToggle";
 import type { QuotedInsurance, QuotedInsuranceInput } from "./types";
+import "./insurance-portal.css";
 
 type QuotedInsuranceModalProps = {
   open: boolean;
@@ -153,6 +155,12 @@ export default function QuotedInsuranceModal({
               getOptionClassName={quotedInsuranceStatusOptionClass}
             />
           ) : null}
+
+          <QuoteMailedToggle
+            value={form.quote_mailed ?? quote?.quote_mailed ?? false}
+            disabled={disabled || saving}
+            onChange={(quote_mailed) => setForm({ ...form, quote_mailed })}
+          />
             </div>
           </div>
 

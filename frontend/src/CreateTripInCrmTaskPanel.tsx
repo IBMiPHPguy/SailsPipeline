@@ -8,6 +8,7 @@ import { proposedCruiseToCabinRooms } from "./cabinRooms";
 import {
   buildCrmEntrySummaryText,
   formatProposedCruiseIncludes,
+  getAcceptedQuotedInsurance,
   getCrmEntryProposedCruises,
   hasAcceptedOrDepositedProposedCruise,
 } from "./crmEntrySummary";
@@ -127,6 +128,7 @@ export default function CreateTripInCrmTaskPanel({
   const hasAcceptedCruise = hasAcceptedOrDepositedProposedCruise(request.proposed_cruises);
   const proposedCruisesAwaitingAcceptance = getProposedCruisesAwaitingAcceptance(request.proposed_cruises);
   const bookingCruises = getCrmEntryProposedCruises(request.proposed_cruises);
+  const acceptedInsurance = getAcceptedQuotedInsurance(request.quoted_insurance);
   const cabinsNeeded = Math.max(1, form.cabins_needed ?? request.cabins_needed ?? 1);
 
   useEffect(() => {
@@ -332,6 +334,47 @@ export default function CreateTripInCrmTaskPanel({
           })
         )}
       </section>
+
+      {acceptedInsurance.length > 0 ? (
+        <section className="crm-entry-section">
+          <h4 className="crm-entry-section-title">Insurance details</h4>
+          {acceptedInsurance.map((quote) => (
+            <article className="crm-entry-insurance-card" key={quote.id}>
+              <header className="crm-entry-cruise-header">
+                <div>
+                  <h5>
+                    {quote.carrier} · {quote.plan_name}
+                  </h5>
+                  <p className="meta">Per-trip travel insurance</p>
+                </div>
+                <span className="crm-entry-status-badge">{quote.status}</span>
+              </header>
+              <dl className="crm-entry-grid">
+                <div>
+                  <dt>Premium</dt>
+                  <dd>{formatMoney(quote.premium_cost)}</dd>
+                </div>
+                <div>
+                  <dt>Cancellation coverage</dt>
+                  <dd>{formatMoney(quote.cancellation_coverage)}</dd>
+                </div>
+                <div>
+                  <dt>Medical coverage</dt>
+                  <dd>{formatMoney(quote.medical_coverage)}</dd>
+                </div>
+                <div>
+                  <dt>Medical evacuation coverage</dt>
+                  <dd>{formatMoney(quote.medical_evac_coverage)}</dd>
+                </div>
+                <div>
+                  <dt>Quote mailed to client</dt>
+                  <dd>{quote.quote_mailed ? "Yes" : "No"}</dd>
+                </div>
+              </dl>
+            </article>
+          ))}
+        </section>
+      ) : null}
 
       <div className="crm-entry-actions">
         <button type="button" className="modal-secondary" onClick={() => void handleCopySummary()}>

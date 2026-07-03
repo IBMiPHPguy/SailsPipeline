@@ -209,6 +209,9 @@ export function emptyPassengerInput(): RequestPassengerInput {
     phone: "",
     date_of_birth: "",
     qualifiers: [],
+    has_annual_insurance: false,
+    annual_insurance_expires_at: "",
+    annual_insurance_policy_number: "",
     ...passengerAddressToInput({}),
   };
 }
@@ -222,6 +225,9 @@ export function toPassengerPayload(value: RequestPassengerInput): RequestPasseng
     phone: value.phone?.trim() || null,
     date_of_birth: value.date_of_birth?.trim() || null,
     qualifiers: value.qualifiers ?? [],
+    has_annual_insurance: value.has_annual_insurance ?? false,
+    annual_insurance_expires_at: value.annual_insurance_expires_at?.trim() || null,
+    annual_insurance_policy_number: value.annual_insurance_policy_number?.trim() || null,
     ...normalizeAddressInput(value),
   };
 }

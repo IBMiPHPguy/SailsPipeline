@@ -476,6 +476,9 @@ class PassengerRead(BaseModel):
     country: str | None = None
     qualifiers: list[str] = Field(default_factory=list)
     is_active: bool = True
+    has_annual_insurance: bool = False
+    annual_insurance_expires_at: date | None = None
+    annual_insurance_policy_number: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -489,6 +492,7 @@ class PassengerListRead(BaseModel):
     date_of_birth: date | None = None
     qualifiers: list[str] = Field(default_factory=list)
     is_active: bool
+    has_annual_insurance: bool = False
     request_count: int = Field(ge=0)
 
 
@@ -514,6 +518,9 @@ class PassengerUpdate(BaseModel):
     postal_code: str | None = Field(default=None, max_length=20)
     country: str | None = Field(default=None, max_length=80)
     qualifiers: list[str] | None = None
+    has_annual_insurance: bool | None = None
+    annual_insurance_expires_at: date | None = None
+    annual_insurance_policy_number: str | None = Field(default=None, max_length=80)
 
     @field_validator("qualifiers")
     @classmethod
@@ -543,6 +550,9 @@ class PassengerCreate(BaseModel):
     postal_code: str | None = Field(default=None, max_length=20)
     country: str | None = Field(default=None, max_length=80)
     qualifiers: list[str] = Field(default_factory=list)
+    has_annual_insurance: bool = False
+    annual_insurance_expires_at: date | None = None
+    annual_insurance_policy_number: str | None = Field(default=None, max_length=80)
 
     @field_validator("qualifiers")
     @classmethod
@@ -570,6 +580,9 @@ class RequestPassengerBase(BaseModel):
     postal_code: str | None = Field(default=None, max_length=20)
     country: str | None = Field(default=None, max_length=80)
     qualifiers: list[str] = Field(default_factory=list)
+    has_annual_insurance: bool = False
+    annual_insurance_expires_at: date | None = None
+    annual_insurance_policy_number: str | None = None
 
     @field_validator("qualifiers")
     @classmethod
@@ -638,6 +651,9 @@ class RequestPassengerUpdate(BaseModel):
     postal_code: str | None = Field(default=None, max_length=20)
     country: str | None = Field(default=None, max_length=80)
     qualifiers: list[str] | None = None
+    has_annual_insurance: bool | None = None
+    annual_insurance_expires_at: date | None = None
+    annual_insurance_policy_number: str | None = Field(default=None, max_length=80)
 
     @field_validator("email", "phone", mode="before")
     @classmethod
@@ -1156,6 +1172,7 @@ class QuotedInsuranceUpdate(BaseModel):
     medical_coverage: Decimal | None = Field(default=None, ge=0)
     medical_evac_coverage: Decimal | None = Field(default=None, ge=0)
     status: str | None = Field(default=None, min_length=1, max_length=40)
+    quote_mailed: bool | None = None
 
     @field_validator("status")
     @classmethod
@@ -1171,6 +1188,7 @@ class QuotedInsuranceRead(QuotedInsuranceBase):
     id: int
     status: str
     declined_at: datetime | None = None
+    quote_mailed: bool = False
     created_by: UserAudit
     updated_by: UserAudit
     created_at: datetime
@@ -1595,6 +1613,69 @@ class TermsRequestStatusResponse(BaseModel):
     version_hash: str | None = None
     ip_address: str | None = None
     task_auto_completed: bool = False
+
+
+class AnnualInsuranceUpdate(BaseModel):
+    has_annual_insurance: bool | None = None
+    annual_insurance_expires_at: date | None = None
+    annual_insurance_policy_number: str | None = Field(default=None, max_length=80)
+
+
+class InsuranceTrackingRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    insurance_status: str
+    waiver_signed_at: datetime | None = None
+    waiver_ip: str | None = None
+
+
+class InsuranceRequestStatusResponse(BaseModel):
+    travel_request_id: int
+    insurance_status: str
+    waiver_signed: bool
+    waiver_signed_at: str | None = None
+    waiver_request_status: str = "none"
+    waiver_sent_at: str | None = None
+    waiver_expires_at: str | None = None
+    has_annual_insurance: bool
+    annual_insurance_expires_at: date | None = None
+    annual_insurance_policy_number: str | None = None
+    annual_insurance_is_valid: bool = False
+    annual_insurance_is_expired: bool = False
+    primary_passenger_id: int | None = None
+    client_name: str = ""
+    client_registry_passenger_id: int | None = None
+    has_accepted_quote: bool = False
+    all_quotes_declined: bool = False
+    has_proposed_quotes: bool = False
+    can_complete_task: bool = False
+    completion_blocked_reason: str | None = None
+
+
+class SendInsuranceWaiverEmailRequest(BaseModel):
+    travel_request_id: int = Field(gt=0)
+
+
+class SendInsuranceWaiverEmailResponse(BaseModel):
+    message: str
+    portal_url: str
+    email_sent: bool
+    recipient: str
+
+
+class InsuranceWaiverValidateResponse(BaseModel):
+    valid: bool
+    passenger_name: str
+    passenger_email: str
+    agency_name: str
+    waiver_text: str
+    expires_at: str
+    request_id: int
+
+
+class InsuranceWaiverSignResponse(BaseModel):
+    message: str
+    signed: bool
 
 
 class ResearchDocumentRead(BaseModel):

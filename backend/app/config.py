@@ -53,6 +53,7 @@ class Settings(BaseSettings):
     email_api_key_staging: str | None = None
     cc_auth_portal_base_url: str = "http://localhost:5173/cc-auth"
     terms_portal_base_url: str = "http://localhost:5173/accept-terms"
+    insurance_portal_base_url: str = "http://localhost:5173/insurance-auth"
     cc_auth_encryption_key: str | None = None
     cc_auth_vault_access_key: str | None = None
 
