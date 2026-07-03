@@ -15,9 +15,6 @@ from app.rate_limit import limiter
 from app.security_config import validate_production_settings
 from app.subscription_gatekeeper import SubscriptionGatekeeperMiddleware
 from app.tenant_middleware import TenantContextMiddleware
-from app.tenant_session import configure_tenant_session
-
-configure_tenant_session()
 
 
 def seed_admin_user(db) -> None:
