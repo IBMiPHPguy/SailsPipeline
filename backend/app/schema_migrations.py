@@ -23,6 +23,26 @@ def migrate_agency_trial_period(db: Session) -> None:
     db.commit()
 
 
+def migrate_password_reset_columns(db: Session) -> None:
+    columns = {column["name"] for column in inspect(engine).get_columns("users")}
+    if "reset_token_hash" in columns and "reset_token_expires_at" in columns:
+        return
+
+    if "reset_token_hash" not in columns:
+        db.execute(
+            text("ALTER TABLE users ADD COLUMN reset_token_hash VARCHAR(255) NULL AFTER password_hash")
+        )
+    if "reset_token_expires_at" not in columns:
+        db.execute(
+            text(
+                "ALTER TABLE users ADD COLUMN reset_token_expires_at DATETIME NULL "
+                "AFTER reset_token_hash"
+            )
+        )
+    db.commit()
+
+
 def run_startup_schema_migrations(db: Session) -> None:
     """Apply schema reconciliation only. Never inserts tenants, users, or seed rows."""
     migrate_agency_trial_period(db)
+    migrate_password_reset_columns(db)

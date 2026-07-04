@@ -9,6 +9,8 @@ import "./index.css";
 const BridgeApp = lazy(() => import("./bridge/BridgeApp"));
 const OnboardingRegisterPage = lazy(() => import("./OnboardingRegisterPage"));
 const RegisterPage = lazy(() => import("./RegisterPage"));
+const ForgotPasswordPage = lazy(() => import("./ForgotPasswordPage"));
+const ResetPasswordPage = lazy(() => import("./ResetPasswordPage"));
 const RegisterAgentPage = lazy(() => import("./RegisterAgentPage"));
 const SubscriptionRestorePage = lazy(() => import("./SubscriptionRestorePage"));
 const CcAuthPortalPage = lazy(() => import("./CcAuthPortalPage"));
@@ -44,6 +46,22 @@ function RootRouter() {
     return (
       <Suspense fallback={<RouteFallback />}>
         <RegisterPage />
+      </Suspense>
+    );
+  }
+
+  if (path === "/forgot-password") {
+    return (
+      <Suspense fallback={<RouteFallback />}>
+        <ForgotPasswordPage />
+      </Suspense>
+    );
+  }
+
+  if (path === "/reset-password") {
+    return (
+      <Suspense fallback={<RouteFallback />}>
+        <ResetPasswordPage />
       </Suspense>
     );
   }

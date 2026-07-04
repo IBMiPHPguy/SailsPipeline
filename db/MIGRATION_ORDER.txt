@@ -39,3 +39,4 @@
 -- 35. migrate_agency_signature_mediumtext.sql
 -- 36. migrate_agency_trial_period.sql
 -- 37. migrate_performance_indexes.sql              (partially duplicated in init.sql)
+-- 38. migrate_password_reset.sql

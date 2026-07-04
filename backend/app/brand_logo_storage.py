@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import binascii
 import logging
+import os
 import re
 import uuid
 from pathlib import Path
@@ -121,6 +122,33 @@ def _upload_signature_image_to_s3(agency_id: str, content: bytes, content_type: 
         extension,
         object_key=object_key,
     )
+
+
+_LOCAL_LOGO_URL_MARKER = "/static/uploads/logo_agency_"
+
+
+def resolve_local_upload_path_from_url(asset_url: str | None) -> Path | None:
+    """Map a hosted /static/uploads/... URL back to an on-disk uploads path."""
+    if not asset_url or _LOCAL_LOGO_URL_MARKER not in asset_url:
+        return None
+
+    filename = asset_url.rsplit("/", 1)[-1]
+    if not filename.startswith("logo_agency_"):
+        return None
+
+    return _local_uploads_dir() / filename
+
+
+def purge_stale_local_brand_logo(brand_logo_url: str | None) -> None:
+    """Remove a superseded local agency logo file before replacing it."""
+    local_path = resolve_local_upload_path_from_url(brand_logo_url)
+    if local_path is None or not local_path.is_file():
+        return
+
+    try:
+        os.remove(local_path)
+    except OSError as exc:
+        logger.warning("Unable to purge stale brand logo at %s: %s", local_path, exc)
 
 
 def upload_agency_logo(

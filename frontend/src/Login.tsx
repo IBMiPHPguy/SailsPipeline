@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { login } from "./authApi";
 import { BRAND_APP_TITLE } from "./branding";
 import { DEFAULT_ORGANIZATION_HANDLE } from "./tenantConstants";
@@ -13,7 +13,21 @@ export default function Login({ onAuthenticated }: LoginProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [flashError, setFlashError] = useState("");
+  const [flashMessage, setFlashMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const storedError = sessionStorage.getItem("auth_flash_error");
+    const storedSuccess = sessionStorage.getItem("auth_flash_success");
+    if (storedError) {
+      sessionStorage.removeItem("auth_flash_error");
+      setFlashError(storedError);
+    } else if (storedSuccess) {
+      sessionStorage.removeItem("auth_flash_success");
+      setFlashMessage(storedSuccess);
+    }
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -75,6 +89,10 @@ export default function Login({ onAuthenticated }: LoginProps) {
             />
           </label>
 
+          <p className="auth-forgot-link">
+            <a href="/forgot-password">Forgot Password?</a>
+          </p>
+
           <button type="submit" disabled={submitting}>
             {submitting ? "Please wait..." : "Sign in"}
           </button>
@@ -86,6 +104,24 @@ export default function Login({ onAuthenticated }: LoginProps) {
           New agency? <a href="/register">Register your Agency</a>
         </p>
       </section>
+
+      {flashError ? (
+        <div className="register-toast register-toast-error" role="alert" aria-live="assertive">
+          <span className="register-toast-icon" aria-hidden="true">
+            !
+          </span>
+          <span>{flashError}</span>
+        </div>
+      ) : null}
+
+      {flashMessage ? (
+        <div className="register-toast" role="status" aria-live="polite">
+          <span className="register-toast-icon" aria-hidden="true">
+            ✓
+          </span>
+          <span>{flashMessage}</span>
+        </div>
+      ) : null}
     </main>
   );
 }
