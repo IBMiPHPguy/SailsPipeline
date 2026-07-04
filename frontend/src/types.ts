@@ -851,6 +851,13 @@ export type RegisterInput = {
   password: string;
 };
 
+export type PublicRegisterInput = {
+  agency_name: string;
+  admin_name: string;
+  admin_email: string;
+  password: string;
+};
+
 
 export type AppView =
   | { type: "dashboard" }

@@ -76,7 +76,7 @@ def test_issue_platform_invitation_and_onboarding_flow(client, bridge_admin_head
     )
     assert invite_response.status_code == 201, invite_response.text
     invite_payload = invite_response.json()
-    assert invite_payload["onboarding_path"].startswith("/register?token=")
+    assert invite_payload["onboarding_path"].startswith("/onboarding?token=")
     token = invite_payload["onboarding_path"].split("token=", 1)[1]
 
     verify_response = client.get(f"/api/onboarding/invites/verify?token={token}")

@@ -1,5 +1,5 @@
 -- Phase 3c: Agency white-label settings (branding, contact, legal vault)
--- Run: Get-Content db\migrate_agency_settings.sql | docker compose exec -T db mysql -uroot -prootsecret cruisetravelnow
+-- DDL only for fresh installs (see db/init.sql). Sections below marked UPGRADE ONLY mutate data.
 
 CREATE TABLE IF NOT EXISTS agency_settings (
     agency_id CHAR(36) NOT NULL PRIMARY KEY,
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS agency_settings (
     CONSTRAINT fk_agency_settings_agency FOREIGN KEY (agency_id) REFERENCES agencies (id) ON DELETE CASCADE
 );
 
--- Backfill settings rows for existing agencies from agency profile data.
+-- UPGRADE ONLY: backfill settings rows for existing agencies (skip on blank production databases).
 INSERT INTO agency_settings (agency_id, agency_name, primary_color, secondary_color, business_address)
 SELECT
     a.id,

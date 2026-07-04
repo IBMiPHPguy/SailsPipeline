@@ -81,6 +81,10 @@ export default function Login({ onAuthenticated }: LoginProps) {
         </form>
 
         {error ? <p className="status error">{error}</p> : null}
+
+        <p className="register-login-link muted">
+          New agency? <a href="/register">Register your Agency</a>
+        </p>
       </section>
     </main>
   );

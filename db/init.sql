@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS agencies (
     slug VARCHAR(80) NOT NULL UNIQUE,
     organization_handle VARCHAR(50) NOT NULL,
     subscription_state VARCHAR(40) NOT NULL DEFAULT 'Active',
+    trial_ends_at TIMESTAMP NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     business_address_line_1 VARCHAR(120) NULL,
     business_address_line_2 VARCHAR(120) NULL,
@@ -18,9 +19,22 @@ CREATE TABLE IF NOT EXISTS agencies (
 
 CREATE INDEX idx_agencies_organization_handle ON agencies(organization_handle);
 CREATE INDEX idx_agencies_subscription_state ON agencies(subscription_state);
+CREATE INDEX idx_agencies_trial_ends_at ON agencies(trial_ends_at);
 
-INSERT INTO agencies (id, name, slug, organization_handle, subscription_state)
-VALUES ('00000000-0000-4000-8000-000000000001', 'Default Agency', 'default', 'default', 'Active');
+CREATE TABLE IF NOT EXISTS agency_settings (
+    agency_id CHAR(36) NOT NULL PRIMARY KEY,
+    agency_name VARCHAR(255) NOT NULL,
+    brand_logo_url VARCHAR(1024) NULL,
+    primary_color VARCHAR(7) NOT NULL DEFAULT '#0d5c75',
+    secondary_color VARCHAR(7) NOT NULL DEFAULT '#17a2b8',
+    custom_master_tc MEDIUMTEXT NULL,
+    email_signature_block MEDIUMTEXT NULL,
+    business_address VARCHAR(512) NULL,
+    business_phone VARCHAR(50) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_agency_settings_agency FOREIGN KEY (agency_id) REFERENCES agencies (id) ON DELETE CASCADE
+);
 
 CREATE TABLE IF NOT EXISTS platform_invitations (
     id CHAR(36) PRIMARY KEY,
@@ -488,6 +502,7 @@ CREATE TABLE IF NOT EXISTS request_communications (
     agency_id CHAR(36) NOT NULL,
     travel_request_id INT NOT NULL,
     request_workflow_id INT NULL,
+    request_workflow_live_id CHAR(36) NULL,
     communication_type VARCHAR(40) NOT NULL,
     subject VARCHAR(255) NOT NULL,
     body TEXT NOT NULL,
@@ -518,6 +533,177 @@ CREATE TABLE IF NOT EXISTS request_research_documents (
     CONSTRAINT fk_request_research_documents_request FOREIGN KEY (travel_request_id) REFERENCES travel_requests(id) ON DELETE CASCADE,
     CONSTRAINT fk_request_research_documents_user FOREIGN KEY (uploaded_by_id) REFERENCES users(id)
 );
+
+CREATE TABLE IF NOT EXISTS agency_workflow_templates (
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    agency_id CHAR(36) NOT NULL,
+    workflow_name VARCHAR(255) NOT NULL,
+    description TEXT NULL,
+    workflow_type_key VARCHAR(40) NULL,
+    successor_template_id CHAR(36) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    archived_at TIMESTAMP NULL DEFAULT NULL,
+    CONSTRAINT fk_agency_workflow_templates_agency
+        FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE CASCADE,
+    CONSTRAINT fk_agency_workflow_templates_successor
+        FOREIGN KEY (successor_template_id) REFERENCES agency_workflow_templates(id) ON DELETE SET NULL,
+    INDEX idx_agency_workflow_templates_agency (agency_id),
+    INDEX idx_agency_workflow_templates_agency_type (agency_id, workflow_type_key),
+    INDEX idx_agency_workflow_templates_agency_archived (agency_id, archived_at)
+);
+
+CREATE TABLE IF NOT EXISTS agency_task_templates (
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    workflow_template_id CHAR(36) NOT NULL,
+    task_title VARCHAR(255) NOT NULL,
+    sequence_order INT NOT NULL,
+    action_type VARCHAR(100) NOT NULL DEFAULT 'manual_check',
+    target_field VARCHAR(255) NULL,
+    task_key VARCHAR(80) NULL,
+    description TEXT NULL,
+    prerequisite_task_keys JSON NULL,
+    CONSTRAINT fk_agency_task_templates_workflow
+        FOREIGN KEY (workflow_template_id) REFERENCES agency_workflow_templates(id) ON DELETE CASCADE,
+    INDEX idx_agency_task_templates_workflow (workflow_template_id),
+    INDEX idx_agency_task_templates_workflow_order (workflow_template_id, sequence_order)
+);
+
+CREATE TABLE IF NOT EXISTS request_workflows_live (
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    agency_id CHAR(36) NOT NULL,
+    travel_request_id INT NOT NULL,
+    template_id CHAR(36) NULL,
+    workflow_name VARCHAR(255) NOT NULL,
+    workflow_type_key VARCHAR(40) NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'Active',
+    parent_workflow_live_id CHAR(36) NULL,
+    context JSON NULL,
+    started_by_id INT NOT NULL,
+    completed_by_id INT NULL,
+    legacy_workflow_id INT NULL,
+    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ended_at TIMESTAMP NULL,
+    active_request_key INT GENERATED ALWAYS AS (
+        IF(status = 'Active', travel_request_id, NULL)
+    ) STORED,
+    CONSTRAINT fk_request_workflows_live_agency
+        FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE CASCADE,
+    CONSTRAINT fk_request_workflows_live_request
+        FOREIGN KEY (travel_request_id) REFERENCES travel_requests(id) ON DELETE CASCADE,
+    CONSTRAINT fk_request_workflows_live_template
+        FOREIGN KEY (template_id) REFERENCES agency_workflow_templates(id) ON DELETE SET NULL,
+    CONSTRAINT fk_request_workflows_live_parent
+        FOREIGN KEY (parent_workflow_live_id) REFERENCES request_workflows_live(id) ON DELETE SET NULL,
+    CONSTRAINT fk_request_workflows_live_started_by
+        FOREIGN KEY (started_by_id) REFERENCES users(id),
+    CONSTRAINT fk_request_workflows_live_completed_by
+        FOREIGN KEY (completed_by_id) REFERENCES users(id),
+    INDEX idx_request_workflows_live_request (travel_request_id),
+    INDEX idx_request_workflows_live_agency (agency_id),
+    INDEX idx_request_workflows_live_legacy (legacy_workflow_id),
+    UNIQUE INDEX uq_request_workflows_live_one_active (active_request_key)
+);
+
+CREATE TABLE IF NOT EXISTS request_tasks_live (
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    agency_id CHAR(36) NOT NULL,
+    request_workflow_live_id CHAR(36) NOT NULL,
+    travel_request_id INT NOT NULL,
+    template_task_id CHAR(36) NULL,
+    task_key VARCHAR(80) NULL,
+    task_title VARCHAR(255) NOT NULL,
+    description TEXT NULL,
+    sequence_order INT NOT NULL,
+    action_type VARCHAR(100) NOT NULL DEFAULT 'manual_check',
+    target_field VARCHAR(255) NULL,
+    is_completed BOOLEAN NOT NULL DEFAULT FALSE,
+    status VARCHAR(40) NOT NULL DEFAULT 'Open',
+    due_at TIMESTAMP NULL,
+    result JSON NULL,
+    completed_by_id INT NULL,
+    completed_at TIMESTAMP NULL,
+    legacy_task_id INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_request_tasks_live_agency
+        FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE CASCADE,
+    CONSTRAINT fk_request_tasks_live_workflow
+        FOREIGN KEY (request_workflow_live_id) REFERENCES request_workflows_live(id) ON DELETE CASCADE,
+    CONSTRAINT fk_request_tasks_live_request
+        FOREIGN KEY (travel_request_id) REFERENCES travel_requests(id) ON DELETE CASCADE,
+    CONSTRAINT fk_request_tasks_live_template_task
+        FOREIGN KEY (template_task_id) REFERENCES agency_task_templates(id) ON DELETE SET NULL,
+    CONSTRAINT fk_request_tasks_live_completed_by
+        FOREIGN KEY (completed_by_id) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_request_tasks_live_workflow (request_workflow_live_id),
+    INDEX idx_request_tasks_live_request (travel_request_id),
+    INDEX idx_request_tasks_live_legacy (legacy_task_id)
+);
+
+CREATE TABLE IF NOT EXISTS agency_custom_task_definitions (
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    agency_id CHAR(36) NOT NULL,
+    task_key VARCHAR(80) NOT NULL,
+    task_title VARCHAR(255) NOT NULL,
+    description TEXT NULL,
+    action_type VARCHAR(100) NOT NULL DEFAULT 'manual_check',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_agency_custom_task_definitions_agency
+        FOREIGN KEY (agency_id) REFERENCES agencies(id),
+    CONSTRAINT uq_agency_custom_task_definitions_key UNIQUE (agency_id, task_key),
+    INDEX idx_agency_custom_task_definitions_agency (agency_id)
+);
+
+CREATE TABLE IF NOT EXISTS client_terms_agreements (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    agency_id CHAR(36) NOT NULL,
+    client_id INT NOT NULL,
+    travel_request_id INT NULL,
+    status VARCHAR(40) NOT NULL DEFAULT 'accepted',
+    accepted_at DATETIME NOT NULL,
+    ip_address VARCHAR(64) NULL,
+    version_hash VARCHAR(64) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_client_terms_agreements_agency
+        FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE CASCADE,
+    CONSTRAINT fk_client_terms_agreements_client
+        FOREIGN KEY (client_id) REFERENCES passengers(id) ON DELETE CASCADE,
+    CONSTRAINT fk_client_terms_agreements_request
+        FOREIGN KEY (travel_request_id) REFERENCES travel_requests(id) ON DELETE SET NULL,
+    UNIQUE KEY uq_client_terms_agreements_agency_client (agency_id, client_id),
+    INDEX idx_client_terms_agreements_agency_status (agency_id, status),
+    INDEX idx_client_terms_agreements_client (client_id)
+);
+
+CREATE TABLE IF NOT EXISTS client_terms_requests (
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    agency_id CHAR(36) NOT NULL,
+    client_id INT NOT NULL,
+    travel_request_id INT NOT NULL,
+    secure_token VARCHAR(128) NOT NULL,
+    status VARCHAR(40) NOT NULL DEFAULT 'pending',
+    expires_at DATETIME NOT NULL,
+    completed_at DATETIME NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_client_terms_requests_agency
+        FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE CASCADE,
+    CONSTRAINT fk_client_terms_requests_client
+        FOREIGN KEY (client_id) REFERENCES passengers(id) ON DELETE CASCADE,
+    CONSTRAINT fk_client_terms_requests_request
+        FOREIGN KEY (travel_request_id) REFERENCES travel_requests(id) ON DELETE CASCADE,
+    UNIQUE KEY uq_client_terms_requests_token (secure_token),
+    INDEX idx_client_terms_requests_status_expires (status, expires_at),
+    INDEX idx_client_terms_requests_request (travel_request_id)
+);
+
+ALTER TABLE request_communications
+    ADD CONSTRAINT fk_request_communications_workflow_live
+        FOREIGN KEY (request_workflow_live_id) REFERENCES request_workflows_live(id) ON DELETE SET NULL;
+
+CREATE INDEX idx_request_communications_workflow_live
+    ON request_communications(request_workflow_live_id);
 
 CREATE TABLE IF NOT EXISTS credit_card_authorizations (
     id CHAR(36) NOT NULL PRIMARY KEY,

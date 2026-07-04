@@ -29,7 +29,7 @@ export function authHeaders(includeJson = false, scope: AuthScope = "crm"): Head
   return headers;
 }
 
-export function redirectToSubscriptionRestore(subscriptionState?: string) {
+export function redirectToSubscriptionRestore(subscriptionState?: string, reason?: string) {
   if (window.location.pathname.replace(/\/+$/, "") === SUBSCRIPTION_RESTORE_PATH) {
     return;
   }
@@ -37,6 +37,9 @@ export function redirectToSubscriptionRestore(subscriptionState?: string) {
   const params = new URLSearchParams();
   if (subscriptionState) {
     params.set("state", subscriptionState);
+  }
+  if (reason) {
+    params.set("reason", reason);
   }
   const query = params.toString();
   window.location.replace(query ? `${SUBSCRIPTION_RESTORE_PATH}?${query}` : SUBSCRIPTION_RESTORE_PATH);
@@ -48,6 +51,7 @@ export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Pr
     const payload = await response.clone().json().catch(() => ({}));
     redirectToSubscriptionRestore(
       typeof payload.subscription_state === "string" ? payload.subscription_state : undefined,
+      typeof payload.lock_reason === "string" ? payload.lock_reason : undefined,
     );
   }
   return response;

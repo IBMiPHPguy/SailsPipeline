@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     seed_bridge_admin_password: str | None = None
     platform_invite_expire_days: int = 7
     agency_invite_expire_days: int = 3
+    trial_period_days: int = 7
+    trial_scheduler_enabled: bool = True
+    trial_scheduler_poll_seconds: int = 300
     rollup_scheduler_enabled: bool = True
     rollup_refresh_poll_seconds: int = 30
     rollup_daily_refresh_hour_utc: int = 3
@@ -78,6 +81,7 @@ class Settings(BaseSettings):
         "allow_public_registration",
         "expose_openapi",
         "rollup_scheduler_enabled",
+        "trial_scheduler_enabled",
         "email_use_tls",
         mode="before",
     )

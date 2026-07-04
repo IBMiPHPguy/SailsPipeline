@@ -1,0 +1,41 @@
+-- Canonical sequential migration order for existing databases (fresh installs use db/init.sql).
+-- Apply each file once, in order. Files marked UPGRADE ONLY include data backfills and are
+-- not required on blank production databases provisioned from init.sql.
+--
+-- 1.  migrate_auth.sql
+-- 2.  migrate_questionnaire.sql
+-- 3.  migrate_dashboard.sql
+-- 4.  migrate_passengers.sql
+-- 5.  migrate_passenger_registry.sql
+-- 6.  migrate_cabins.sql
+-- 7.  migrate_proposed_cruises.sql
+-- 8.  migrate_quoted_insurance.sql
+-- 9.  migrate_request_notes.sql
+-- 10. migrate_request_workflows.sql
+-- 11. migrate_attachments_to_files.sql
+-- 12. migrate_multi_tenant_phase0.sql
+-- 13. migrate_multi_tenant_phase1.sql
+-- 14. migrate_multi_tenant_phase2.sql
+-- 15. migrate_multi_tenant_phase3_rollups.sql
+-- 16. migrate_marketing_campaigns.sql
+-- 17. migrate_marketing_campaign_rollups.sql
+-- 18. migrate_proposed_cruise_reservation_ids.sql
+-- 19. migrate_platform_operator_null_agency.sql
+-- 20. migrate_invitation_cancellation.sql
+-- 21. migrate_agency_groups.sql
+-- 22. migrate_agency_group_inventory_deposit.sql
+-- 23. migrate_travel_request_group_bookings.sql
+-- 24. migrate_travel_request_group_inventory_reservation.sql
+-- 25. migrate_workflow_engine.sql
+-- 26. migrate_workflow_archive.sql
+-- 27. migrate_agency_custom_task_definitions.sql
+-- 28. migrate_agency_email_logs.sql
+-- 29. migrate_credit_card_authorizations.sql
+-- 30. migrate_cc_auth_encrypted_card_data.sql
+-- 31. migrate_insurance_workflow.sql
+-- 32. migrate_client_terms_agreements.sql          (UPGRADE ONLY task inserts)
+-- 33. migrate_agency_business_address.sql
+-- 34. migrate_agency_settings.sql                  (UPGRADE ONLY backfill/seed)
+-- 35. migrate_agency_signature_mediumtext.sql
+-- 36. migrate_agency_trial_period.sql
+-- 37. migrate_performance_indexes.sql              (partially duplicated in init.sql)

@@ -23,6 +23,7 @@ class Agency(Base):
     subscription_state: Mapped[str] = mapped_column(
         String(40), nullable=False, default=SUBSCRIPTION_STATE_ACTIVE, index=True
     )
+    trial_ends_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     business_address_line_1: Mapped[str | None] = mapped_column(String(120), nullable=True)
     business_address_line_2: Mapped[str | None] = mapped_column(String(120), nullable=True)

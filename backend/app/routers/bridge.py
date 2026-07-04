@@ -99,7 +99,7 @@ def issue_platform_invitation(
     )
     return PlatformInviteCreated(
         invitation_id=invitation.id,
-        onboarding_path=f"/register?token={invitation.token}",
+        onboarding_path=f"/onboarding?token={invitation.token}",
         expires_at=invitation.expires_at,
     )
 

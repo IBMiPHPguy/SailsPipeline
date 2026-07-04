@@ -8,6 +8,7 @@ import "./index.css";
 
 const BridgeApp = lazy(() => import("./bridge/BridgeApp"));
 const OnboardingRegisterPage = lazy(() => import("./OnboardingRegisterPage"));
+const RegisterPage = lazy(() => import("./RegisterPage"));
 const RegisterAgentPage = lazy(() => import("./RegisterAgentPage"));
 const SubscriptionRestorePage = lazy(() => import("./SubscriptionRestorePage"));
 const CcAuthPortalPage = lazy(() => import("./CcAuthPortalPage"));
@@ -40,6 +41,14 @@ function RootRouter() {
   }
 
   if (path === "/register") {
+    return (
+      <Suspense fallback={<RouteFallback />}>
+        <RegisterPage />
+      </Suspense>
+    );
+  }
+
+  if (path === "/onboarding") {
     return (
       <Suspense fallback={<RouteFallback />}>
         <OnboardingRegisterPage />

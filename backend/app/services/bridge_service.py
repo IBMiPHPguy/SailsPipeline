@@ -13,7 +13,6 @@ from app.models import Agency, PlatformInvitation, User
 from app.security import hash_password
 from app.services.auth_service import normalize_organization_handle
 from app.tenant_roles import SUBSCRIPTION_STATE_ACTIVE, USER_ROLE_TENANT_SUPER_USER
-
 ORGANIZATION_HANDLE_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$")
 USERNAME_PATTERN = re.compile(r"^\S{3,80}$")
 
@@ -199,6 +198,8 @@ def update_bridge_tenant(
     agency.organization_handle = normalized_handle
     agency.slug = normalized_handle
     agency.subscription_state = subscription_state
+    if subscription_state == SUBSCRIPTION_STATE_ACTIVE:
+        agency.trial_ends_at = None
     db.commit()
     db.refresh(agency)
     return agency
