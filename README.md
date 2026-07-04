@@ -4,87 +4,76 @@ Web app for managing cruise travel requests from intake through research, client
 
 Agents use a workflow-driven workspace for each open request: capture client details, upload research, propose cruises, draft and send communications, track follow-ups, record client decisions, and close or reopen requests as needed.
 
-SailsPipeline is **multi-tenant**: CRM data is isolated by agency. Each agency signs in with an **organization handle** (tenant slug). Platform operators use **The Bridge** (`/bridge`) to provision new agencies. Agency owners use the CRM **Team** workspace to invite agents and manage user access. See [`docs/multi-tenant-design.md`](docs/multi-tenant-design.md) for architecture, roles, and verification checklist.
+SailsPipeline is a **multi-tenant SaaS CRM**: data is isolated by agency, each workspace supports **dynamic white-labeling**, and new tenants receive a **7-day trial** before automatic lock. Each agency signs in with an **organization handle** (tenant slug). Platform operators use **The Bridge** (`/bridge`) to provision agencies. Agency owners use the CRM **Team** workspace to invite agents.
 
-## Cloud launch (new server)
+| Document | Contents |
+| --- | --- |
+| [`docs/architecture.md`](docs/architecture.md) | Tenant guardrails, organization-handle auth, route map, white-labeling |
+| [`docs/deployment-readiness.md`](docs/deployment-readiness.md) | Pre-flight cloud checklist (secrets, SMTP, S3, TLS) |
 
-SailsPipeline follows a **zero-seed application boot**: the API container starts with schema reconciliation only—no default tenant, no demo agency, and no platform operator is created automatically. On a fresh cloud deployment, run the **Bridge launch** sequence **once** after the database and API are up.
+## Local development quickstart
 
-### Why three layers (SaaS bootstrap)
+SailsPipeline uses a **three-layer bootstrap**: separate schema migration from platform operator creation from per-tenant provisioning. Application startup is **zero-seed** — the API reconciles schema only; no default tenant, demo agency, or platform operator is created automatically.
 
 | Layer | When | What runs | Data created |
 | --- | --- | --- | --- |
-| **1. Infrastructure boot** | Every container start | `db/init.sql` (fresh volume), API `create_all` + `schema_migrations` | Tables/indexes only |
+| **1. Infrastructure boot** | Every container start | `db/init.sql` (fresh volume), API `create_all` + `schema_migrations` | Tables and indexes only |
 | **2. Bridge launch** | Once per environment | `bridge_launch.py` (Compose `launch` profile or exec) | Single `platform_super_admin` for The Bridge |
 | **3. Tenant onboarding** | Per customer | `POST /api/public/register` or Bridge invite → `/onboarding` | Agency, owner, settings, trial window |
 
-This matches common multi-tenant SaaS practice: **separate schema migration from platform bootstrap from tenant provisioning**, keep app restarts idempotent, and never rely on implicit demo tenants in production.
-
-### What Bridge launch does
-
-| Step | Action |
-| --- | --- |
-| 1. Preflight | Verifies MySQL connectivity and required tables (`agencies`, `agency_settings`, `users`, `platform_invitations`) |
-| 2. Bootstrap | Creates the first `platform_super_admin` operator for The Bridge (idempotent) |
-| 3. Handoff | Prints next steps for tenant provisioning |
-
-Bridge launch **never** inserts tenant agencies or CRM users. Tenant workspaces are created only through:
-
-- **Self-service:** `POST /api/public/register` (when `ALLOW_PUBLIC_REGISTRATION=true`, e.g. local dev)
-- **Invite-driven:** Bridge platform invitations → `/onboarding?token=…`
-
-### Implementation
-
-| Artifact | Role |
-| --- | --- |
-| `backend/scripts/bridge_launch.py` | CLI entry (`--check-only`, `--force-password`) |
-| `backend/app/services/bridge_launch_service.py` | Preflight schema checks + idempotent operator bootstrap |
-| `docker-compose.yml` → `bridge-launch` | One-shot Compose job (`profiles: [launch]`) |
-| `scripts/bridge-launch.ps1` / `bridge-launch.sh` | Convenience wrappers around `docker compose exec` |
-
-### Run Bridge launch
-
-Set strong credentials in `.env` before launching:
-
-```env
-SEED_BRIDGE_ADMIN_USERNAME=bridge.ops
-SEED_BRIDGE_ADMIN_EMAIL=ops@your-domain.example
-SEED_BRIDGE_ADMIN_PASSWORD=<strong-password>
-```
-
-**Option A — one-shot Compose job (recommended on cloud):**
+### Step 1 — Environment and infrastructure
 
 ```powershell
-docker compose up -d db backend nginx
+Copy-Item .env.example .env
+docker compose up -d --build
+```
+
+This starts **db**, **backend**, **frontend**, **nginx**, and **mailpit**. Wait for MySQL health checks to pass before continuing.
+
+| URL | Purpose |
+| --- | --- |
+| http://localhost:8080 | CRM app (via Nginx — primary entry point) |
+| http://localhost:8080/bridge | The Bridge (platform admin portal) |
+| http://localhost:8080/register | Self-service agency registration (dev) |
+| http://localhost:8080/docs | OpenAPI / Swagger docs |
+| http://localhost:8025 | **Mailpit** — view intercepted transactional email |
+| http://localhost:5173 | Frontend Vite dev server (optional; Nginx proxies it) |
+| localhost:3306 | MySQL |
+
+### Step 2 — Bridge launch (one-time per environment)
+
+Set platform operator credentials in `.env` (`SEED_BRIDGE_ADMIN_*`). These are read **only** by the Bridge launch CLI — not during normal application boot. The legacy `SEED_ADMIN_*` variables are unused at startup (kept for test fixtures and documentation continuity).
+
+```powershell
 docker compose --profile launch run --rm bridge-launch
 ```
 
-**Option B — exec into the running API container:**
+Alternative: `docker compose exec backend python scripts/bridge_launch.py`
 
-```powershell
-docker compose exec backend python scripts/bridge_launch.py
-```
+| Flag | Purpose |
+| --- | --- |
+| `--check-only` | Preflight schema verification without creating users |
+| `--force-password` | Reset password when the launch operator already exists |
 
-**Preflight only (no user changes):**
+Sign in to **The Bridge** at http://localhost:8080/bridge with the `SEED_BRIDGE_ADMIN_*` credentials.
 
-```powershell
-docker compose exec backend python scripts/bridge_launch.py --check-only
-```
+### Step 3 — Tenant workspace provisioning
 
-**Reset an existing launch operator password:**
+**Local dev (self-service):** open http://localhost:8080/register when `ALLOW_PUBLIC_REGISTRATION=true`. This calls `POST /api/public/register`, creates a trialing agency with default white-label settings, and signs the owner into the CRM.
 
-```powershell
-docker compose exec backend python scripts/bridge_launch.py --force-password
-```
+**Invite-driven (staging/production pattern):** issue a platform invitation from The Bridge → owner completes `/onboarding?token=…`.
 
-### After launch
+Passwords must be more than 10 characters and include at least one uppercase letter, one lowercase letter, one numeral, and one special character. Spaces are not allowed.
 
-1. Sign in to **The Bridge** at `/bridge` with the platform operator credentials.
-2. Provision agencies via Bridge invitations, or enable public registration for `/register` in non-production environments.
-3. Confirm health: `GET /api/health` should return `{"status":"ok",...}`.
-4. In **production**, set `ALLOW_PUBLIC_REGISTRATION=false`, `APP_ENV=production`, a 32+ character `JWT_SECRET`, and a live `EMAIL_API_KEY`.
+### Local staging tools
 
-Fresh MySQL volumes initialize from `db/init.sql` (DDL only). Existing volumes may need incremental scripts listed in `db/MIGRATION_ORDER.txt`.
+- **Mailpit** captures all outbound email when `APP_ENV=development`. After triggering password reset, team invites, or welcome email, open http://localhost:8025 to preview branded HTML templates.
+- Set `PUBLIC_APP_BASE_URL=http://localhost:8080` in `.env` so email links route through Nginx.
+- Brand logos upload to `backend/static/uploads/` locally and are served at `/static/uploads/…`.
+
+### Cloud deployment
+
+For production, see [`docs/deployment-readiness.md`](docs/deployment-readiness.md). Summary: generate secure `JWT_SECRET`, set `APP_ENV=production`, configure `EMAIL_API_KEY`, `S3_BRAND_BUCKET`, TLS certs, run Bridge launch once, and disable `ALLOW_PUBLIC_REGISTRATION`.
 
 ## Stack
 
@@ -100,45 +89,6 @@ Fresh MySQL volumes initialize from `db/init.sql` (DDL only). Existing volumes m
 
 Python was chosen for the API because it is widely used for modern web services, pairs well with FastAPI for workflow APIs, and keeps the backend easy to extend as the cruise request workflow grows.
 
-## Quick start
-
-1. Copy environment defaults if needed:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-2. Start the full stack:
-
-```powershell
-docker compose up --build
-```
-
-3. Open the app:
-
-| URL | Purpose |
-| --- | --- |
-| http://localhost:8080 | CRM app (via Nginx) |
-| http://localhost:8080/bridge | The Bridge (platform admin portal) |
-| http://localhost:8080/register | Self-service agency registration (dev) |
-| http://localhost:5173 | Frontend dev server |
-| http://localhost:8080/docs | OpenAPI / Swagger docs |
-| http://localhost:8025 | Mailpit (local email capture) |
-| localhost:3306 | MySQL |
-
-4. Run **Bridge launch** once (creates the platform operator; see [Cloud launch](#cloud-launch-new-server)):
-
-```powershell
-docker compose --profile launch run --rm bridge-launch
-```
-
-5. **Local dev paths:**
-
-- **New agency (self-service):** open http://localhost:8080/register — provisions a trialing tenant workspace when `ALLOW_PUBLIC_REGISTRATION=true`.
-- **The Bridge:** sign in at http://localhost:8080/bridge with `SEED_BRIDGE_ADMIN_USERNAME` / `SEED_BRIDGE_ADMIN_PASSWORD`, then issue platform invitations for invite-driven onboarding.
-
-Passwords must be more than 10 characters and include at least one uppercase letter, one lowercase letter, one numeral, and one special character. Spaces are not allowed.
-
 CRM agents join through **team invitations** from a tenant super user (Team workspace). Public `/register` is for **new agency owners** provisioning their own workspace in development; production typically disables it and uses Bridge invitations instead.
 
 ## Application overview
@@ -153,7 +103,17 @@ CRM agents join through **team invitations** from a tenant super user (Team work
 
 Inactive agency users (`is_active = false`) cannot sign in; their profiles remain for reporting and can be reactivated from Team.
 
-When an agency subscription is **Past Due** or **Locked**, most CRM API routes return **HTTP 402** and the app shows a subscription restore page. `/api/auth/me` still works so the user can sign out.
+When an agency subscription is **Past Due** or **Locked** (including after a **7-day trial** expires), most CRM API routes return **HTTP 402** and the app shows a subscription restore page. `/api/auth/me` still works so the user can sign out. A background scheduler locks expired trials based on `TRIAL_PERIOD_DAYS` and `TRIAL_SCHEDULER_POLL_SECONDS`.
+
+### Agency Settings (white-label)
+
+Tenant super users open **Agency Settings** to configure per-agency branding:
+
+- Logo, primary/secondary colors, and email signature HTML
+- Master Terms & Conditions vault and corporate contact details
+- Branding flows into CRM chrome, passenger portals, and transactional email
+
+Local dev stores uploaded assets under `BRAND_UPLOADS_DIR` (default `static/uploads`). Staging and production use `S3_BRAND_BUCKET` — see [`docs/deployment-readiness.md`](docs/deployment-readiness.md).
 
 ### Dashboard
 
@@ -276,7 +236,7 @@ Invited agents complete registration at `/register-agent?token=…`.
 - Edit agency subscription state and organization handle
 - Revoke pending platform invitations
 
-New agency owners complete onboarding at `/register?token=…`, which creates the agency and first `tenant_super_user` in one step.
+New agency owners complete Bridge onboarding at `/onboarding?token=…`, which creates the agency and first `tenant_super_user` in one step.
 
 CRM and Bridge use separate browser tokens so both can stay open in different tabs.
 
@@ -358,9 +318,9 @@ docker compose up -d backend
 
 ## Authentication
 
-CRM sign-in:
+CRM sign-in requires **organization handle** + username + password so the same email can exist in separate agencies without collision:
 
-- `POST /api/auth/login` — body includes `organization_handle`, `username`, and `password`; returns a JWT access token scoped to that agency
+- `POST /api/auth/login` — resolves agency by handle, then authenticates user within that tenant
 - `GET /api/auth/me` — current signed-in user (`role`, `is_active`, `agency_id`, etc.)
 - Inactive users are rejected at login and on token validation
 
@@ -368,14 +328,22 @@ Bridge sign-in:
 
 - `POST /api/auth/bridge/login` — platform operator username and password (no organization handle)
 
-Onboarding (unauthenticated):
+Password recovery (unauthenticated, tenant-scoped):
 
-- `GET/POST /api/onboarding/invites/verify` and `/api/onboarding/accept` — new agency owner registration from Bridge invite (`/register`)
-- `GET/POST /api/onboarding/agent/invites/verify` and `/api/onboarding/agent/accept` — agent registration from Team invite (`/register-agent`)
+- `POST /api/public/auth/forgot-password` — organization handle + email; sends branded reset link via Mailpit (dev) or cloud SMTP (staging/prod)
+- `GET /api/public/auth/reset-password/validate/{token}` — validate token and load agency branding
+- `POST /api/public/auth/reset-password` — set new password
+- Frontend: `/forgot-password`, `/reset-password?token=…`
 
-Legacy self-registration (optional):
+Tenant provisioning (unauthenticated):
 
-- `POST /api/auth/register` — only when `ALLOW_PUBLIC_REGISTRATION=true`; not used by the CRM login screen
+- `POST /api/public/register` — self-service agency workspace when `ALLOW_PUBLIC_REGISTRATION=true` (frontend `/register`)
+- `GET/POST /api/onboarding/invites/verify` and `/api/onboarding/accept` — Bridge invite → `/onboarding`
+- `GET/POST /api/onboarding/agent/invites/verify` and `/api/onboarding/agent/accept` — Team invite → `/register-agent`
+
+Legacy endpoint (disabled):
+
+- `POST /api/auth/register` — returns 403; use `POST /api/public/register` instead
 
 All other `/api/*` endpoints require authentication. CRM routes require a tenant JWT; Bridge routes require a platform super admin JWT.
 
@@ -392,12 +360,13 @@ Request, passenger, and note changes are recorded in change history views. These
 
 | Service | Role |
 | --- | --- |
-| `nginx` | Serves the frontend and proxies `/api` to the backend |
+| `nginx` | Serves the frontend and proxies `/api` and `/static` to the backend |
 | `frontend` | React dev server with hot reload |
 | `backend` | FastAPI with auto-reload |
 | `db` | MySQL with persistent storage |
+| `mailpit` | Local SMTP capture and web UI (development email) |
 
-Uploaded files (transcripts, chats, research documents) live in the `attachment_uploads` Docker volume, mounted at `/app/uploads` in the backend container.
+Uploaded files (transcripts, chats, research documents) live in the `attachment_uploads` Docker volume, mounted at `/app/uploads` in the backend container. Agency brand logos and signature images use `BRAND_UPLOADS_DIR` locally or S3 in cloud tiers.
 
 ## Backend layout
 
@@ -408,6 +377,8 @@ The FastAPI app is created in `backend/app/application.py` and mounted for Uvico
 | `routers/health.py`, `routers/auth.py` | Health check and CRM/Bridge authentication |
 | `routers/onboarding.py` | Platform and agent invite verification and acceptance |
 | `routers/agency.py` | Team workspace: users, invites, user updates |
+| `routers/agency_settings.py` | Agency branding, settings, logo upload |
+| `routers/public.py`, `routers/public_auth.py` | Self-service registration and password recovery |
 | `routers/bridge.py` | The Bridge: tenant provisioning, agency ledger |
 | `routers/dashboard.py` | Dashboard aggregates |
 | `routers/requests.py` | Travel requests, notes, attachments, proposed cruises, insurance, research documents |
@@ -436,27 +407,34 @@ Domain helpers (cabin normalization, workflow templates, research email HTML, et
 
 ## Environment variables
 
-See `.env.example` for defaults.
+Copy `.env.example` to `.env`. Key groups:
 
 | Variable | Purpose |
 | --- | --- |
 | `MYSQL_*` | Database credentials |
-| `JWT_SECRET`, `JWT_EXPIRE_MINUTES` | Auth token signing |
-| `SEED_ADMIN_*` | Legacy local-dev placeholders (not applied on application startup) |
-| `SEED_BRIDGE_ADMIN_*` | Platform operator credentials for the one-time Bridge launch script |
-| `ATTACHMENTS_DIR` | Upload root inside the backend container |
+| `JWT_SECRET`, `JWT_EXPIRE_MINUTES` | Auth token signing (32+ chars required in production) |
+| `SEED_ADMIN_*` | **Legacy placeholders — not used on application startup** |
+| `SEED_BRIDGE_ADMIN_*` | Platform operator for **Bridge launch CLI only** (`docker compose --profile launch run --rm bridge-launch`) |
+| `APP_ENV` | `development` \| `staging` \| `production` — drives email routing and security checks |
+| `ALLOW_PUBLIC_REGISTRATION` | When `false`, `POST /api/public/register` returns 403 |
+| `ATTACHMENTS_DIR` | Request attachment upload root inside the backend container |
+| `BRAND_UPLOADS_DIR` | Local agency logo/signature storage (dev); see `S3_BRAND_*` for cloud |
+| `S3_BRAND_BUCKET`, `S3_BRAND_REGION`, `S3_BRAND_PUBLIC_BASE_URL` | Cloud brand asset storage (staging/production) |
+| `PUBLIC_APP_BASE_URL` | Base URL for password-reset and email CTA links (use Nginx port locally) |
+| `CC_AUTH_PORTAL_BASE_URL`, `TERMS_PORTAL_BASE_URL`, `INSURANCE_PORTAL_BASE_URL` | Passenger portal link bases |
+| `CC_AUTH_ENCRYPTION_KEY`, `CC_AUTH_VAULT_ACCESS_KEY` | Transient card vault encryption and agent reveal access |
+| `TRIAL_PERIOD_DAYS` | Trial length for new agencies (default `7`) |
+| `TRIAL_SCHEDULER_ENABLED`, `TRIAL_SCHEDULER_POLL_SECONDS` | Background trial expiration locking |
+| `EMAIL_FROM_ADDRESS`, `EMAIL_API_KEY`, `EMAIL_API_KEY_STAGING` | Transactional email (Mailpit automatic in development) |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | Optional AI integration |
 | `*_PORT` | Host ports for nginx, frontend, backend |
-| `ALLOW_PUBLIC_REGISTRATION` | When `false`, `/api/auth/register` returns 403 |
 | `CORS_ORIGINS` | Comma-separated browser origins allowed by the API |
-| `EXPOSE_OPENAPI` | When `false`, hides `/docs` and `/openapi.json` on the backend |
+| `EXPOSE_OPENAPI` | When `false`, hides `/docs` and `/openapi.json` |
 | `AUTH_RATE_LIMIT` | slowapi limit for login/register (default `10/minute`) |
-| `APP_ENV` | Set to `production` to enforce secure startup checks |
-| `ROLLUP_SCHEDULER_ENABLED` | When `true`, background job refreshes agency analytics rollups (default `true`; disabled in test) |
-| `ROLLUP_REFRESH_POLL_SECONDS` | How often queued rollup refreshes are processed (default `30`) |
-| `ROLLUP_DAILY_REFRESH_HOUR_UTC` | Hour (UTC) for a full rollup refresh of all agencies (default `3`) |
+| `ROLLUP_SCHEDULER_*` | Agency analytics rollup background refresh |
+| `PLATFORM_INVITE_EXPIRE_DAYS`, `AGENCY_INVITE_EXPIRE_DAYS` | Invitation TTL defaults |
 
-Change `JWT_SECRET`, database passwords, and the seeded admin password before deploying outside local development.
+Change `JWT_SECRET`, database passwords, and Bridge launch credentials before deploying outside local development. See [`docs/deployment-readiness.md`](docs/deployment-readiness.md) for the full cloud checklist.
 
 ## Security
 
@@ -494,13 +472,17 @@ Local development still exposes ports. CRM login is sign-in only; team and platf
 
 All routes below require authentication unless noted.
 
-### Health and auth
+### Health, public, and auth
 
 - `GET /api/health`
+- `POST /api/public/register` — self-service agency provisioning when enabled
+- `POST /api/public/auth/forgot-password` — password reset request (organization handle + email)
+- `GET /api/public/auth/reset-password/validate/{token}`
+- `POST /api/public/auth/reset-password`
+- `GET /api/public/agency/{agency_id}/branding` — public portal branding
 - `POST /api/auth/login` — CRM login (`organization_handle`, `username`, `password`)
 - `POST /api/auth/bridge/login` — Bridge login
 - `GET /api/auth/me`
-- `POST /api/auth/register` — optional legacy self-registration when enabled
 
 ### Onboarding
 
@@ -617,7 +599,7 @@ Interactive docs with request/response schemas: http://localhost:8080/docs
 
 ## Testing
 
-The project includes backend unit tests, API integration tests, and frontend unit tests. Test services use the Docker Compose `test` profile with an ephemeral MySQL database (`test-db`). The current suite includes **186 backend tests** and **22 frontend tests** (report export/layout helpers, domain helpers, and API client utilities).
+The project includes backend unit tests, API integration tests, and frontend unit tests. Test services use the Docker Compose `test` profile with an ephemeral MySQL database (`test-db`).
 
 Run the full suite:
 
@@ -710,9 +692,10 @@ Replace `rootsecret` with your `MYSQL_ROOT_PASSWORD` if you changed it.
 ## Useful commands
 
 ```powershell
-docker compose up --build
+docker compose up -d --build
 docker compose up -d backend          # after .env changes
 docker compose down
 docker compose logs -f backend
 docker compose logs -f frontend
+docker compose logs -f mailpit
 ```
