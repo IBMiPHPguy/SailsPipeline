@@ -100,6 +100,8 @@ CREATE TABLE IF NOT EXISTS users (
     username VARCHAR(80) NOT NULL UNIQUE,
     email VARCHAR(255) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
+    reset_token_hash VARCHAR(255) NULL,
+    reset_token_expires_at DATETIME NULL,
     role VARCHAR(50) NOT NULL DEFAULT 'tenant_agent',
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     can_view_all_agency_leads BOOLEAN NOT NULL DEFAULT TRUE,

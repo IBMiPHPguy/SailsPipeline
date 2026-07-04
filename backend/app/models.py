@@ -132,6 +132,8 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(80), nullable=False, unique=True)
     email: Mapped[str] = mapped_column(String(255), nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    reset_token_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    reset_token_expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     role: Mapped[str] = mapped_column(String(50), nullable=False, default=USER_ROLE_TENANT_AGENT, index=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     can_view_all_agency_leads: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

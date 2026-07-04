@@ -63,7 +63,7 @@ class Settings(BaseSettings):
     s3_brand_bucket: str | None = None
     s3_brand_region: str = "us-east-1"
     s3_brand_public_base_url: str | None = None
-    public_app_base_url: str = "http://localhost:8080"
+    public_app_base_url: str = "http://localhost:5173"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

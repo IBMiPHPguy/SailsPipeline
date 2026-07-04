@@ -1,6 +1,19 @@
 import { clearToken, getToken, setToken, type AuthScope } from "./authStorage";
 import { API_BASE, apiFetch, authHeaders, parseApiError, redirectToSubscriptionRestore } from "./apiClient";
-import type { AuthResponse, LoginInput, PublicRegisterInput, RegisterInput, User } from "./types";
+import type {
+  AuthResponse,
+  ForgotPasswordInput,
+  LoginInput,
+  PublicRegisterInput,
+  RegisterInput,
+  User,
+} from "./types";
+import type { PortalBranding } from "./portalBranding";
+
+export type PasswordResetValidateResponse = {
+  branding: PortalBranding;
+  organization_handle: string;
+};
 
 export async function login(payload: LoginInput): Promise<AuthResponse> {
   const response = await apiFetch(`${API_BASE}/auth/login`, {
@@ -64,6 +77,46 @@ export async function registerAgencyWorkspace(payload: PublicRegisterInput): Pro
   const data: AuthResponse = await response.json();
   setToken(data.access_token, "crm");
   return data;
+}
+
+export async function validateResetPasswordToken(token: string): Promise<PasswordResetValidateResponse> {
+  const response = await apiFetch(
+    `${API_BASE}/public/auth/reset-password/validate/${encodeURIComponent(token)}`,
+    { headers: authHeaders(false) },
+  );
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "This password reset link is invalid or has expired."));
+  }
+
+  return response.json();
+}
+
+export async function requestPasswordReset(payload: ForgotPasswordInput): Promise<void> {
+  const response = await apiFetch(`${API_BASE}/public/auth/forgot-password`, {
+    method: "POST",
+    headers: authHeaders(true, "crm"),
+    body: JSON.stringify({
+      organization_handle: payload.organization_handle,
+      email: payload.email,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to send reset email."));
+  }
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  const response = await apiFetch(`${API_BASE}/public/auth/reset-password`, {
+    method: "POST",
+    headers: authHeaders(true, "crm"),
+    body: JSON.stringify({ token, new_password: newPassword }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to reset password."));
+  }
 }
 
 export async function fetchCurrentUser(scope: AuthScope = "crm"): Promise<User> {

@@ -158,6 +158,26 @@ class PublicRegisterRequest(BaseModel):
         return value
 
 
+class ForgotPasswordRequest(BaseModel):
+    organization_handle: str = Field(min_length=1, max_length=50, pattern=r"^\S+$")
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(min_length=1, max_length=512)
+    new_password: str = Field(min_length=11, max_length=128)
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password_strength(cls, value: str) -> str:
+        validate_password(value)
+        return value
+
+
+class MessageResponse(BaseModel):
+    message: str
+
+
 class BridgeAgencySummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -387,6 +407,11 @@ class PortalBrandingPayload(BaseModel):
     secondary_color: str
     business_address: str | None = None
     business_phone: str | None = None
+
+
+class PasswordResetValidateResponse(BaseModel):
+    branding: PortalBrandingPayload
+    organization_handle: str
 
 
 class AgentInviteRead(BaseModel):

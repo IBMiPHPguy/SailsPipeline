@@ -1,7 +1,11 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
-from app.brand_logo_storage import upload_agency_logo, upload_agency_signature_image as store_signature_image
+from app.brand_logo_storage import (
+    purge_stale_local_brand_logo,
+    upload_agency_logo,
+    upload_agency_signature_image as store_signature_image,
+)
 from app.database import get_db
 from app.deps import get_current_user, require_tenant_super_user
 from app.models import User
@@ -78,6 +82,9 @@ async def upload_agency_brand_logo(
         raise HTTPException(status_code=422, detail="Logo file is empty.")
     if len(content) > _MAX_LOGO_BYTES:
         raise HTTPException(status_code=422, detail="Logo file must be 5 MB or smaller.")
+
+    current_settings = get_agency_settings_row(db, agency_id=current_user.agency_id)
+    purge_stale_local_brand_logo(current_settings.brand_logo_url)
 
     try:
         logo_url = upload_agency_logo(

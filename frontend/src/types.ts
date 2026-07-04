@@ -28,6 +28,11 @@ export type LoginInput = {
   password: string;
 };
 
+export type ForgotPasswordInput = {
+  organization_handle: string;
+  email: string;
+};
+
 export type BridgeLoginInput = {
   username: string;
   password: string;
