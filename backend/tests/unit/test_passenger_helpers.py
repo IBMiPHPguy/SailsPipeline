@@ -65,11 +65,39 @@ def test_search_passengers_includes_reactivated_client(db):
 
 
 def test_attach_passenger_to_request_rejects_inactive_client(db):
+    from datetime import date
+
+    from app.models import TravelRequest, User
+    from app.security import hash_password
+
+    user = User(
+        username="inactive-user",
+        email="inactive@example.com",
+        password_hash=hash_password("ValidPass1!"),
+    )
+    request = TravelRequest(
+        first_name="Jane",
+        last_name="Cruiser",
+        email="jane@example.com",
+        phone="5551234567",
+        cruise_lines=["Royal Caribbean International"],
+        destination="Caribbean",
+        destination_details={"caribbean_regions": ["Eastern"]},
+        departure_date=date(2026, 6, 1),
+        return_date=date(2026, 6, 8),
+        cabin_types=["Balcony"],
+        passengers=2,
+        cabins_needed=1,
+        status="Open",
+        created_by=user,
+        updated_by=user,
+    )
     passenger = _create_passenger(db, is_active=False)
-    db.commit()
+    db.add_all([user, request])
+    db.flush()
 
     with pytest.raises(ValueError, match="Inactive clients cannot be added"):
-        attach_passenger_to_request(db, request_id=1, passenger_id=passenger.id)
+        attach_passenger_to_request(db, request_id=request.id, passenger_id=passenger.id)
 
 
 def test_search_passengers_matches_name_email_and_phone(db):

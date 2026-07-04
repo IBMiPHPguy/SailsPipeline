@@ -12,6 +12,8 @@ from app.audit_helpers import (
     record_travel_request_field_changes,
 )
 from app.models import ProposedCruise, ProposedCruisePassenger, RequestPassenger, TravelRequest, User
+from app.services.agency_service import NOT_FOUND
+from app.tenant_context import get_current_agency_id, set_current_agency_id
 
 
 def load_request_passenger(db: Session, link_id: int) -> RequestPassenger:
@@ -21,6 +23,35 @@ def load_request_passenger(db: Session, link_id: int) -> RequestPassenger:
         .filter(RequestPassenger.id == link_id)
         .one()
     )
+
+
+def get_request_passenger_for_agency(
+    db: Session,
+    link_id: int,
+    agency_id: str,
+    *,
+    travel_request_id: int | None = None,
+) -> RequestPassenger:
+    previous_agency_id = get_current_agency_id()
+    set_current_agency_id(agency_id)
+    try:
+        query = (
+            db.query(RequestPassenger)
+            .options(joinedload(RequestPassenger.passenger))
+            .join(TravelRequest, TravelRequest.id == RequestPassenger.travel_request_id)
+            .filter(
+                RequestPassenger.id == link_id,
+                TravelRequest.agency_id == agency_id,
+            )
+        )
+        if travel_request_id is not None:
+            query = query.filter(RequestPassenger.travel_request_id == travel_request_id)
+        link = query.first()
+    finally:
+        set_current_agency_id(previous_agency_id)
+    if link is None:
+        raise NOT_FOUND
+    return link
 
 
 def detach_request_passenger_from_proposed_cruises(

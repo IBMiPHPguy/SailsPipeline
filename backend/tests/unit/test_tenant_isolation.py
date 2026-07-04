@@ -83,3 +83,30 @@ def test_fail_closed_blocks_tenant_query_without_agency_id_on_crm_path(db, agenc
 
     with pytest.raises(TenantContextRequiredError):
         db.query(TravelRequest).filter(TravelRequest.id == agency_one_travel_request.id).first()
+
+
+def test_agency_one_context_can_load_travel_request_detail(db, agency_one_travel_request):
+    from app.models import User
+    from app.security import hash_password
+    from app.services.request_service import get_request_detail
+    from app.tenant_context import set_tenant_scoping_required
+
+    user = User(
+        agency_id=AGENCY_ONE_ID,
+        username="detail-agent",
+        email="detail-agent@agency-one.example",
+        password_hash=hash_password("ValidPass1!"),
+    )
+    db.add(user)
+    db.flush()
+    agency_one_travel_request.created_by_id = user.id
+    agency_one_travel_request.updated_by_id = user.id
+    db.commit()
+
+    set_current_agency_id(AGENCY_ONE_ID)
+    set_tenant_scoping_required(True)
+
+    detail = get_request_detail(db, agency_one_travel_request.id)
+
+    assert detail.id == agency_one_travel_request.id
+    assert detail.first_name == "Jane"
