@@ -6,6 +6,7 @@ from starlette.responses import JSONResponse, Response
 
 from app.database import SessionLocal
 from app.models import Agency
+from app.openapi_paths import is_openapi_documentation_path
 from app.security import decode_access_token
 from app.services.subscription_service import (
     build_subscription_block_payload,
@@ -35,6 +36,8 @@ class SubscriptionGatekeeperMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next) -> Response:
         path = request.url.path
+        if is_openapi_documentation_path(path):
+            return await call_next(request)
         if not path.startswith("/api/"):
             return await call_next(request)
         if any(path.startswith(prefix) for prefix in SUBSCRIPTION_EXEMPT_PREFIXES):
