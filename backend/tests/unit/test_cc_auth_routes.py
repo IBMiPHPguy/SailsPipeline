@@ -94,6 +94,25 @@ def test_public_validate_and_complete_routes(client, db, test_user):
     assert complete_response.json()["status"] == "completed"
 
 
+def test_public_validate_route_hides_internal_ids_for_expired_token(client, db, test_user):
+    request, _token = _seed_open_request_with_accepted_cruise(db, test_user)
+    expired_token = "expired-route-token"
+    _create_pending_auth(db, request, expired_token, "route-auth-expired")
+    record = (
+        db.query(CreditCardAuthorization)
+        .filter(CreditCardAuthorization.secure_token == expired_token)
+        .one()
+    )
+    record.expires_at = datetime.utcnow() - timedelta(hours=1)
+    db.commit()
+
+    response = client.get(f"/api/cc-auth/validate/{expired_token}")
+    assert response.status_code == 410, response.text
+    body = response.json()
+    assert "travel_request_id" not in body
+    assert body["detail"]
+
+
 def test_public_complete_route_requires_card_payload(client, db, test_user):
     request, token = _seed_open_request_with_accepted_cruise(db, test_user)
     _create_pending_auth(db, request, token, "route-auth-2")

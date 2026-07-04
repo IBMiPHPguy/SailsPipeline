@@ -270,6 +270,7 @@ function App() {
 
   function handleAuthenticated(user: User) {
     setCurrentUser(user);
+    setDashboard(null);
     setView({ type: "dashboard" });
     setError("");
     void loadAgencyBranding();

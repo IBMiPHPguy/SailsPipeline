@@ -16,6 +16,7 @@ from app.services.workflow_task_catalog_service import (
 from app.services.workflow_service import terminate_active_live_workflows_for_template
 from app.services.workflow_template_seed import (
     replace_workflow_template_tasks_with_defaults,
+    seed_agency_workflow_templates,
     wire_default_successor_link,
 )
 from app.tenant_context import require_current_agency_id
@@ -53,6 +54,8 @@ def load_workflow_template(
 
 
 def list_agency_workflow_templates(db: Session, *, agency_id: str) -> list[AgencyWorkflowTemplate]:
+    seed_agency_workflow_templates(db, agency_id)
+    db.flush()
     return (
         _active_workflow_templates_query(db)
         .options(joinedload(AgencyWorkflowTemplate.task_templates))

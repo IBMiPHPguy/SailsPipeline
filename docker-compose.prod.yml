@@ -15,7 +15,7 @@ services:
       APP_ENV: production
       ALLOW_PUBLIC_REGISTRATION: "false"
       EXPOSE_OPENAPI: "false"
-      CORS_ORIGINS: ${CORS_ORIGINS:-https://localhost}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://sailspipeline.com,https://app.sailspipeline.com}
       EMAIL_API_KEY: ${EMAIL_API_KEY}
 
   frontend:

@@ -90,8 +90,6 @@ class CCAuthService:
             return {
                 "valid": False,
                 "reason": "invalid_status",
-                "status": record.status,
-                "travel_request_id": record.travel_request_id,
             }
 
         if record.expires_at <= now:
@@ -100,8 +98,6 @@ class CCAuthService:
             return {
                 "valid": False,
                 "reason": "expired",
-                "travel_request_id": record.travel_request_id,
-                "expires_at": record.expires_at.isoformat(),
             }
 
         return {
@@ -158,8 +154,15 @@ class CCAuthService:
             "authorization_id": record.id,
         }
 
-    def purge_card_data(self, authorization_id: str) -> dict:
-        record = self.db.get(CreditCardAuthorization, authorization_id)
+    def purge_card_data(self, authorization_id: str, *, agency_id: str) -> dict:
+        record = (
+            self.db.query(CreditCardAuthorization)
+            .filter(
+                CreditCardAuthorization.id == authorization_id,
+                CreditCardAuthorization.agency_id == agency_id,
+            )
+            .first()
+        )
         if record is None:
             raise HTTPException(status_code=404, detail="Authorization record not found.")
         if record.status != CC_AUTH_STATUS_COMPLETED:

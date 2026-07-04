@@ -73,3 +73,13 @@ def test_agency_one_context_can_read_own_travel_request(db, agency_one_travel_re
     assert found is not None
     assert found.id == agency_one_travel_request.id
     assert found.agency_id == AGENCY_ONE_ID
+
+
+def test_fail_closed_blocks_tenant_query_without_agency_id_on_crm_path(db, agency_one_travel_request):
+    from app.tenant_context import TenantContextRequiredError, set_tenant_scoping_required
+
+    clear_current_agency_id()
+    set_tenant_scoping_required(True)
+
+    with pytest.raises(TenantContextRequiredError):
+        db.query(TravelRequest).filter(TravelRequest.id == agency_one_travel_request.id).first()

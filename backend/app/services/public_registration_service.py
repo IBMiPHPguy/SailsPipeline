@@ -4,11 +4,13 @@ import re
 import uuid
 
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import Agency, User
 from app.security import hash_password
 from app.services.agency_settings_service import seed_agency_settings_for_tenant
+from app.services.workflow_template_seed import seed_agency_workflow_templates
 from app.services.auth_service import normalize_organization_handle
 from app.services.bridge_service import (
     ORGANIZATION_HANDLE_PATTERN,
@@ -17,6 +19,15 @@ from app.services.bridge_service import (
 )
 from app.services.subscription_service import compute_trial_ends_at
 from app.tenant_roles import SUBSCRIPTION_STATE_TRIALING, USER_ROLE_TENANT_SUPER_USER
+
+PUBLIC_REGISTRATION_SUCCESS_MESSAGE = (
+    "If registration is available for this email, your workspace has been created "
+    "and a welcome message has been dispatched."
+)
+
+
+class PublicRegistrationUnavailableError(Exception):
+    """Registration must not reveal whether the email is already registered."""
 
 
 def _build_organization_handle_from_agency_name(db: Session, agency_name: str) -> str:
@@ -58,10 +69,7 @@ def register_public_tenant(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email address is required.")
 
     if db.query(User).filter(User.email == normalized_email).first():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="An account with this email address already exists.",
-        )
+        raise PublicRegistrationUnavailableError
 
     agency_label = agency_name.strip()
     if not agency_label:
@@ -98,10 +106,14 @@ def register_public_tenant(
         db.flush()
         db.add(user)
         seed_agency_settings_for_tenant(db, agency_id=agency_id, agency_name=agency_label)
+        seed_agency_workflow_templates(db, agency_id)
         db.commit()
         db.refresh(user)
         db.refresh(agency)
         return user, agency
+    except IntegrityError:
+        db.rollback()
+        raise PublicRegistrationUnavailableError from None
     except Exception:
         db.rollback()
         raise

@@ -1,34 +1,50 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
 from app.rate_limit import limiter
-from app.schemas import PublicRegisterRequest, TokenResponse, UserRead
+from app.schemas import MessageResponse, PublicRegisterRequest, TokenResponse, UserRead
 from app.security import create_access_token
-from app.services.public_registration_service import register_public_tenant
+from app.services.public_registration_service import (
+    PUBLIC_REGISTRATION_SUCCESS_MESSAGE,
+    PublicRegistrationUnavailableError,
+    register_public_tenant,
+)
 from app.services.welcome_email_service import dispatch_tenant_welcome_email
 
 router = APIRouter(prefix="/api/public", tags=["public"])
 
 
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    response_model=TokenResponse,
+    responses={200: {"model": MessageResponse}},
+    status_code=status.HTTP_201_CREATED,
+)
 @limiter.limit(settings.auth_rate_limit)
 async def register_agency_workspace(
     request: Request,
     payload: PublicRegisterRequest,
     db: Session = Depends(get_db),
-) -> TokenResponse:
+) -> TokenResponse | JSONResponse:
     if not settings.allow_public_registration:
         raise HTTPException(status_code=403, detail="Public registration is disabled.")
 
-    user, agency = register_public_tenant(
-        db,
-        agency_name=payload.agency_name,
-        admin_email=payload.admin_email,
-        admin_name=payload.admin_name,
-        password=payload.password,
-    )
+    try:
+        user, agency = register_public_tenant(
+            db,
+            agency_name=payload.agency_name,
+            admin_email=payload.admin_email,
+            admin_name=payload.admin_name,
+            password=payload.password,
+        )
+    except PublicRegistrationUnavailableError:
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={"message": PUBLIC_REGISTRATION_SUCCESS_MESSAGE},
+        )
 
     await dispatch_tenant_welcome_email(
         db,
