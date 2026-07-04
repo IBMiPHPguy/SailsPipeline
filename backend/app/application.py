@@ -1,11 +1,14 @@
 from contextlib import asynccontextmanager
+import logging
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html, get_swagger_ui_oauth2_redirect_html
 from fastapi.staticfiles import StaticFiles
-from starlette.responses import HTMLResponse
+from sqlalchemy.exc import SQLAlchemyError
+from starlette.requests import Request
+from starlette.responses import HTMLResponse, JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -20,11 +23,14 @@ from app.rate_limit import limiter
 from app.schema_migrations import run_startup_schema_migrations
 from app.security_config import validate_production_settings
 from app.subscription_gatekeeper import SubscriptionGatekeeperMiddleware
+from app.tenant_context import TenantContextRequiredError
 from app.tenant_middleware import TenantContextMiddleware
 
 STATIC_ROOT = Path(__file__).resolve().parent.parent / "static"
 BRAND_UPLOADS_DIR = STATIC_ROOT / "uploads"
 SWAGGER_UI_STATIC = "/static/swaggerui"
+
+logger = logging.getLogger(__name__)
 
 
 def _openapi_surface_kwargs() -> dict:
@@ -88,6 +94,33 @@ def create_app() -> FastAPI:
 
     application.state.limiter = limiter
     application.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+    @application.exception_handler(TenantContextRequiredError)
+    async def tenant_context_required_handler(
+        _request: Request,
+        _exc: TenantContextRequiredError,
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error."},
+        )
+
+    @application.exception_handler(SQLAlchemyError)
+    async def sqlalchemy_error_handler(
+        request: Request,
+        exc: SQLAlchemyError,
+    ) -> JSONResponse:
+        logger.exception(
+            "Unhandled database error on %s %s",
+            request.method,
+            request.url.path,
+            exc_info=exc,
+        )
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error."},
+        )
+
     application.add_middleware(SlowAPIMiddleware)
     application.add_middleware(TenantContextMiddleware)
     application.add_middleware(SubscriptionGatekeeperMiddleware)

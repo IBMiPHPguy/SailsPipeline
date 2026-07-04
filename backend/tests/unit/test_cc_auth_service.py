@@ -197,6 +197,7 @@ def test_validate_token_rejects_expired(db, test_user):
     result = asyncio.run(service.validate_token("expired-token-value"))
     assert result["valid"] is False
     assert result["reason"] == "expired"
+    assert "travel_request_id" not in result
 
     db.refresh(record)
     assert record.status == CC_AUTH_STATUS_EXPIRED

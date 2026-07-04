@@ -11,7 +11,9 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models import Agency, PlatformInvitation, User
 from app.security import hash_password
+from app.services.agency_settings_service import seed_agency_settings_for_tenant
 from app.services.auth_service import normalize_organization_handle
+from app.services.workflow_template_seed import seed_agency_workflow_templates
 from app.tenant_roles import SUBSCRIPTION_STATE_ACTIVE, USER_ROLE_TENANT_SUPER_USER
 ORGANIZATION_HANDLE_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$")
 USERNAME_PATTERN = re.compile(r"^\S{3,80}$")
@@ -298,6 +300,8 @@ def accept_platform_invitation(
         db.add(agency)
         db.flush()
         db.add(user)
+        seed_agency_settings_for_tenant(db, agency_id=agency_id, agency_name=invitation.target_agency_name)
+        seed_agency_workflow_templates(db, agency_id)
         invitation.is_used = True
         db.commit()
         db.refresh(user)

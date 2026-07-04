@@ -79,5 +79,6 @@ def reveal_request_cc_authorization(
 
 def purge_request_cc_authorization(db: Session, *, request_id: int, authorization_id: str) -> dict:
     record = _load_authorization_for_request(db, request_id=request_id, authorization_id=authorization_id)
+    agency_id = require_current_agency_id()
     service = CCAuthService(db)
-    return service.purge_card_data(record.id)
+    return service.purge_card_data(authorization_id=record.id, agency_id=agency_id)

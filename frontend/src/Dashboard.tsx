@@ -1,7 +1,7 @@
 import { REQUEST_DASHBOARD_PAGE_TITLE } from "./branding";
 import { formatCruiseLines } from "./CruiseLineMultiSelect";
 import { PRIMARY_CLOSE_REASON } from "./formOptions";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fetchOpenRequests } from "./api";
 import { formatMoney } from "./cabinPricing";
 import { getNextTaskBadgeClass } from "./nextTaskBadge";
@@ -50,8 +50,11 @@ export default function Dashboard({
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [listVersion, setListVersion] = useState(0);
+  const loadRequestRef = useRef(0);
 
   async function loadOpenRequests(activeSearch: string, activePage: number) {
+    const requestId = loadRequestRef.current + 1;
+    loadRequestRef.current = requestId;
     setOpenRequestsLoading(true);
     setOpenRequestsError("");
     try {
@@ -60,16 +63,24 @@ export default function Dashboard({
         page: activePage,
         pageSize: OPEN_REQUESTS_PAGE_SIZE,
       });
-      setOpenRequests(response.items);
+      if (requestId !== loadRequestRef.current) {
+        return;
+      }
+      setOpenRequests(response.items ?? []);
       setTotal(response.total);
       setTotalPages(response.total_pages);
       if (response.total_pages > 0 && activePage > response.total_pages) {
         setPage(response.total_pages);
       }
     } catch (loadError) {
+      if (requestId !== loadRequestRef.current) {
+        return;
+      }
       setOpenRequestsError(loadError instanceof Error ? loadError.message : "Unable to load open requests.");
     } finally {
-      setOpenRequestsLoading(false);
+      if (requestId === loadRequestRef.current) {
+        setOpenRequestsLoading(false);
+      }
     }
   }
 

@@ -87,7 +87,7 @@ def list_open_requests_route(
     page: int = 1,
     page_size: int = 25,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> OpenRequestsPageRead:
     normalized_page_size = max(1, min(page_size, 100))
     items, total = search_open_requests(db, query=q, page=page, page_size=normalized_page_size)

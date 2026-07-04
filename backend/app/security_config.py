@@ -15,6 +15,46 @@ INSECURE_DATABASE_PASSWORD_FRAGMENTS = (
     "testroot",
 )
 
+REQUIRED_PRODUCTION_CORS_ORIGINS = frozenset(
+    {
+        "https://sailspipeline.com",
+        "https://app.sailspipeline.com",
+    }
+)
+
+LOCALHOST_CORS_MARKERS = ("localhost", "127.0.0.1")
+
+
+def _validate_production_cors(settings: Settings, errors: list[str]) -> None:
+    origins = settings.cors_origin_list
+
+    if not origins:
+        errors.append(
+            "CORS_ORIGINS must be set for production. "
+            "Required: https://sailspipeline.com,https://app.sailspipeline.com"
+        )
+        return
+
+    for origin in origins:
+        if "*" in origin:
+            errors.append("CORS_ORIGINS must list explicit origins; '*' is not allowed.")
+        if not origin.startswith("https://"):
+            errors.append(f"CORS origin must use https:// in production: {origin}")
+        origin_lower = origin.lower()
+        if any(marker in origin_lower for marker in LOCALHOST_CORS_MARKERS):
+            errors.append(
+                "CORS_ORIGINS must not include localhost in production. "
+                "Set CORS_ORIGINS=https://sailspipeline.com,https://app.sailspipeline.com"
+            )
+
+    missing_required = REQUIRED_PRODUCTION_CORS_ORIGINS - set(origins)
+    if missing_required:
+        errors.append(
+            "CORS_ORIGINS must include all required production domains: "
+            + ", ".join(sorted(REQUIRED_PRODUCTION_CORS_ORIGINS))
+            + f". Missing: {', '.join(sorted(missing_required))}."
+        )
+
 
 def validate_production_settings(settings: Settings) -> None:
     if settings.app_env not in {"production", "prod"}:
@@ -32,8 +72,7 @@ def validate_production_settings(settings: Settings) -> None:
     if settings.allow_public_registration:
         errors.append("ALLOW_PUBLIC_REGISTRATION must be false.")
 
-    if "*" in settings.cors_origin_list:
-        errors.append("CORS_ORIGINS must list explicit origins; '*' is not allowed.")
+    _validate_production_cors(settings, errors)
 
     if settings.expose_openapi:
         errors.append("EXPOSE_OPENAPI must be false.")

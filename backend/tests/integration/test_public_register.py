@@ -1,6 +1,7 @@
 import pytest
 
 from app.models import Agency, AgencySettings, User
+from app.services.public_registration_service import PUBLIC_REGISTRATION_SUCCESS_MESSAGE
 from app.tenant_roles import SUBSCRIPTION_STATE_LOCKED, SUBSCRIPTION_STATE_TRIALING, USER_ROLE_TENANT_SUPER_USER
 
 
@@ -40,7 +41,7 @@ def test_public_register_provisions_tenant_workspace(client, db):
 
 
 @pytest.mark.integration
-def test_public_register_rejects_duplicate_email(client, db):
+def test_public_register_suppresses_duplicate_email_enumeration(client, db):
     first = client.post(
         "/api/public/register",
         json={
@@ -61,8 +62,11 @@ def test_public_register_rejects_duplicate_email(client, db):
             "password": REGISTER_PASSWORD,
         },
     )
-    assert second.status_code == 400
-    assert "already exists" in second.json()["detail"].lower()
+    assert second.status_code == 200, second.text
+    payload = second.json()
+    assert payload["message"] == PUBLIC_REGISTRATION_SUCCESS_MESSAGE
+    assert "already exists" not in payload["message"].lower()
+    assert "access_token" not in payload
 
 
 @pytest.mark.integration
