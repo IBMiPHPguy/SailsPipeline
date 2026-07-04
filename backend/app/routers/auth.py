@@ -4,13 +4,12 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.deps import get_current_user
-from app.models import User
+from app.models import Agency, User
 from app.rate_limit import limiter
 from app.schemas import BridgeLogin, TokenResponse, UserCreate, UserLogin, UserRead
-from app.security import create_access_token, hash_password
-from app.services.agency_service import ensure_default_agency
+from app.security import create_access_token
 from app.services.auth_service import authenticate_agency_user, authenticate_platform_operator
-from app.tenant_roles import USER_ROLE_TENANT_AGENT
+from app.services.subscription_service import raise_if_login_blocked
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -53,36 +52,10 @@ def register_user(
     payload: UserCreate,
     db: Session = Depends(get_db),
 ) -> User:
-    if not settings.allow_public_registration:
-        raise HTTPException(status_code=403, detail="Public registration is disabled.")
-
-    if db.query(User).filter(User.username == payload.username).first():
-        raise HTTPException(status_code=400, detail="Username is already taken.")
-
-    default_agency = ensure_default_agency(db)
-    if (
-        db.query(User)
-        .filter(User.agency_id == default_agency.id, User.email == payload.email)
-        .first()
-    ):
-        raise HTTPException(status_code=400, detail="Email is already registered for this agency.")
-
-    try:
-        password_hash = hash_password(payload.password)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    user = User(
-        agency_id=default_agency.id,
-        username=payload.username,
-        email=payload.email,
-        password_hash=password_hash,
-        role=USER_ROLE_TENANT_AGENT,
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail="Legacy registration is disabled. Use POST /api/public/register to provision a new agency workspace.",
     )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return user
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -104,6 +77,10 @@ def login(
             detail=LOGIN_FAILURE_DETAIL,
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    agency = db.get(Agency, user.agency_id)
+    if agency is not None:
+        raise_if_login_blocked(db, agency)
 
     token = create_access_token(
         user_id=user.id,

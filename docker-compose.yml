@@ -128,6 +128,26 @@ services:
       - --
     command: ["pytest", "tests/", "-v", "--cov=app", "--cov-report=term-missing"]
 
+  bridge-launch:
+    profiles: ["launch"]
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE}
+      APP_ENV: ${APP_ENV:-production}
+      JWT_SECRET: ${JWT_SECRET}
+      SEED_BRIDGE_ADMIN_USERNAME: ${SEED_BRIDGE_ADMIN_USERNAME:-}
+      SEED_BRIDGE_ADMIN_EMAIL: ${SEED_BRIDGE_ADMIN_EMAIL:-}
+      SEED_BRIDGE_ADMIN_PASSWORD: ${SEED_BRIDGE_ADMIN_PASSWORD:-}
+      ALLOW_PUBLIC_REGISTRATION: ${ALLOW_PUBLIC_REGISTRATION:-false}
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    restart: "no"
+    command: ["python", "scripts/bridge_launch.py"]
+
   frontend-test:
     profiles: ["test"]
     build:

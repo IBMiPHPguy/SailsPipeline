@@ -186,10 +186,10 @@ docker compose --profile test run --rm backend-test
 
 Platform operators with `platform_super_admin` open `/bridge` to issue tenant invitations and review the agency ledger.
 
-1. `POST /api/bridge/invites` creates a `platform_invitations` row and returns `/register?token=…`
-2. Owners complete onboarding at `/register`, which provisions `agencies` + `tenant_super_user` in one transaction
+1. `POST /api/bridge/invites` creates a `platform_invitations` row and returns `/onboarding?token=…`
+2. Owners complete onboarding at `/onboarding`, which provisions `agencies` + `tenant_super_user` in one transaction
 
-Seed a local Bridge operator via `SEED_BRIDGE_ADMIN_USERNAME` / `SEED_BRIDGE_ADMIN_PASSWORD` in `.env`.
+**Platform operator bootstrap:** run the one-time Bridge launch script after a fresh deploy (`docker compose --profile launch run --rm bridge-launch`). Credentials come from `SEED_BRIDGE_ADMIN_*` in `.env` — they are **not** applied on application startup.
 
 ---
 

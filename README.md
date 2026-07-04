@@ -6,6 +6,86 @@ Agents use a workflow-driven workspace for each open request: capture client det
 
 SailsPipeline is **multi-tenant**: CRM data is isolated by agency. Each agency signs in with an **organization handle** (tenant slug). Platform operators use **The Bridge** (`/bridge`) to provision new agencies. Agency owners use the CRM **Team** workspace to invite agents and manage user access. See [`docs/multi-tenant-design.md`](docs/multi-tenant-design.md) for architecture, roles, and verification checklist.
 
+## Cloud launch (new server)
+
+SailsPipeline follows a **zero-seed application boot**: the API container starts with schema reconciliation only—no default tenant, no demo agency, and no platform operator is created automatically. On a fresh cloud deployment, run the **Bridge launch** sequence **once** after the database and API are up.
+
+### Why three layers (SaaS bootstrap)
+
+| Layer | When | What runs | Data created |
+| --- | --- | --- | --- |
+| **1. Infrastructure boot** | Every container start | `db/init.sql` (fresh volume), API `create_all` + `schema_migrations` | Tables/indexes only |
+| **2. Bridge launch** | Once per environment | `bridge_launch.py` (Compose `launch` profile or exec) | Single `platform_super_admin` for The Bridge |
+| **3. Tenant onboarding** | Per customer | `POST /api/public/register` or Bridge invite → `/onboarding` | Agency, owner, settings, trial window |
+
+This matches common multi-tenant SaaS practice: **separate schema migration from platform bootstrap from tenant provisioning**, keep app restarts idempotent, and never rely on implicit demo tenants in production.
+
+### What Bridge launch does
+
+| Step | Action |
+| --- | --- |
+| 1. Preflight | Verifies MySQL connectivity and required tables (`agencies`, `agency_settings`, `users`, `platform_invitations`) |
+| 2. Bootstrap | Creates the first `platform_super_admin` operator for The Bridge (idempotent) |
+| 3. Handoff | Prints next steps for tenant provisioning |
+
+Bridge launch **never** inserts tenant agencies or CRM users. Tenant workspaces are created only through:
+
+- **Self-service:** `POST /api/public/register` (when `ALLOW_PUBLIC_REGISTRATION=true`, e.g. local dev)
+- **Invite-driven:** Bridge platform invitations → `/onboarding?token=…`
+
+### Implementation
+
+| Artifact | Role |
+| --- | --- |
+| `backend/scripts/bridge_launch.py` | CLI entry (`--check-only`, `--force-password`) |
+| `backend/app/services/bridge_launch_service.py` | Preflight schema checks + idempotent operator bootstrap |
+| `docker-compose.yml` → `bridge-launch` | One-shot Compose job (`profiles: [launch]`) |
+| `scripts/bridge-launch.ps1` / `bridge-launch.sh` | Convenience wrappers around `docker compose exec` |
+
+### Run Bridge launch
+
+Set strong credentials in `.env` before launching:
+
+```env
+SEED_BRIDGE_ADMIN_USERNAME=bridge.ops
+SEED_BRIDGE_ADMIN_EMAIL=ops@your-domain.example
+SEED_BRIDGE_ADMIN_PASSWORD=<strong-password>
+```
+
+**Option A — one-shot Compose job (recommended on cloud):**
+
+```powershell
+docker compose up -d db backend nginx
+docker compose --profile launch run --rm bridge-launch
+```
+
+**Option B — exec into the running API container:**
+
+```powershell
+docker compose exec backend python scripts/bridge_launch.py
+```
+
+**Preflight only (no user changes):**
+
+```powershell
+docker compose exec backend python scripts/bridge_launch.py --check-only
+```
+
+**Reset an existing launch operator password:**
+
+```powershell
+docker compose exec backend python scripts/bridge_launch.py --force-password
+```
+
+### After launch
+
+1. Sign in to **The Bridge** at `/bridge` with the platform operator credentials.
+2. Provision agencies via Bridge invitations, or enable public registration for `/register` in non-production environments.
+3. Confirm health: `GET /api/health` should return `{"status":"ok",...}`.
+4. In **production**, set `ALLOW_PUBLIC_REGISTRATION=false`, `APP_ENV=production`, a 32+ character `JWT_SECRET`, and a live `EMAIL_API_KEY`.
+
+Fresh MySQL volumes initialize from `db/init.sql` (DDL only). Existing volumes may need incremental scripts listed in `db/MIGRATION_ORDER.txt`.
+
 ## Stack
 
 | Layer | Technology |
@@ -40,21 +120,26 @@ docker compose up --build
 | --- | --- |
 | http://localhost:8080 | CRM app (via Nginx) |
 | http://localhost:8080/bridge | The Bridge (platform admin portal) |
+| http://localhost:8080/register | Self-service agency registration (dev) |
 | http://localhost:5173 | Frontend dev server |
 | http://localhost:8080/docs | OpenAPI / Swagger docs |
+| http://localhost:8025 | Mailpit (local email capture) |
 | localhost:3306 | MySQL |
 
-4. Sign in to the CRM with the seeded admin account from `.env`:
+4. Run **Bridge launch** once (creates the platform operator; see [Cloud launch](#cloud-launch-new-server)):
 
-- Organization handle: `default` (default agency slug)
-- Username: `admin`
-- Password: value of `SEED_ADMIN_PASSWORD` in `.env`
+```powershell
+docker compose --profile launch run --rm bridge-launch
+```
+
+5. **Local dev paths:**
+
+- **New agency (self-service):** open http://localhost:8080/register — provisions a trialing tenant workspace when `ALLOW_PUBLIC_REGISTRATION=true`.
+- **The Bridge:** sign in at http://localhost:8080/bridge with `SEED_BRIDGE_ADMIN_USERNAME` / `SEED_BRIDGE_ADMIN_PASSWORD`, then issue platform invitations for invite-driven onboarding.
 
 Passwords must be more than 10 characters and include at least one uppercase letter, one lowercase letter, one numeral, and one special character. Spaces are not allowed.
 
-**The Bridge:** open http://localhost:8080/bridge and sign in with `SEED_BRIDGE_ADMIN_USERNAME` / `SEED_BRIDGE_ADMIN_PASSWORD` from `.env` to provision new tenant agencies.
-
-New CRM users join through **team invitations** issued by a tenant super user (Team workspace), not self-registration from the login screen. Public registration at `/register` is for **new agency onboarding** from Bridge-issued platform invitations when `ALLOW_PUBLIC_REGISTRATION=true`.
+CRM agents join through **team invitations** from a tenant super user (Team workspace). Public `/register` is for **new agency owners** provisioning their own workspace in development; production typically disables it and uses Bridge invitations instead.
 
 ## Application overview
 
@@ -357,8 +442,8 @@ See `.env.example` for defaults.
 | --- | --- |
 | `MYSQL_*` | Database credentials |
 | `JWT_SECRET`, `JWT_EXPIRE_MINUTES` | Auth token signing |
-| `SEED_ADMIN_*` | Initial CRM tenant super user created on startup |
-| `SEED_BRIDGE_ADMIN_*` | Optional platform operator for The Bridge (`/bridge`) |
+| `SEED_ADMIN_*` | Legacy local-dev placeholders (not applied on application startup) |
+| `SEED_BRIDGE_ADMIN_*` | Platform operator credentials for the one-time Bridge launch script |
 | `ATTACHMENTS_DIR` | Upload root inside the backend container |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | Optional AI integration |
 | `*_PORT` | Host ports for nginx, frontend, backend |

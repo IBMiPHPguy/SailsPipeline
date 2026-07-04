@@ -13,6 +13,7 @@ from app.routers import (
     marketing_campaigns,
     onboarding,
     passengers,
+    public,
     reports,
     requests,
     sales_analytics,
@@ -27,6 +28,7 @@ def register_routers(application: FastAPI) -> None:
     application.include_router(auth.router)
     application.include_router(bridge.router)
     application.include_router(onboarding.router)
+    application.include_router(public.router)
     application.include_router(agency.router)
     application.include_router(agency_settings.settings_router)
     application.include_router(agency_settings.public_router)

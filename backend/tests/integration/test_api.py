@@ -13,21 +13,24 @@ def test_health_endpoint(client):
 @pytest.mark.integration
 def test_register_and_login(client):
     register_response = client.post(
-        "/api/auth/register",
+        "/api/public/register",
         json={
-            "username": "newagent",
-            "email": "newagent@example.com",
+            "agency_name": "New Agent Travel",
+            "admin_name": "New Agent",
+            "admin_email": "newagent@example.com",
             "password": "SecurePass1!",
         },
     )
-    assert register_response.status_code == 201
-    assert register_response.json()["username"] == "newagent"
+    assert register_response.status_code == 201, register_response.text
+    auth_payload = register_response.json()
+    assert auth_payload["user"]["email"] == "newagent@example.com"
+    assert "access_token" in auth_payload
 
     login_response = client.post(
         "/api/auth/login",
         json={
-            "organization_handle": "default",
-            "username": "newagent",
+            "organization_handle": "new-agent-travel",
+            "username": auth_payload["user"]["username"],
             "password": "SecurePass1!",
         },
     )
@@ -285,11 +288,7 @@ def test_marketing_campaign_summary_reads_cached_rollups(client, auth_headers, s
 
 
 @pytest.mark.integration
-def test_register_rejected_when_public_registration_disabled(client, monkeypatch):
-    from app.config import settings
-
-    monkeypatch.setattr(settings, "allow_public_registration", False)
-
+def test_legacy_register_endpoint_is_disabled(client):
     response = client.post(
         "/api/auth/register",
         json={
@@ -299,5 +298,5 @@ def test_register_rejected_when_public_registration_disabled(client, monkeypatch
         },
     )
 
-    assert response.status_code == 403
-    assert response.json()["detail"] == "Public registration is disabled."
+    assert response.status_code == 410
+    assert "public/register" in response.json()["detail"].lower()

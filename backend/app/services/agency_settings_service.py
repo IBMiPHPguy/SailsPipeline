@@ -40,6 +40,51 @@ def default_master_terms_seed_text() -> str:
     )
 
 
+def seed_agency_settings_for_tenant(
+    db: Session,
+    *,
+    agency_id: str,
+    agency_name: str,
+) -> AgencySettings:
+    """Provision default branding, colors, and master T&C boilerplate for a new tenant."""
+    agency = db.get(Agency, agency_id)
+    if agency is None:
+        raise NOT_FOUND
+
+    normalized_name = agency_name.strip()
+    if not normalized_name:
+        raise HTTPException(status_code=400, detail="Agency name is required.")
+
+    seed_terms = render_master_terms_text(
+        business_name=normalized_name,
+        governing_law_state="Utah",
+        agency=agency,
+    )
+
+    existing = db.get(AgencySettings, agency_id)
+    if existing is None:
+        row = AgencySettings(
+            agency_id=agency_id,
+            agency_name=normalized_name,
+            primary_color=DEFAULT_PRIMARY_COLOR,
+            secondary_color=DEFAULT_SECONDARY_COLOR,
+            custom_master_tc=seed_terms,
+            business_address=compose_business_address_from_agency(agency),
+        )
+        db.add(row)
+        db.flush()
+        return row
+
+    if not (existing.custom_master_tc or "").strip():
+        existing.custom_master_tc = seed_terms
+    if not (existing.agency_name or "").strip():
+        existing.agency_name = normalized_name
+    if not (existing.business_address or "").strip():
+        existing.business_address = compose_business_address_from_agency(agency)
+    db.flush()
+    return existing
+
+
 def seed_default_agency_settings(db: Session) -> None:
     agency = db.get(Agency, DEFAULT_AGENCY_ID)
     if agency is None:

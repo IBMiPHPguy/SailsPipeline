@@ -145,6 +145,19 @@ class TokenResponse(BaseModel):
     user: UserRead
 
 
+class PublicRegisterRequest(BaseModel):
+    agency_name: str = Field(min_length=2, max_length=120)
+    admin_email: EmailStr
+    admin_name: str = Field(min_length=2, max_length=120)
+    password: str = Field(min_length=11, max_length=128)
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_strength(cls, value: str) -> str:
+        validate_password(value)
+        return value
+
+
 class BridgeAgencySummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
