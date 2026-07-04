@@ -36,7 +36,7 @@ from app.schemas import (
 from app.services.agency_service import get_passenger_for_agency
 from app.services.passenger_service import (
     detach_request_passenger_from_proposed_cruises,
-    load_request_passenger,
+    get_request_passenger_for_agency,
     sync_request_from_primary_passenger,
 )
 from app.services.request_service import closed_requests_total_pages, get_open_request, touch_request
@@ -227,7 +227,12 @@ def add_passenger(
 
     touch_request(request, current_user)
     db.commit()
-    return load_request_passenger(db, link.id)
+    return get_request_passenger_for_agency(
+        db,
+        link.id,
+        current_user.agency_id,
+        travel_request_id=request_id,
+    )
 
 
 @request_passengers_router.patch(
@@ -242,9 +247,12 @@ def update_passenger(
     current_user: User = Depends(get_current_user),
 ) -> RequestPassenger:
     request = get_open_request(db, request_id)
-    passenger = load_request_passenger(db, passenger_id)
-    if passenger.travel_request_id != request_id:
-        raise HTTPException(status_code=404, detail="Passenger not found.")
+    passenger = get_request_passenger_for_agency(
+        db,
+        passenger_id,
+        current_user.agency_id,
+        travel_request_id=request_id,
+    )
 
     updates = payload.model_dump(exclude_unset=True)
     passenger_changes = collect_field_changes(passenger, updates, PASSENGER_AUDIT_FIELDS)
@@ -254,7 +262,12 @@ def update_passenger(
     sync_request_from_primary_passenger(db, request, passenger, current_user)
     touch_request(request, current_user)
     db.commit()
-    return load_request_passenger(db, passenger.id)
+    return get_request_passenger_for_agency(
+        db,
+        passenger.id,
+        current_user.agency_id,
+        travel_request_id=request_id,
+    )
 
 
 @request_passengers_router.delete("/{request_id}/passengers/{passenger_id}", status_code=204)
@@ -265,9 +278,12 @@ def delete_passenger(
     current_user: User = Depends(get_current_user),
 ) -> None:
     request = get_open_request(db, request_id)
-    passenger = load_request_passenger(db, passenger_id)
-    if passenger.travel_request_id != request_id:
-        raise HTTPException(status_code=404, detail="Passenger not found.")
+    passenger = get_request_passenger_for_agency(
+        db,
+        passenger_id,
+        current_user.agency_id,
+        travel_request_id=request_id,
+    )
 
     passenger_count = (
         db.query(RequestPassenger).filter(RequestPassenger.travel_request_id == request_id).count()

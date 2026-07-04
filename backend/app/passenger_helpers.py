@@ -2,6 +2,7 @@ from sqlalchemy import String, cast, func, or_
 from sqlalchemy.orm import Session
 
 from app.models import Passenger, RequestPassenger
+from app.services.agency_service import get_travel_request_for_agency
 from app.tenant_context import require_current_agency_id
 
 CLIENTS_PAGE_SIZE_DEFAULT = 25
@@ -193,6 +194,8 @@ def attach_passenger_to_request(
         raise ValueError("Passenger not found.")
     if not passenger.is_active:
         raise ValueError("Inactive clients cannot be added to a request.")
+
+    get_travel_request_for_agency(db, request_id, passenger.agency_id)
 
     if get_request_passenger_link(db, request_id, passenger_id) is not None:
         raise ValueError("This passenger is already attached to the request.")

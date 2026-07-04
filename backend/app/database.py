@@ -61,6 +61,10 @@ def _statement_targets_tenant_scoped_models(execute_state) -> bool:
     return False
 
 
+def _model_has_agency_id_column(model: type) -> bool:
+    return "agency_id" in model.__mapper__.columns
+
+
 def configure_tenant_session() -> None:
     """Install a global ORM execute hook that air-gaps SELECT queries by agency_id."""
     global TENANT_SCOPED_MODELS
@@ -68,7 +72,6 @@ def configure_tenant_session() -> None:
         AgencyCustomTaskDefinition,
         AgencyEmailLog,
         AgencyGroup,
-        AgencyGroupInventory,
         AgencyInvitation,
         AgencyWorkflowTemplate,
         CallTranscript,
@@ -107,7 +110,6 @@ def configure_tenant_session() -> None:
         AgencyEmailLog,
         CreditCardAuthorization,
         AgencyGroup,
-        AgencyGroupInventory,
         AgencyCustomTaskDefinition,
         ClientTermsAgreement,
         ClientTermsRequest,
@@ -136,6 +138,8 @@ def configure_tenant_session() -> None:
             return
 
         for model in TENANT_SCOPED_MODELS:
+            if not _model_has_agency_id_column(model):
+                continue
             execute_state.statement = execute_state.statement.options(
                 with_loader_criteria(
                     model,

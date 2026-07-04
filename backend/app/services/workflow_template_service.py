@@ -45,8 +45,10 @@ def load_workflow_template(
         db.query(AgencyWorkflowTemplate)
         .options(joinedload(AgencyWorkflowTemplate.task_templates))
         .filter(AgencyWorkflowTemplate.id == template_id)
-        .one()
+        .first()
     )
+    if template is None:
+        raise HTTPException(status_code=404, detail="Workflow not found.")
     require_record_for_agency(template, agency_id=require_current_agency_id())
     if require_active and template.archived_at is not None:
         raise HTTPException(status_code=404, detail="Workflow not found.")
