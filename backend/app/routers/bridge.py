@@ -16,6 +16,7 @@ from app.schemas import (
     PlatformInviteCreate,
     PlatformInviteCreated,
 )
+from app.services.platform_invite_email_service import dispatch_platform_invite_email
 from app.services.bridge_service import (
     cancel_platform_invitation,
     create_platform_invitation,
@@ -85,10 +86,10 @@ def bridge_tenant_update(
 
 @router.post("/invites", response_model=PlatformInviteCreated, status_code=201)
 @limiter.limit(settings.auth_rate_limit)
-def issue_platform_invitation(
+async def issue_platform_invitation(
     request: Request,
     payload: PlatformInviteCreate,
-    _admin: User = Depends(require_platform_super_admin),
+    admin: User = Depends(require_platform_super_admin),
     db: Session = Depends(get_db),
 ) -> PlatformInviteCreated:
     invitation = create_platform_invitation(
@@ -96,6 +97,11 @@ def issue_platform_invitation(
         target_agency_name=payload.target_agency_name,
         target_organization_handle=payload.target_organization_handle,
         invite_email=str(payload.invite_email),
+    )
+    await dispatch_platform_invite_email(
+        db,
+        inviting_user=admin,
+        invitation=invitation,
     )
     return PlatformInviteCreated(
         invitation_id=invitation.id,

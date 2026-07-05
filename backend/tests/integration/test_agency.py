@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import AsyncMock, patch
 
 from app.models import Agency, User
 from app.security import hash_password
@@ -38,13 +39,16 @@ def test_agency_team_requires_super_user(client, auth_headers, db):
 
 
 @pytest.mark.integration
-def test_issue_agency_invite_and_agent_registration_flow(client, auth_headers):
+@patch("app.routers.agency.dispatch_agency_invite_email", new_callable=AsyncMock)
+def test_issue_agency_invite_and_agent_registration_flow(mock_dispatch, client, auth_headers):
+    mock_dispatch.return_value = None
     invite_response = client.post(
         "/api/agency/invites",
         headers=auth_headers,
         json={"invite_email": "joiner@example.com", "role": USER_ROLE_TENANT_AGENT},
     )
     assert invite_response.status_code == 201, invite_response.text
+    mock_dispatch.assert_awaited_once()
     invite_payload = invite_response.json()
     assert invite_payload["onboarding_path"].startswith("/register-agent?token=")
     token = invite_payload["onboarding_path"].split("token=", 1)[1]

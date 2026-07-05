@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
 from app.deps import get_current_user, require_tenant_super_user
-from app.models import User
+from app.models import Agency, User
 from app.rate_limit import limiter
 from app.schemas import (
     AgencyBusinessAddressUpdate,
@@ -17,6 +17,7 @@ from app.schemas import (
     AgencyUserUpdate,
     UserRead,
 )
+from app.services.agency_invite_email_service import dispatch_agency_invite_email
 from app.services.agency_invite_service import (
     agency_invitation_token_status,
     cancel_agency_invitation,
@@ -80,7 +81,7 @@ def read_agency_team(
 
 @router.post("/invites", response_model=AgencyInviteCreated, status_code=201)
 @limiter.limit(settings.auth_rate_limit)
-def issue_agency_invitation(
+async def issue_agency_invitation(
     request: Request,
     payload: AgencyInviteCreate,
     current_user: User = Depends(require_tenant_super_user),
@@ -92,6 +93,17 @@ def issue_agency_invitation(
         invite_email=payload.invite_email,
         role=payload.role,
     )
+    agency = db.get(Agency, current_user.agency_id)
+    if agency is None:
+        raise HTTPException(status_code=404, detail="Agency not found.")
+
+    await dispatch_agency_invite_email(
+        db,
+        agency=agency,
+        inviting_user=current_user,
+        invitation=invitation,
+    )
+
     return AgencyInviteCreated(
         invitation_id=invitation.id,
         onboarding_path=f"/register-agent?token={invitation.token}",

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from html import escape
 
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.agency_email_branding import (
@@ -9,6 +10,7 @@ from app.agency_email_branding import (
     render_email_cta_button,
     render_platform_compliance_footer,
 )
+from app.agency_email_branding import load_agency_email_branding
 from app.branding import BRAND_APP_TITLE, BRAND_NAME
 from app.config import settings
 from app.models import Agency, User
@@ -157,22 +159,28 @@ async def dispatch_tenant_welcome_email(
     user: User,
     agency: Agency,
     admin_name: str,
-) -> bool:
-    subject = f"Welcome to {BRAND_NAME} — {agency.name} is ready"
+) -> None:
+    branding = load_agency_email_branding(db, agency_id=agency.id)
+    subject = f"Welcome to {BRAND_NAME} — {branding.agency_name} is ready"
     html_content = render_welcome_email_html(
         admin_name=admin_name,
-        agency_name=agency.name,
+        agency_name=branding.agency_name,
         organization_handle=agency.organization_handle,
         username=user.username,
     )
     mailer = EmailDeliveryService(db)
-    return await mailer.send_transactional_email(
+    success = await mailer.send_transactional_email(
         agency_id=agency.id,
         user_id=str(user.id),
-        agency_name=agency.name,
+        agency_name=branding.agency_name,
         agent_email=user.email,
         recipient=user.email,
         email_type=WELCOME_EMAIL_TYPE,
         subject=subject,
         html_content=html_content,
     )
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Welcome email could not be delivered. Check agency email logs.",
+        )

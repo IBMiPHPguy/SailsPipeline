@@ -3,6 +3,7 @@ from __future__ import annotations
 from html import escape
 from pathlib import Path
 
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.agency_email_branding import (
@@ -139,7 +140,7 @@ async def dispatch_password_reset_email(
     user: User,
     raw_token: str,
     organization_handle: str,
-) -> bool:
+) -> None:
     branding = resolve_password_reset_branding(db, user)
     reset_url = (
         f"{settings.public_app_base_url.rstrip('/')}/reset-password"
@@ -153,7 +154,7 @@ async def dispatch_password_reset_email(
     )
     mailer = EmailDeliveryService(db)
     agency_id = user.agency_id or "system"
-    return await mailer.send_transactional_email(
+    success = await mailer.send_transactional_email(
         agency_id=agency_id,
         user_id=str(user.id),
         agency_name=branding.agency_name,
@@ -163,3 +164,8 @@ async def dispatch_password_reset_email(
         subject=subject,
         html_content=html_content,
     )
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Password reset email could not be delivered. Check agency email logs.",
+        )
