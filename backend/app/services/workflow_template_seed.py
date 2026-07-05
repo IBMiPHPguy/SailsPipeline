@@ -56,29 +56,48 @@ def dedupe_workflow_template_task_keys(
     workflow_template: AgencyWorkflowTemplate,
 ) -> int:
     """Remove duplicate built-in task templates that share the same task_key."""
-    seen_keys: set[str] = set()
-    removed = 0
+    canonical_by_key: dict[str, str] = {}
+    duplicates: list[AgencyTaskTemplate] = []
     ordered = sorted(workflow_template.task_templates, key=lambda row: (row.sequence_order, row.id))
     for task in ordered:
         if not task.task_key:
             continue
-        if task.task_key in seen_keys:
-            db.delete(task)
-            removed += 1
+        if task.task_key in canonical_by_key:
+            duplicates.append(task)
         else:
-            seen_keys.add(task.task_key)
+            canonical_by_key[task.task_key] = task.id
 
-    if removed:
-        db.flush()
-        db.expire(workflow_template, ["task_templates"])
-        for index, task in enumerate(
-            sorted(workflow_template.task_templates, key=lambda row: (row.sequence_order, row.id)),
-            start=1,
-        ):
-            task.sequence_order = index
-        db.flush()
+    if not duplicates:
+        return 0
 
-    return removed
+    for duplicate in duplicates:
+        canonical_id = canonical_by_key.get(duplicate.task_key or "")
+        if canonical_id:
+            db.query(RequestTaskLive).filter(
+                RequestTaskLive.template_task_id == duplicate.id,
+            ).update(
+                {RequestTaskLive.template_task_id: canonical_id},
+                synchronize_session=False,
+            )
+        else:
+            db.query(RequestTaskLive).filter(
+                RequestTaskLive.template_task_id == duplicate.id,
+            ).update(
+                {RequestTaskLive.template_task_id: None},
+                synchronize_session=False,
+            )
+        db.delete(duplicate)
+
+    db.flush()
+    db.expire(workflow_template, ["task_templates"])
+    for index, task in enumerate(
+        sorted(workflow_template.task_templates, key=lambda row: (row.sequence_order, row.id)),
+        start=1,
+    ):
+        task.sequence_order = index
+    db.flush()
+
+    return len(duplicates)
 
 
 def _workflow_template_task_count(db: Session, workflow_template: AgencyWorkflowTemplate) -> int:
