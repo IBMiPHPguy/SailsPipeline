@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 from app.agency_email_branding import (
     AgencyEmailBranding,
     load_agency_email_branding,
-    render_email_brand_header_html,
     render_email_cta_button,
+    render_email_logo_only_header_html,
     render_platform_compliance_footer,
 )
 from app.branding import BRAND_APP_TITLE, BRAND_NAME
@@ -18,6 +18,7 @@ from app.config import settings
 from app.models import Agency, AgencyInvitation, User
 from app.services.email_service import EmailDeliveryService
 from app.tenant_roles import USER_ROLE_TENANT_AGENT, USER_ROLE_TENANT_SUPER_USER
+from app.user_display import format_username_display_name
 
 AGENCY_INVITE_EMAIL_TYPE = "agency_team_invite"
 _TEMPLATE_PATH = Path(__file__).resolve().parent.parent / "templates" / "email_base.html"
@@ -42,7 +43,8 @@ def build_agency_invite_email_content(
 ) -> str:
     safe_agency = escape(branding.agency_name)
     safe_handle = escape((agency.organization_handle or "").strip())
-    safe_inviter = escape(inviting_user.username.strip() or inviting_user.email)
+    inviter_display = format_username_display_name(inviting_user.username.strip() or inviting_user.email)
+    safe_inviter = escape(inviter_display)
     safe_role = escape(_role_label(invitation.role))
     safe_url = escape(invite_url, quote=True)
     safe_primary = escape(branding.primary_color)
@@ -59,7 +61,7 @@ def build_agency_invite_email_content(
   You are invited to join {safe_agency}
 </p>
 <p style="margin:0 0 16px;">
-  <strong>{safe_inviter}</strong> invited you to join <strong>{safe_agency}</strong> on
+  <strong>{safe_inviter}</strong> invited you to join <strong>{safe_handle}</strong> on
   {escape(BRAND_APP_TITLE)} as a <strong>{safe_role}</strong>.
 </p>
 <p style="margin:0 0 16px;">
@@ -96,21 +98,21 @@ def render_agency_invite_email_html(
         invite_url=invite_url,
     )
     template = _TEMPLATE_PATH.read_text(encoding="utf-8")
-    preview_text = f"{inviting_user.username} invited you to join {branding.agency_name}."
+    inviter_display = format_username_display_name(inviting_user.username.strip() or inviting_user.email)
+    preview_text = (
+        f"{inviter_display} invited you to join {agency.organization_handle.strip()} on {BRAND_APP_TITLE}."
+    )
 
     return (
         template.replace("{{ page_title }}", escape(f"Team invitation — {branding.agency_name}"))
         .replace("{{ preview_text }}", escape(preview_text))
-        .replace(
-            "{{ agency_header }}",
-            render_email_brand_header_html(branding, agent_name=inviting_user.username),
-        )
+        .replace("{{ agency_header }}", render_email_logo_only_header_html(branding))
         .replace("{{ content }}", content)
         .replace("{{ email_signature }}", "")
         .replace(
             "{{ platform_footer }}",
             render_platform_compliance_footer(
-                agent_name=inviting_user.username,
+                agent_name=inviter_display,
                 agency_name=branding.agency_name,
             ),
         )

@@ -26,7 +26,14 @@ def replace_workflow_template_tasks_with_defaults(
     workflow_type: str,
 ) -> None:
     task_templates = WORKFLOW_TASK_TEMPLATES.get(workflow_type, [])
+    existing_keys = {
+        task.task_key
+        for task in workflow_template.task_templates
+        if task.task_key
+    }
     for template in task_templates:
+        if template.task_key in existing_keys:
+            continue
         prerequisite_keys = COMMUNICATE_RESEARCH_PREREQUISITE_KEYS.get(template.task_key)
         db.add(
             AgencyTaskTemplate(
@@ -40,6 +47,52 @@ def replace_workflow_template_tasks_with_defaults(
                 prerequisite_task_keys=list(prerequisite_keys) if prerequisite_keys else None,
             )
         )
+        existing_keys.add(template.task_key)
+    db.flush()
+
+
+def dedupe_workflow_template_task_keys(
+    db: Session,
+    workflow_template: AgencyWorkflowTemplate,
+) -> int:
+    """Remove duplicate built-in task templates that share the same task_key."""
+    seen_keys: set[str] = set()
+    removed = 0
+    ordered = sorted(workflow_template.task_templates, key=lambda row: (row.sequence_order, row.id))
+    for task in ordered:
+        if not task.task_key:
+            continue
+        if task.task_key in seen_keys:
+            db.delete(task)
+            removed += 1
+        else:
+            seen_keys.add(task.task_key)
+
+    if removed:
+        db.flush()
+        for index, task in enumerate(
+            sorted(workflow_template.task_templates, key=lambda row: (row.sequence_order, row.id)),
+            start=1,
+        ):
+            task.sequence_order = index
+        db.flush()
+
+    return removed
+
+
+def _workflow_template_task_count(db: Session, workflow_template: AgencyWorkflowTemplate) -> int:
+    pending_count = sum(
+        1
+        for instance in db.new
+        if isinstance(instance, AgencyTaskTemplate)
+        and instance.workflow_template_id == workflow_template.id
+    )
+    persisted_count = (
+        db.query(AgencyTaskTemplate)
+        .filter(AgencyTaskTemplate.workflow_template_id == workflow_template.id)
+        .count()
+    )
+    return persisted_count + pending_count
 
 
 def wire_default_successor_link(
@@ -107,18 +160,13 @@ def seed_agency_workflow_templates(db: Session, agency_id: str) -> None:
         workflow_entry = template_by_type.get(workflow_type)
         if workflow_entry is None:
             continue
-        workflow_template, workflow_is_new = workflow_entry
+        workflow_template, _ = workflow_entry
         if workflow_template.archived_at is not None:
             continue
-        if not workflow_is_new:
-            continue
 
-        existing_tasks = (
-            db.query(AgencyTaskTemplate)
-            .filter(AgencyTaskTemplate.workflow_template_id == workflow_template.id)
-            .count()
-        )
+        existing_tasks = _workflow_template_task_count(db, workflow_template)
         if existing_tasks > 0:
+            dedupe_workflow_template_task_keys(db, workflow_template)
             continue
 
         replace_workflow_template_tasks_with_defaults(db, workflow_template, workflow_type)

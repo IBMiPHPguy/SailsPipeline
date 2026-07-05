@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { login } from "./authApi";
 import { BRAND_APP_TITLE } from "./branding";
-import { DEFAULT_ORGANIZATION_HANDLE } from "./tenantConstants";
+import { getLastOrganizationHandle } from "./organizationHandleStorage";
 import type { User } from "./types";
 
 type LoginProps = {
@@ -9,7 +9,7 @@ type LoginProps = {
 };
 
 export default function Login({ onAuthenticated }: LoginProps) {
-  const [organizationHandle, setOrganizationHandle] = useState(DEFAULT_ORGANIZATION_HANDLE);
+  const [organizationHandle, setOrganizationHandle] = useState(() => getLastOrganizationHandle() ?? "");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");

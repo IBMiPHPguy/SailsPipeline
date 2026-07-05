@@ -1,0 +1,4 @@
+# Local Model Operational Rules
+If the selected model is 'qwen2.5-coder:14b', you must treat your tool-use and agent capabilities as completely disabled. 
+
+CRITICAL DIRECTIVE: Do NOT output any JSON blocks containing "SwitchMode". Do NOT attempt to invoke Cursor system tools or terminal commands. Always respond purely in standard Markdown text, code blocks, and human-readable explanations, even if the user asks about git, terminals, or file modifications. Provide the text instructions so the user can execute them manually.

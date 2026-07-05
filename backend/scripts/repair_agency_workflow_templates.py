@@ -27,9 +27,11 @@ from app.database import SessionLocal
 from app.models import Agency, AgencyTaskTemplate, AgencyWorkflowTemplate
 from app.workflow_helpers import WORKFLOW_DEFINITIONS, WORKFLOW_SUCCESSORS
 from app.services.workflow_template_seed import (
+    dedupe_workflow_template_task_keys,
     replace_workflow_template_tasks_with_defaults,
     seed_agency_workflow_templates,
     wire_default_successor_link,
+    _workflow_template_task_count,
 )
 
 
@@ -103,11 +105,7 @@ def _backfill_empty_recommended_templates(db: Session, agency_id: str) -> list[s
         if template is None:
             continue
 
-        task_count = (
-            db.query(AgencyTaskTemplate)
-            .filter(AgencyTaskTemplate.workflow_template_id == template.id)
-            .count()
-        )
+        task_count = _workflow_template_task_count(db, template)
         if task_count > 0:
             continue
 
@@ -142,7 +140,24 @@ def repair_agency_workflow_templates(db: Session, agency_id: str) -> None:
     seed_agency_workflow_templates(db, agency_id)
     _backfill_empty_recommended_templates(db, agency_id)
     _wire_missing_successor_links(db, agency_id)
+    _dedupe_recommended_task_templates(db, agency_id)
     db.flush()
+
+
+def _dedupe_recommended_task_templates(db: Session, agency_id: str) -> None:
+    for workflow_type in WORKFLOW_DEFINITIONS:
+        template = (
+            db.query(AgencyWorkflowTemplate)
+            .filter(
+                AgencyWorkflowTemplate.agency_id == agency_id,
+                AgencyWorkflowTemplate.workflow_type_key == workflow_type,
+                AgencyWorkflowTemplate.archived_at.is_(None),
+            )
+            .first()
+        )
+        if template is None:
+            continue
+        dedupe_workflow_template_task_keys(db, template)
 
 
 def _build_parser() -> argparse.ArgumentParser:

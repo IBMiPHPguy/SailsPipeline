@@ -46,7 +46,10 @@ def test_render_agency_invite_email_html_includes_invite_link(db, test_user):
     assert "joiner@example.com" in html
     assert invite_url in html
     assert branding.agency_name in html
-    assert test_user.username in html
+    assert "Your travel advisor" not in html
+    assert agency.organization_handle in html
+    assert "Testuser" in html
+    assert test_user.username not in html
 
 
 @pytest.mark.unit
