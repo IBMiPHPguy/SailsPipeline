@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import AsyncMock, patch
 
 from app.tenant_constants import DEFAULT_AGENCY_ID
 from app.tenant_roles import USER_ROLE_PLATFORM_SUPER_ADMIN, USER_ROLE_TENANT_SUPER_USER
@@ -64,7 +65,9 @@ def test_bridge_summary_lists_agencies_and_invitations(client, bridge_admin_head
 
 
 @pytest.mark.integration
-def test_issue_platform_invitation_and_onboarding_flow(client, bridge_admin_headers):
+@patch("app.routers.bridge.dispatch_platform_invite_email", new_callable=AsyncMock)
+def test_issue_platform_invitation_and_onboarding_flow(mock_dispatch, client, bridge_admin_headers):
+    mock_dispatch.return_value = None
     invite_response = client.post(
         "/api/bridge/invites",
         headers=bridge_admin_headers,
@@ -75,6 +78,7 @@ def test_issue_platform_invitation_and_onboarding_flow(client, bridge_admin_head
         },
     )
     assert invite_response.status_code == 201, invite_response.text
+    mock_dispatch.assert_awaited_once()
     invite_payload = invite_response.json()
     assert invite_payload["onboarding_path"].startswith("/onboarding?token=")
     token = invite_payload["onboarding_path"].split("token=", 1)[1]
