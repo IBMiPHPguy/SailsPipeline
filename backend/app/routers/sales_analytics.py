@@ -25,6 +25,7 @@ from app.services.client_import_template_service import (
 )
 from app.services.sales_analytics_copilot_service import answer_sales_copilot_question
 from app.services.sales_analytics_service import get_sales_analytics, get_sales_analytics_key_metrics_year
+from app.gemini_service import GeminiConfigurationError, GeminiParseError
 
 router = APIRouter(prefix="/api/analytics/sales", tags=["sales-analytics"])
 
@@ -125,7 +126,16 @@ def sales_copilot_route(
 ) -> SalesCopilotResponse:
     analytics = get_sales_analytics(db, current_user.agency_id)
     try:
-        answer = answer_sales_copilot_question(payload.question.strip(), analytics)
+        answer = answer_sales_copilot_question(
+            db,
+            agency_id=current_user.agency_id,
+            question=payload.question.strip(),
+            analytics=analytics,
+        )
+    except GeminiConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except GeminiParseError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return SalesCopilotResponse(answer=answer)

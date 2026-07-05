@@ -11445,6 +11445,38 @@ button.modal-ghost:hover:not(:disabled) {
   justify-content: flex-end;
 }
 
+.agency-ai-settings-body {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.agency-ai-settings-instructions ol {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.agency-ai-settings-instructions li + li {
+  margin-top: 0.35rem;
+}
+
+.agency-ai-settings-form {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.agency-ai-settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.communication-ai-blocked-note,
+.workflow-task-ai-blocked {
+  margin: 0;
+}
+
 .rich-text-editor {
   display: grid;
   gap: 0;

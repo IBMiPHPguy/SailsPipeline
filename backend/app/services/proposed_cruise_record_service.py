@@ -4,6 +4,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import settings
+from app.services.gemini_config_service import resolve_gemini_credentials
 from app.constants import (
     PROPOSED_CRUISE_STATUS_ACCEPTED,
     PROPOSED_CRUISE_STATUS_DEPOSITED,
@@ -250,17 +251,15 @@ def generate_proposed_cruises_from_research_document(
     request_context = build_request_context_for_gemini(request)
 
     try:
+        api_key, model_name = resolve_gemini_credentials(db, agency_id=request.agency_id)
         cruises, model_name = generate_proposed_cruises_from_research(
-            api_key=settings.gemini_api_key or "",
-            model_name=settings.gemini_model,
+            api_key=api_key,
+            model_name=model_name,
             research_text=research_text,
             request_context=request_context,
         )
     except GeminiConfigurationError as exc:
-        raise HTTPException(
-            status_code=503,
-            detail="Gemini is not configured. Add GEMINI_API_KEY to your environment.",
-        ) from exc
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     except GeminiParseError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

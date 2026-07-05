@@ -439,15 +439,18 @@ def generate_communication_ai_summary(
     return summary, research_brief
 
 
-def generate_sales_analytics_copilot_answer(question: str, analytics_context: dict) -> str:
-    from app.config import settings
-
-    api_key = settings.gemini_api_key or ""
+def generate_sales_analytics_copilot_answer(
+    *,
+    api_key: str,
+    model_name: str,
+    question: str,
+    analytics_context: dict,
+) -> str:
     if not api_key.strip():
         raise GeminiConfigurationError("Gemini API key is not configured.")
 
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(settings.gemini_model)
+    model = genai.GenerativeModel(model_name)
     prompt = (
         "You are First Mate, a concise sales analytics copilot for a cruise travel agency CRM called SailsPipeline. "
         "Answer in 2-4 short sentences using only the provided analytics JSON. "

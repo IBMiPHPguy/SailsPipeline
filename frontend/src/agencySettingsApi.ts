@@ -39,6 +39,59 @@ export type AgencyBrandingChrome = {
   secondary_color: string;
 };
 
+export type AgencyAiStatus = {
+  configured: boolean;
+  can_manage: boolean;
+  uses_tenant_key: boolean;
+};
+
+export type AgencyAiSettings = {
+  configured: boolean;
+};
+
+export async function fetchAgencyAiStatus(): Promise<AgencyAiStatus> {
+  const response = await apiFetch(`${API_BASE}/agency/ai-status`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to load AI status."));
+  }
+  return response.json();
+}
+
+export async function fetchAgencyAiSettings(): Promise<AgencyAiSettings> {
+  const response = await apiFetch(`${API_BASE}/agency/ai-settings`, {
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to load AI settings."));
+  }
+  return response.json();
+}
+
+export async function saveAgencyGeminiApiKey(geminiApiKey: string): Promise<AgencyAiSettings> {
+  const response = await apiFetch(`${API_BASE}/agency/ai-settings`, {
+    method: "PUT",
+    headers: authHeaders(true),
+    body: JSON.stringify({ gemini_api_key: geminiApiKey }),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to save Gemini API key."));
+  }
+  return response.json();
+}
+
+export async function clearAgencyGeminiApiKey(): Promise<AgencyAiSettings> {
+  const response = await apiFetch(`${API_BASE}/agency/ai-settings`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to remove Gemini API key."));
+  }
+  return response.json();
+}
+
 export async function fetchAgencyBrandingChrome(): Promise<AgencyBrandingChrome> {
   const response = await apiFetch(`${API_BASE}/agency/branding`, {
     headers: authHeaders(),

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { fetchResearchDocumentContent, generateProposedCruisesFromResearch, addProposedCruisesBulk } from "./api";
 import type { GeneratedProposedCruisesResponse, ProposedCruiseInput, ResearchDocument } from "./types";
 import { formatDate, formatFileSize } from "./utils";
+import { useAgencyAiStatus } from "./useAgencyAiStatus";
 
 type ProposedCruisesTaskPanelProps = {
   requestId: number;
@@ -32,6 +33,8 @@ export default function ProposedCruisesTaskPanel({
   const [saving, setSaving] = useState(false);
   const [generated, setGenerated] = useState<GeneratedProposedCruisesResponse | null>(null);
   const [addedMessage, setAddedMessage] = useState<string | null>(null);
+  const { aiUnavailableMessage } = useAgencyAiStatus();
+  const aiBlocked = Boolean(aiUnavailableMessage);
 
   useEffect(() => {
     if (researchDocuments.length === 0) {
@@ -161,7 +164,11 @@ export default function ProposedCruisesTaskPanel({
         {!loadingPreview && !documentPreview ? <p className="meta">No preview available.</p> : null}
       </div>
 
-      {!disabled ? (
+      {!disabled && aiUnavailableMessage ? (
+        <p className="status warning workflow-task-ai-blocked">{aiUnavailableMessage}</p>
+      ) : null}
+
+      {!disabled && !aiBlocked ? (
         <button
           type="button"
           disabled={generating || saving || loadingPreview || typeof selectedDocumentId !== "number"}

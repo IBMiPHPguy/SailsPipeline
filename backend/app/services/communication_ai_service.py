@@ -11,6 +11,7 @@ from app.gemini_service import (
 )
 from app.models import CallTranscript, ChatLog, TravelRequest
 from app.services.agency_service import assert_child_belongs_to_request, require_record_for_agency
+from app.services.gemini_config_service import resolve_gemini_credentials
 from app.services.gemini_context_service import build_request_context_for_gemini
 from app.tenant_context import require_current_agency_id
 
@@ -103,6 +104,7 @@ def generate_transcript_ai_summary_note(
     )
 
     return _generate_attachment_ai_summary_note(
+        db=db,
         request=request,
         kind="transcripts",
         attachment_id=transcript.id,
@@ -129,6 +131,7 @@ def generate_chat_log_ai_summary_note(
     )
 
     return _generate_attachment_ai_summary_note(
+        db=db,
         request=request,
         kind="chats",
         attachment_id=chat_log.id,
@@ -139,6 +142,7 @@ def generate_chat_log_ai_summary_note(
 
 def _generate_attachment_ai_summary_note(
     *,
+    db: Session,
     request: TravelRequest,
     kind: str,
     attachment_id: int,
@@ -146,9 +150,10 @@ def _generate_attachment_ai_summary_note(
     communication_text: str,
 ) -> dict[str, str]:
     try:
+        api_key, model_name = resolve_gemini_credentials(db, agency_id=request.agency_id)
         summary_text, research_brief = generate_communication_ai_summary(
-            api_key=settings.gemini_api_key or "",
-            model_name=settings.gemini_model,
+            api_key=api_key,
+            model_name=model_name,
             communication_kind=kind,
             filename=filename,
             communication_text=communication_text,

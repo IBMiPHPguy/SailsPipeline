@@ -8,6 +8,7 @@ import {
 } from "./agencySettingsApi";
 import { contrastTextColor, resolveBrandLogoUrl } from "./portalBranding";
 import RichTextEditor from "./RichTextEditor";
+import AgencyAiSettingsCard from "./AgencyAiSettingsCard";
 import "./portal-branding.css";
 
 type SettingsDraft = {
@@ -173,6 +174,8 @@ export default function AgencySettingsPage({
 
       {error ? <p className="status error agency-settings-status">{error}</p> : null}
       {success ? <p className="status success agency-settings-status">{success}</p> : null}
+
+      <AgencyAiSettingsCard />
 
       {!loading && settings && draft ? (
         <form className="agency-settings-form" onSubmit={(event) => void handleSave(event)}>

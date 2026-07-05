@@ -4,6 +4,7 @@ import { PROPOSED_CRUISE_STATUS_PROPOSED } from "./formOptions";
 import ResearchCommunicationBodyPreview from "./ResearchCommunicationBodyPreview";
 import type { GeneratedResearchCommunicationResponse, ProposedCruise } from "./types";
 import { copyCommunicationBodyToClipboard, formatDate } from "./utils";
+import { useAgencyAiStatus } from "./useAgencyAiStatus";
 
 type DraftResearchCommunicationTaskPanelProps = {
   requestId: number;
@@ -73,6 +74,8 @@ export default function DraftResearchCommunicationTaskPanel({
   const [generated, setGenerated] = useState<GeneratedResearchCommunicationResponse | null>(null);
   const [copyMessage, setCopyMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const { aiUnavailableMessage } = useAgencyAiStatus();
+  const aiBlocked = Boolean(aiUnavailableMessage);
 
   const proposedOptions = useMemo(
     () => proposedCruises.filter((cruise) => cruise.status === PROPOSED_CRUISE_STATUS_PROPOSED),
@@ -86,7 +89,7 @@ export default function DraftResearchCommunicationTaskPanel({
     () => getProposalEmailItineraryWarnings(proposedCruises),
     [proposedCruises],
   );
-  const canGenerate = validationIssues.length === 0;
+  const canGenerate = validationIssues.length === 0 && !aiBlocked;
 
   async function handleGenerate() {
     if (!canGenerate) {
@@ -169,7 +172,11 @@ export default function DraftResearchCommunicationTaskPanel({
         </ul>
       ) : null}
 
-      {!disabled ? (
+      {aiUnavailableMessage ? (
+        <p className="status warning workflow-task-ai-blocked">{aiUnavailableMessage}</p>
+      ) : null}
+
+      {!disabled && !aiBlocked ? (
         <button type="button" disabled={!canGenerate || generating} onClick={() => void handleGenerate()}>
           {generating ? "Generating and saving..." : "Generate proposal email with AI"}
         </button>

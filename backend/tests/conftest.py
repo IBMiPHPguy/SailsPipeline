@@ -277,6 +277,26 @@ def _ensure_passenger_loyalty_numbers_schema(engine) -> None:
         Base.metadata.create_all(bind=engine, tables=[PassengerLoyaltyNumber.__table__])
 
 
+def _ensure_agency_gemini_api_key_schema(engine) -> None:
+    database_url = os.environ["DATABASE_URL"]
+    if database_url.startswith("sqlite"):
+        return
+
+    inspector = inspect(engine)
+    if "agency_settings" not in inspector.get_table_names():
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("agency_settings")}
+    if "encrypted_gemini_api_key" not in columns:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "ALTER TABLE agency_settings "
+                    "ADD COLUMN encrypted_gemini_api_key TEXT NULL AFTER business_phone"
+                )
+            )
+
+
 def _ensure_credit_card_authorizations_schema(engine) -> None:
     database_url = os.environ["DATABASE_URL"]
     if database_url.startswith("sqlite"):
@@ -324,6 +344,7 @@ def engine():
         _ensure_intake_mode_schema(test_engine)
         _ensure_inbound_email_communications_schema(test_engine)
         _ensure_passenger_loyalty_numbers_schema(test_engine)
+        _ensure_agency_gemini_api_key_schema(test_engine)
         _ensure_credit_card_authorizations_schema(test_engine)
     yield test_engine
     if database_url.startswith("sqlite"):
