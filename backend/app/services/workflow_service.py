@@ -23,7 +23,7 @@ from app.schemas import (
 )
 from app.services.agency_service import assert_child_belongs_to_request, require_record_for_agency
 from app.services.request_service import get_open_request, touch_request
-from app.services.workflow_template_seed import seed_agency_workflow_templates
+from app.services.workflow_template_seed import dedupe_workflow_template_task_keys, seed_agency_workflow_templates
 from app.tenant_context import require_current_agency_id
 from app.workflow_helpers import (
     apply_task_completion_side_effects,
@@ -70,6 +70,46 @@ def terminate_active_live_workflows_for_template(
     return len(active_workflows)
 
 
+def _dedupe_live_workflow_tasks(db: Session, workflow: RequestWorkflowLive) -> bool:
+    """Remove duplicate live tasks that share the same task_key, keeping completed work when possible."""
+    grouped: dict[str, list[RequestTaskLive]] = {}
+    for task in workflow.tasks:
+        if not task.task_key:
+            continue
+        grouped.setdefault(task.task_key, []).append(task)
+
+    removed = False
+    for duplicates in grouped.values():
+        if len(duplicates) < 2:
+            continue
+
+        def sort_key(task: RequestTaskLive) -> tuple[int, int, str]:
+            completed_rank = 0 if task.status == TASK_STATUS_DONE else 1
+            return (completed_rank, task.sequence_order, task.id)
+
+        keep = min(duplicates, key=sort_key)
+        for task in duplicates:
+            if task.id == keep.id:
+                continue
+            db.delete(task)
+            removed = True
+
+    if not removed:
+        return False
+
+    db.flush()
+    remaining = (
+        db.query(RequestTaskLive)
+        .filter(RequestTaskLive.request_workflow_live_id == workflow.id)
+        .order_by(RequestTaskLive.sequence_order.asc(), RequestTaskLive.id.asc())
+        .all()
+    )
+    for index, task in enumerate(remaining, start=1):
+        task.sequence_order = index
+    db.flush()
+    return True
+
+
 def load_workflow(db: Session, workflow_id: str) -> RequestWorkflowLive:
     workflow = (
         db.query(RequestWorkflowLive)
@@ -82,6 +122,19 @@ def load_workflow(db: Session, workflow_id: str) -> RequestWorkflowLive:
         .filter(RequestWorkflowLive.id == workflow_id)
         .one()
     )
+    if _dedupe_live_workflow_tasks(db, workflow):
+        db.commit()
+        workflow = (
+            db.query(RequestWorkflowLive)
+            .options(
+                joinedload(RequestWorkflowLive.started_by),
+                joinedload(RequestWorkflowLive.completed_by),
+                joinedload(RequestWorkflowLive.tasks).joinedload(RequestTaskLive.completed_by),
+                joinedload(RequestWorkflowLive.tasks).joinedload(RequestTaskLive.template_task),
+            )
+            .filter(RequestWorkflowLive.id == workflow_id)
+            .one()
+        )
     return workflow
 
 
@@ -118,6 +171,7 @@ def _resolve_template(
 
     if template is None or not template.task_templates:
         raise HTTPException(status_code=404, detail="Workflow not found.")
+    dedupe_workflow_template_task_keys(db, template)
     require_record_for_agency(template, agency_id=agency_id)
     return template
 
@@ -144,7 +198,12 @@ def _snapshot_live_workflow(
     db.add(workflow)
     db.flush()
 
+    seen_task_keys: set[str] = set()
     for task_template in sorted(template.task_templates, key=lambda row: row.sequence_order):
+        if task_template.task_key and task_template.task_key in seen_task_keys:
+            continue
+        if task_template.task_key:
+            seen_task_keys.add(task_template.task_key)
         db.add(
             RequestTaskLive(
                 id=_new_id(),

@@ -568,6 +568,19 @@ def get_request_detail(db: Session, request_id: int) -> TravelRequestDetailRead:
     if request is None:
         raise HTTPException(status_code=404, detail="Travel request not found.")
     sync_communicate_research_follow_up_due_dates(db, request)
+
+    from app.services.workflow_service import _dedupe_live_workflow_tasks
+
+    workflows_changed = False
+    for workflow in request.request_workflows_live:
+        if _dedupe_live_workflow_tasks(db, workflow):
+            workflows_changed = True
+    if workflows_changed:
+        db.commit()
+        request = detail_query(db).filter(TravelRequest.id == request_id).first()
+        if request is None:
+            raise HTTPException(status_code=404, detail="Travel request not found.")
+
     return request_detail_to_read(request)
 
 

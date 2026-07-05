@@ -1,11 +1,11 @@
 import { FormEvent, useState } from "react";
 import { requestPasswordReset } from "./authApi";
 import { BRAND_APP_TITLE } from "./branding";
-import { DEFAULT_ORGANIZATION_HANDLE } from "./tenantConstants";
+import { getLastOrganizationHandle } from "./organizationHandleStorage";
 import "./App.css";
 
 export default function ForgotPasswordPage() {
-  const [organizationHandle, setOrganizationHandle] = useState(DEFAULT_ORGANIZATION_HANDLE);
+  const [organizationHandle, setOrganizationHandle] = useState(() => getLastOrganizationHandle() ?? "");
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);

@@ -152,6 +152,28 @@ def render_email_brand_logo_img(
     )
 
 
+def render_email_logo_only_header_html(branding: AgencyEmailBranding) -> str:
+    safe_primary = escape(branding.primary_color)
+    brand_markup = render_email_brand_logo_img(
+        branding,
+        width=200,
+        alt=branding.agency_name,
+        centered=True,
+    )
+
+    return f"""
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+  <tr>
+    <td class="email-header-cell"
+      style="padding:32px 32px 24px;background:linear-gradient(180deg,#f8fbff 0%,#eef4fa 100%);
+        border-bottom:2px solid {safe_primary};text-align:center;">
+      {brand_markup}
+    </td>
+  </tr>
+</table>
+""".strip()
+
+
 def render_email_brand_header_html(branding: AgencyEmailBranding, *, agent_name: str) -> str:
     safe_agent = escape(agent_name)
     safe_agency = escape(branding.agency_name)

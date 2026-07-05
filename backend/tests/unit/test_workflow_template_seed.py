@@ -1,8 +1,13 @@
+import uuid
+
 from app.constants import WORKFLOW_TYPE_COMMUNICATE_RESEARCH, WORKFLOW_TYPE_RESEARCH
 from app.models import AgencyTaskTemplate, AgencyWorkflowTemplate
-from app.services.workflow_template_seed import seed_agency_workflow_templates
+from app.services.workflow_template_seed import (
+    _workflow_template_task_count,
+    replace_workflow_template_tasks_with_defaults,
+    seed_agency_workflow_templates,
+)
 from app.tenant_constants import DEFAULT_AGENCY_ID
-
 
 def _research_template(db) -> AgencyWorkflowTemplate:
     return (
@@ -95,3 +100,45 @@ def test_seed_creates_missing_workflow_type(db):
     recreated = _research_template(db)
     assert recreated.workflow_name == "Research"
     assert recreated.task_templates
+
+
+def test_seed_dedupes_duplicate_recommended_tasks(db):
+    research = _research_template(db)
+    for task in list(research.task_templates):
+        db.add(
+            AgencyTaskTemplate(
+                id=str(uuid.uuid4()),
+                workflow_template_id=research.id,
+                task_title=task.task_title,
+                sequence_order=task.sequence_order + 10,
+                action_type=task.action_type,
+                task_key=task.task_key,
+                description=task.description,
+            )
+        )
+    db.commit()
+
+    seed_agency_workflow_templates(db, DEFAULT_AGENCY_ID)
+    db.commit()
+    db.refresh(research)
+
+    task_keys = [task.task_key for task in research.task_templates]
+    assert len(task_keys) == len(set(task_keys))
+    assert len(task_keys) == 4
+
+
+def test_repair_seed_and_backfill_do_not_double_tasks(db):
+    research = _research_template(db)
+    for task in list(research.task_templates):
+        db.delete(task)
+    db.delete(research)
+    db.commit()
+
+    seed_agency_workflow_templates(db, DEFAULT_AGENCY_ID)
+    research = _research_template(db)
+    if _workflow_template_task_count(db, research) == 0:
+        replace_workflow_template_tasks_with_defaults(db, research, WORKFLOW_TYPE_RESEARCH)
+    db.commit()
+
+    research = _research_template(db)
+    assert len(research.task_templates) == 4

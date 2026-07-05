@@ -1,4 +1,5 @@
 import { clearToken, getToken, setToken, type AuthScope } from "./authStorage";
+import { setLastOrganizationHandle } from "./organizationHandleStorage";
 import { API_BASE, apiFetch, authHeaders, parseApiError, redirectToSubscriptionRestore } from "./apiClient";
 import type {
   AuthResponse,
@@ -46,6 +47,7 @@ export async function login(payload: LoginInput): Promise<AuthResponse> {
 
   const data: AuthResponse = await response.json();
   setToken(data.access_token, "crm");
+  setLastOrganizationHandle(payload.organization_handle);
   return data;
 }
 
