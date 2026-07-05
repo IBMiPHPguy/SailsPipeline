@@ -127,6 +127,98 @@ def test_seed_dedupes_duplicate_recommended_tasks(db):
     assert len(task_keys) == 4
 
 
+def test_dedupe_reassigns_live_tasks_before_deleting_duplicate_template(db):
+    from datetime import UTC, date, datetime
+
+    from app.constants import REQUEST_STATUS_OPEN, WORKFLOW_STATUS_ACTIVE
+    from app.models import RequestTaskLive, RequestWorkflowLive, TravelRequest, User
+    from app.security import hash_password
+    from app.services.workflow_template_seed import dedupe_workflow_template_task_keys
+    from app.tenant_constants import DEFAULT_AGENCY_ID
+
+    research = _research_template(db)
+    canonical_task = next(task for task in research.task_templates if task.task_key == "research_cruise_options")
+    duplicate_task = AgencyTaskTemplate(
+        id=str(uuid.uuid4()),
+        workflow_template_id=research.id,
+        task_title=canonical_task.task_title,
+        sequence_order=canonical_task.sequence_order + 10,
+        action_type=canonical_task.action_type,
+        task_key=canonical_task.task_key,
+        description=canonical_task.description,
+    )
+    db.add(duplicate_task)
+
+    user = User(
+        agency_id=DEFAULT_AGENCY_ID,
+        username="dedupe-live-task-user",
+        email="dedupe-live-task@example.com",
+        password_hash=hash_password("ValidPass1!"),
+    )
+    db.add(user)
+    db.flush()
+
+    request = TravelRequest(
+        agency_id=DEFAULT_AGENCY_ID,
+        first_name="Jane",
+        last_name="Cruiser",
+        email="jane@example.com",
+        phone="5551234567",
+        cruise_lines=["Royal Caribbean International"],
+        excluded_cruise_lines=[],
+        destination="Caribbean",
+        destination_details={"caribbean_regions": ["Eastern"]},
+        departure_date=date(2026, 6, 1),
+        return_date=date(2026, 6, 8),
+        cabin_types=["Balcony"],
+        qualifiers=[],
+        passengers=2,
+        cabins_needed=1,
+        status=REQUEST_STATUS_OPEN,
+        close_reason=None,
+        created_by=user,
+        updated_by=user,
+        updated_at=datetime.now(UTC),
+    )
+    db.add(request)
+    db.flush()
+
+    workflow = RequestWorkflowLive(
+        id=str(uuid.uuid4()),
+        agency_id=DEFAULT_AGENCY_ID,
+        travel_request_id=request.id,
+        template_id=research.id,
+        workflow_name=research.workflow_name,
+        workflow_type_key=research.workflow_type_key,
+        status=WORKFLOW_STATUS_ACTIVE,
+        started_by_id=user.id,
+    )
+    db.add(workflow)
+    db.flush()
+
+    live_task = RequestTaskLive(
+        id=str(uuid.uuid4()),
+        agency_id=DEFAULT_AGENCY_ID,
+        request_workflow_live_id=workflow.id,
+        travel_request_id=request.id,
+        template_task_id=duplicate_task.id,
+        task_key=duplicate_task.task_key,
+        task_title=duplicate_task.task_title,
+        sequence_order=duplicate_task.sequence_order,
+        action_type=duplicate_task.action_type,
+    )
+    db.add(live_task)
+    db.commit()
+
+    removed = dedupe_workflow_template_task_keys(db, research)
+    db.commit()
+
+    assert removed == 1
+    db.refresh(live_task)
+    assert live_task.template_task_id == canonical_task.id
+    assert db.get(AgencyTaskTemplate, duplicate_task.id) is None
+
+
 def test_repair_seed_and_backfill_do_not_double_tasks(db):
     research = _research_template(db)
     for task in list(research.task_templates):
