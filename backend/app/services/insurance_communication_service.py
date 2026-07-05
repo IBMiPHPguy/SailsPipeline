@@ -56,8 +56,8 @@ async def send_insurance_waiver_email(
     success = await email_service.send_transactional_email(
         agency_id=request.agency_id,
         user_id=str(current_user.id),
-        user_name=current_user.username,
-        user_email=current_user.email,
+        agency_name=branding.agency_name,
+        agent_email=current_user.email,
         recipient=request.email.strip(),
         email_type=COMMUNICATION_TYPE_INSURANCE_WAIVER,
         subject=INSURANCE_WAIVER_EMAIL_SUBJECT,

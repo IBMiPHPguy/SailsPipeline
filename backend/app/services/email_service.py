@@ -1,15 +1,16 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 import uuid
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.utils import formataddr
 from html import escape
 from pathlib import Path
 
 import aiosmtplib
+import requests
 from sqlalchemy.orm import Session
 
 from app.agency_email_branding import (
@@ -18,7 +19,6 @@ from app.agency_email_branding import (
     render_email_signature_section,
     render_platform_compliance_footer,
 )
-from app.branding import BRAND_NAME
 from app.email_config import (
     ALLOWED_DEVELOPMENT_SMTP_HOSTS,
     APP_ENV_STAGING,
@@ -30,6 +30,7 @@ from app.research_proposal_email import (
     RESEARCH_PROPOSAL_CONTENT_END,
     RESEARCH_PROPOSAL_CONTENT_START,
 )
+from app.tenant_email_identity import build_tenant_from_header
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +90,100 @@ def render_email_base_html(*, content: str, agent_name: str, branding: AgencyEma
     )
 
 
+def _dispatch_mailgun_message(
+    *,
+    api_key: str,
+    mailgun_domain: str,
+    from_header: str,
+    recipient_email: str,
+    subject: str,
+    html_content: str,
+    agent_email: str,
+) -> None:
+    response = requests.post(
+        f"https://api.mailgun.net/v3/{mailgun_domain}/messages",
+        auth=("api", api_key),
+        data={
+            "from": from_header,
+            "to": recipient_email,
+            "subject": subject,
+            "html": html_content,
+            "h:Reply-To": agent_email,
+        },
+        timeout=30,
+    )
+    response.raise_for_status()
+
+
+async def send_tenant_email(
+    *,
+    agency_name: str,
+    agent_email: str,
+    recipient_email: str,
+    subject: str,
+    html_content: str,
+    delivery_settings: EmailDeliverySettings,
+) -> None:
+    """Send a tenant-branded HTML email via Mailpit SMTP (dev) or Mailgun REST API (production)."""
+    from_header = build_tenant_from_header(
+        agency_name=agency_name,
+        mail_domain=delivery_settings.mailgun_domain,
+    )
+
+    if delivery_settings.backend == "smtp":
+        hostname = delivery_settings.smtp_host
+        if delivery_settings.environment in {"development", "test"}:
+            if hostname not in ALLOWED_DEVELOPMENT_SMTP_HOSTS:
+                raise DevelopmentEmailIsolationError(
+                    f"Refusing to open SMTP connection to non-local host '{hostname}' in development."
+                )
+
+        message = MIMEMultipart("alternative")
+        message["From"] = from_header
+        message["Reply-To"] = agent_email
+        message["To"] = recipient_email
+        message["Subject"] = subject
+        message.attach(MIMEText(html_content, "html", "utf-8"))
+
+        await aiosmtplib.send(
+            message,
+            hostname=hostname,
+            port=delivery_settings.smtp_port,
+            username=delivery_settings.smtp_username or None,
+            password=delivery_settings.smtp_password or None,
+            start_tls=delivery_settings.smtp_use_tls,
+        )
+        return
+
+    if delivery_settings.environment in {"development", "test"}:
+        raise DevelopmentEmailIsolationError(
+            "External email provider API calls are blocked when APP_ENV=development. "
+            "Local testing must route through Mailpit SMTP only."
+        )
+
+    if not delivery_settings.api_key:
+        raise RuntimeError(
+            f"Mailgun API key missing for APP_ENV={delivery_settings.environment}. "
+            "Configure the tier-appropriate MAILGUN_API_KEY."
+        )
+
+    if delivery_settings.environment == APP_ENV_STAGING:
+        logger.info("Staging email dispatch via Mailgun (sandbox) to %s", recipient_email)
+    else:
+        logger.info("Production email dispatch via Mailgun to %s", recipient_email)
+
+    await asyncio.to_thread(
+        _dispatch_mailgun_message,
+        api_key=delivery_settings.api_key,
+        mailgun_domain=delivery_settings.mailgun_domain,
+        from_header=from_header,
+        recipient_email=recipient_email,
+        subject=subject,
+        html_content=html_content,
+        agent_email=agent_email,
+    )
+
+
 class EmailDeliveryService:
     """Environment-aware transactional email delivery with immutable audit logging."""
 
@@ -125,46 +220,32 @@ class EmailDeliveryService:
                 f"Use one of: {', '.join(sorted(ALLOWED_DEVELOPMENT_SMTP_HOSTS))}."
             )
 
-    def _block_external_email_api(self) -> None:
-        if self._delivery.environment in {"development", "test"}:
-            raise DevelopmentEmailIsolationError(
-                "External email provider API calls are blocked when APP_ENV=development. "
-                "Local testing must route through Mailpit SMTP only."
-            )
-
     async def send_transactional_email(
         self,
         agency_id: str,
         user_id: str,
-        user_name: str,
-        user_email: str,
+        agency_name: str,
+        agent_email: str,
         recipient: str,
         email_type: str,
         subject: str,
         html_content: str,
         travel_request_id: str | None = None,
     ) -> bool:
+        """Send a tenant email and persist an immutable agency audit log entry."""
         status = EMAIL_STATUS_SENT
         error_message: str | None = None
         success = False
 
         try:
-            if self._delivery.backend == "api":
-                await self._send_via_api(
-                    recipient=recipient,
-                    subject=subject,
-                    html_content=html_content,
-                    user_name=user_name,
-                    user_email=user_email,
-                )
-            else:
-                await self._send_via_smtp(
-                    recipient=recipient,
-                    subject=subject,
-                    html_content=html_content,
-                    user_name=user_name,
-                    user_email=user_email,
-                )
+            await send_tenant_email(
+                agency_name=agency_name,
+                agent_email=agent_email,
+                recipient_email=recipient,
+                subject=subject,
+                html_content=html_content,
+                delivery_settings=self._delivery,
+            )
             success = True
         except Exception as exc:
             status = EMAIL_STATUS_FAILED
@@ -182,107 +263,6 @@ class EmailDeliveryService:
             )
 
         return success
-
-    async def _send_via_smtp(
-        self,
-        *,
-        recipient: str,
-        subject: str,
-        html_content: str,
-        user_name: str,
-        user_email: str,
-    ) -> None:
-        hostname = self._delivery.smtp_host
-        if self._delivery.environment in {"development", "test"}:
-            if hostname not in ALLOWED_DEVELOPMENT_SMTP_HOSTS:
-                raise DevelopmentEmailIsolationError(
-                    f"Refusing to open SMTP connection to non-local host '{hostname}' in development."
-                )
-
-        message = self._build_message(
-            recipient=recipient,
-            subject=subject,
-            html_content=html_content,
-            user_name=user_name,
-            user_email=user_email,
-        )
-        await aiosmtplib.send(
-            message,
-            hostname=hostname,
-            port=self._delivery.smtp_port,
-            username=self._delivery.smtp_username or None,
-            password=self._delivery.smtp_password or None,
-            start_tls=self._delivery.smtp_use_tls,
-        )
-
-    async def _send_via_api(
-        self,
-        *,
-        recipient: str,
-        subject: str,
-        html_content: str,
-        user_name: str,
-        user_email: str,
-    ) -> None:
-        self._block_external_email_api()
-
-        if not self._delivery.api_key:
-            raise RuntimeError(
-                f"Email API key missing for APP_ENV={self._delivery.environment}. "
-                "Configure the tier-appropriate provider credential."
-            )
-
-        if self._delivery.environment == APP_ENV_STAGING:
-            # STAGING SANDBOX TIER: wire Resend/Postmark sandbox credentials here.
-            # Use EMAIL_API_KEY_STAGING and optional EMAIL_FROM_ADDRESS_STAGING.
-            logger.info(
-                "Staging email dispatch via %s (sandbox) to %s",
-                self._delivery.api_provider,
-                recipient,
-            )
-        else:
-            logger.info(
-                "Production email dispatch via %s to %s",
-                self._delivery.api_provider,
-                recipient,
-            )
-
-        # Provider SDK placeholder (Resend / Postmark):
-        #
-        #   response = await provider_client.emails.send({
-        #       "from": self._format_from_header(user_name),
-        #       "to": [recipient],
-        #       "subject": subject,
-        #       "html": html_content,
-        #       "reply_to": user_email,
-        #   })
-        _ = recipient, subject, html_content, user_name, user_email
-        raise NotImplementedError(
-            f"APP_ENV={self._delivery.environment} routes through the {self._delivery.api_provider} API, "
-            "but the provider SDK is not wired yet."
-        )
-
-    def _build_message(
-        self,
-        *,
-        recipient: str,
-        subject: str,
-        html_content: str,
-        user_name: str,
-        user_email: str,
-    ) -> MIMEMultipart:
-        message = MIMEMultipart("alternative")
-        message["From"] = self._format_from_header(user_name)
-        message["Sender"] = self._delivery.from_address
-        message["Reply-To"] = user_email
-        message["To"] = recipient
-        message["Subject"] = subject
-        message.attach(MIMEText(html_content, "html", "utf-8"))
-        return message
-
-    def _format_from_header(self, user_name: str) -> str:
-        display_name = f"{user_name.strip()} via {BRAND_NAME}"
-        return formataddr((display_name, self._delivery.from_address))
 
     def _write_audit_log(
         self,

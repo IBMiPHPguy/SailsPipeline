@@ -156,8 +156,8 @@ async def dispatch_password_reset_email(
     return await mailer.send_transactional_email(
         agency_id=agency_id,
         user_id=str(user.id),
-        user_name=branding.agency_name,
-        user_email=user.email,
+        agency_name=branding.agency_name,
+        agent_email=user.email,
         recipient=user.email,
         email_type=PASSWORD_RESET_EMAIL_TYPE,
         subject=subject,
