@@ -128,6 +128,7 @@ def sync_proposed_cruise_room_passengers(
         passengers_in_room_limits_for_cruise(cruise, cabins_needed),
     )
     cruise.passenger_links.clear()
+    db.flush()
     for cabin_index, passenger_ids in enumerate(room_passenger_ids):
         for passenger_id in passenger_ids:
             cruise.passenger_links.append(

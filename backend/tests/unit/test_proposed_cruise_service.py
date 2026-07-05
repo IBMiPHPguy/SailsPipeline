@@ -359,3 +359,110 @@ def test_passengers_in_room_limits_without_cabin_rooms():
     )
 
     assert passengers_in_room_limits_for_cruise(cruise, 3) == [2, 2, 2]
+
+
+def test_update_proposed_cruise_resyncs_room_passengers_without_duplicate_key_error(db):
+    from app.schemas import ProposedCruiseUpdate
+    from app.services.proposed_cruise_record_service import update_proposed_cruise
+
+    user = User(
+        username="update-cruise-user",
+        email="update-cruise@example.com",
+        password_hash=hash_password("ValidPass1!"),
+    )
+    request = TravelRequest(
+        first_name="Jane",
+        last_name="Cruiser",
+        email="jane@example.com",
+        phone="5551234567",
+        cruise_lines=["Royal Caribbean International"],
+        destination="Caribbean",
+        destination_details={"caribbean_regions": ["Eastern"]},
+        departure_date=date(2026, 6, 1),
+        return_date=date(2026, 6, 8),
+        cabin_types=["Balcony"],
+        passengers=2,
+        cabins_needed=1,
+        status="Open",
+        created_by=user,
+        updated_by=user,
+    )
+    db.add_all([user, request])
+    db.flush()
+
+    primary_passenger = create_passenger_record(
+        db,
+        first_name="Jane",
+        last_name="Cruiser",
+        email="jane@example.com",
+        phone="5551234567",
+        date_of_birth=None,
+        created_by_id=user.id,
+    )
+    guest_passenger = create_passenger_record(
+        db,
+        first_name="Bob",
+        last_name="Guest",
+        email="bob@example.com",
+        phone="5550000002",
+        date_of_birth=None,
+        created_by_id=user.id,
+    )
+    primary = attach_passenger_to_request(db, request.id, primary_passenger.id, is_primary=True)
+    guest = attach_passenger_to_request(db, request.id, guest_passenger.id)
+    db.flush()
+
+    cruise = ProposedCruise(
+        travel_request_id=request.id,
+        departure_date=date(2026, 7, 1),
+        cruise_line="Royal Caribbean International",
+        ship="Wonder",
+        number_of_nights=7,
+        itinerary_name="Western",
+        room_category="Balcony",
+        room_number="GTY",
+        passengers_in_room=2,
+        deposit_amount=Decimal("250.00"),
+        deposit_due_date=date(2026, 5, 1),
+        final_payment_due_date=date(2026, 6, 1),
+        cost=Decimal("4200.00"),
+        includes=default_proposed_cruise_includes_dict(),
+        status="Proposed",
+        created_by_id=user.id,
+        updated_by_id=user.id,
+    )
+    db.add(cruise)
+    db.flush()
+    cruise.passenger_links.extend(
+        [
+            ProposedCruisePassenger(request_passenger=primary, cabin_index=0),
+            ProposedCruisePassenger(request_passenger=guest, cabin_index=0),
+        ]
+    )
+    db.commit()
+    db.refresh(cruise)
+
+    payload = ProposedCruiseUpdate.model_validate(
+        {
+            "room_passenger_ids": [[primary.id, guest.id]],
+            "ship": cruise.ship,
+        }
+    )
+    update_proposed_cruise(
+        db,
+        request_id=request.id,
+        cruise_id=cruise.id,
+        payload=payload,
+        current_user=user,
+    )
+    update_proposed_cruise(
+        db,
+        request_id=request.id,
+        cruise_id=cruise.id,
+        payload=payload,
+        current_user=user,
+    )
+
+    db.refresh(cruise)
+    assert len(cruise.passenger_links) == 2
+    assert {link.request_passenger_id for link in cruise.passenger_links} == {primary.id, guest.id}
