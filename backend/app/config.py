@@ -70,6 +70,8 @@ class Settings(BaseSettings):
     s3_brand_bucket: str | None = None
     s3_brand_region: str = "us-east-1"
     s3_brand_public_base_url: str | None = None
+    # Canonical HTTPS origin for /static/uploads brand assets referenced in email HTML.
+    brand_asset_public_base_url: str | None = None
     public_app_base_url: str = "http://localhost:5173"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
@@ -158,6 +160,17 @@ class Settings(BaseSettings):
     @property
     def resolved_smtp_port(self) -> int:
         return self.smtp_port or self.email_port
+
+    @property
+    def resolved_brand_asset_public_base_url(self) -> str:
+        """HTTPS origin used to absolutize /static/uploads paths in outbound email HTML."""
+        if self.brand_asset_public_base_url and self.brand_asset_public_base_url.strip():
+            return self.brand_asset_public_base_url.strip().rstrip("/")
+        if self.s3_brand_public_base_url and self.s3_brand_public_base_url.strip():
+            return self.s3_brand_public_base_url.strip().rstrip("/")
+        if self.is_production:
+            return "https://app.sailspipeline.com"
+        return self.public_app_base_url.rstrip("/")
 
     def resolve_cc_auth_encryption_key(self) -> str:
         if self.cc_auth_encryption_key and self.cc_auth_encryption_key.strip():
