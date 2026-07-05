@@ -4,6 +4,7 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.constants import (
@@ -149,6 +150,15 @@ def get_active_workflow(db: Session, request_id: int) -> RequestWorkflowLive | N
     )
 
 
+def _reload_workflow_template(db: Session, template_id: str) -> AgencyWorkflowTemplate:
+    return (
+        db.query(AgencyWorkflowTemplate)
+        .options(joinedload(AgencyWorkflowTemplate.task_templates))
+        .filter(AgencyWorkflowTemplate.id == template_id)
+        .one()
+    )
+
+
 def _resolve_template(
     db: Session,
     *,
@@ -173,7 +183,7 @@ def _resolve_template(
         raise HTTPException(status_code=404, detail="Workflow not found.")
     dedupe_workflow_template_task_keys(db, template)
     require_record_for_agency(template, agency_id=agency_id)
-    return template
+    return _reload_workflow_template(db, template.id)
 
 
 def _snapshot_live_workflow(
@@ -227,7 +237,7 @@ def _snapshot_live_workflow(
 
 def list_workflow_templates(db: Session, *, agency_id: str) -> list[WorkflowTemplateRead]:
     seed_agency_workflow_templates(db, agency_id)
-    db.flush()
+    db.commit()
     templates = (
         db.query(AgencyWorkflowTemplate)
         .options(joinedload(AgencyWorkflowTemplate.task_templates))
@@ -294,7 +304,17 @@ def start_workflow(
 
         sync_master_terms_tasks_for_request(db, travel_request_id=request.id)
     touch_request(request, current_user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        message = str(getattr(exc, "orig", exc))
+        if "uq_request_workflows_live_one_active" in message:
+            raise HTTPException(
+                status_code=400,
+                detail="This request already has an active workflow. Complete or terminate it before starting another.",
+            ) from exc
+        raise
     return load_workflow(db, workflow.id)
 
 
