@@ -66,6 +66,42 @@ def _communicate_template(db) -> AgencyWorkflowTemplate:
     )
 
 
+def test_start_workflow_does_not_duplicate_tasks_when_template_has_stale_duplicates(db):
+    import uuid
+
+    set_current_agency_id(DEFAULT_AGENCY_ID)
+    user = _create_user(db)
+    request = _create_open_request(db, user)
+    template = _communicate_template(db)
+    expected_keys = {task.task_key for task in template.task_templates if task.task_key}
+    for task in template.task_templates:
+        if not task.task_key:
+            continue
+        db.add(
+            AgencyTaskTemplate(
+                id=str(uuid.uuid4()),
+                workflow_template_id=template.id,
+                task_title=task.task_title,
+                sequence_order=task.sequence_order + 100,
+                action_type=task.action_type,
+                task_key=task.task_key,
+                description=task.description,
+            )
+        )
+    db.commit()
+
+    workflow = start_workflow(
+        db,
+        request_id=request.id,
+        payload=RequestWorkflowCreate(template_id=template.id),
+        current_user=user,
+    )
+
+    live_keys = [task.task_key for task in workflow.tasks if task.task_key]
+    assert len(live_keys) == len(set(live_keys))
+    assert set(live_keys) == expected_keys
+
+
 def test_update_task_auto_completes_workflow_when_all_tasks_done(db):
     set_current_agency_id(DEFAULT_AGENCY_ID)
     user = _create_user(db)

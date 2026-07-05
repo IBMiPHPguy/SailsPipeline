@@ -70,6 +70,7 @@ def dedupe_workflow_template_task_keys(
 
     if removed:
         db.flush()
+        db.expire(workflow_template, ["task_templates"])
         for index, task in enumerate(
             sorted(workflow_template.task_templates, key=lambda row: (row.sequence_order, row.id)),
             start=1,

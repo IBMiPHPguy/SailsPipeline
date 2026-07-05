@@ -57,7 +57,7 @@ def load_workflow_template(
 
 def list_agency_workflow_templates(db: Session, *, agency_id: str) -> list[AgencyWorkflowTemplate]:
     seed_agency_workflow_templates(db, agency_id)
-    db.flush()
+    db.commit()
     return (
         _active_workflow_templates_query(db)
         .options(joinedload(AgencyWorkflowTemplate.task_templates))

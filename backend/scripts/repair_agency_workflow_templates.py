@@ -177,6 +177,11 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="UUID",
         help="Repair a single agency by id (default: all agencies).",
     )
+    parser.add_argument(
+        "--dedupe-all",
+        action="store_true",
+        help="Remove duplicate task_key rows from recommended workflows for every agency.",
+    )
     return parser
 
 
@@ -197,6 +202,13 @@ def main(argv: list[str] | None = None) -> int:
         for agency in agencies:
             before = _snapshot_agency_workflows(db, agency.id)
             needs_repair = before.missing_recommended_types or before.empty_recommended_types
+            if args.dedupe_all and not args.dry_run:
+                print(f"{agency.organization_handle} ({agency.name})")
+                print("  deduping recommended workflow tasks")
+                _dedupe_recommended_task_templates(db, agency.id)
+                repaired_agencies += 1
+                continue
+
             if not needs_repair:
                 continue
 
@@ -216,6 +228,9 @@ def main(argv: list[str] | None = None) -> int:
             repaired_agencies += 1
 
         if args.dry_run:
+            if args.dedupe_all:
+                print(f"\nDry run: would dedupe recommended tasks for {len(agencies)} agency/agencies.")
+                return 0
             if repaired_agencies == 0:
                 print("All agencies already have recommended workflow playbooks.")
             else:
@@ -223,11 +238,17 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if repaired_agencies == 0:
-            print("All agencies already have recommended workflow playbooks.")
+            if args.dedupe_all:
+                print("No agencies found to dedupe.")
+            else:
+                print("All agencies already have recommended workflow playbooks.")
             return 0
 
         db.commit()
-        print(f"\nRepair complete for {repaired_agencies} agency/agencies.")
+        if args.dedupe_all:
+            print(f"\nDedupe complete for {repaired_agencies} agency/agencies.")
+        else:
+            print(f"\nRepair complete for {repaired_agencies} agency/agencies.")
         return 0
     except Exception:
         db.rollback()
