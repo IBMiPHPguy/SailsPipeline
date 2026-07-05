@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.audit_helpers import (
     PASSENGER_AUDIT_FIELDS,
@@ -11,7 +11,7 @@ from app.audit_helpers import (
     record_passenger_field_changes,
     record_travel_request_field_changes,
 )
-from app.models import ProposedCruise, ProposedCruisePassenger, RequestPassenger, TravelRequest, User
+from app.models import Passenger, ProposedCruise, ProposedCruisePassenger, RequestPassenger, TravelRequest, User
 from app.services.agency_service import NOT_FOUND
 from app.tenant_context import get_current_agency_id, set_current_agency_id
 
@@ -19,7 +19,9 @@ from app.tenant_context import get_current_agency_id, set_current_agency_id
 def load_request_passenger(db: Session, link_id: int) -> RequestPassenger:
     return (
         db.query(RequestPassenger)
-        .options(joinedload(RequestPassenger.passenger))
+        .options(
+            joinedload(RequestPassenger.passenger).selectinload(Passenger.cruise_loyalty_numbers),
+        )
         .filter(RequestPassenger.id == link_id)
         .one()
     )
@@ -37,7 +39,9 @@ def get_request_passenger_for_agency(
     try:
         query = (
             db.query(RequestPassenger)
-            .options(joinedload(RequestPassenger.passenger))
+            .options(
+                joinedload(RequestPassenger.passenger).selectinload(Passenger.cruise_loyalty_numbers),
+            )
             .join(TravelRequest, TravelRequest.id == RequestPassenger.travel_request_id)
             .filter(
                 RequestPassenger.id == link_id,
@@ -74,7 +78,9 @@ def detach_request_passenger_from_proposed_cruises(
 def get_primary_passenger(db: Session, request_id: int) -> RequestPassenger | None:
     primary = (
         db.query(RequestPassenger)
-        .options(joinedload(RequestPassenger.passenger))
+        .options(
+            joinedload(RequestPassenger.passenger).selectinload(Passenger.cruise_loyalty_numbers),
+        )
         .filter(
             RequestPassenger.travel_request_id == request_id,
             RequestPassenger.is_primary.is_(True),
@@ -85,7 +91,9 @@ def get_primary_passenger(db: Session, request_id: int) -> RequestPassenger | No
         return primary
     return (
         db.query(RequestPassenger)
-        .options(joinedload(RequestPassenger.passenger))
+        .options(
+            joinedload(RequestPassenger.passenger).selectinload(Passenger.cruise_loyalty_numbers),
+        )
         .filter(RequestPassenger.travel_request_id == request_id)
         .order_by(RequestPassenger.id.asc())
         .first()

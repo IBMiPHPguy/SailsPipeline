@@ -138,6 +138,8 @@ CREATE TABLE IF NOT EXISTS travel_requests (
     lead_source VARCHAR(100) NULL,
     referral_source_name VARCHAR(255) NULL,
     marketing_campaign_id CHAR(36) NULL,
+    intake_mode VARCHAR(100) NULL,
+    intake_social_platform VARCHAR(50) NULL,
     group_id CHAR(36) NULL,
     group_inventory_id CHAR(36) NULL,
     group_inventory_reservation_applied TINYINT(1) NOT NULL DEFAULT 0,
@@ -287,6 +289,19 @@ CREATE TABLE IF NOT EXISTS passengers (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_passengers_agency FOREIGN KEY (agency_id) REFERENCES agencies(id),
     CONSTRAINT fk_passengers_created_by FOREIGN KEY (created_by_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS passenger_loyalty_numbers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    passenger_id INT NOT NULL,
+    cruise_line VARCHAR(100) NOT NULL,
+    loyalty_number VARCHAR(80) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_passenger_loyalty_numbers_passenger
+        FOREIGN KEY (passenger_id) REFERENCES passengers(id) ON DELETE CASCADE,
+    UNIQUE KEY uq_passenger_loyalty_line (passenger_id, cruise_line),
+    INDEX idx_passenger_loyalty_passenger (passenger_id)
 );
 
 CREATE TABLE IF NOT EXISTS request_passengers (
@@ -508,8 +523,11 @@ CREATE TABLE IF NOT EXISTS request_communications (
     communication_type VARCHAR(40) NOT NULL,
     subject VARCHAR(255) NOT NULL,
     body TEXT NOT NULL,
+    sender_email VARCHAR(255) NULL,
     status VARCHAR(40) NOT NULL DEFAULT 'Draft',
     sent_at TIMESTAMP NULL,
+    received_at TIMESTAMP NULL,
+    is_response_to_agent TINYINT(1) NOT NULL DEFAULT 0,
     created_by_id INT NOT NULL,
     updated_by_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

@@ -2,6 +2,7 @@ import { QUALIFIERS } from "./formOptions";
 import { qualifierBadgeClass } from "./qualifierDisplay";
 import type { RequestPassengerInput } from "./types";
 import { normalizeAddressInput, passengerAddressToInput } from "./passengerAddress";
+import { normalizeCruiseLoyaltyNumbers } from "./CruiseLineLoyaltyFields";
 
 type PassengerFieldsProps = {
   value: RequestPassengerInput;
@@ -228,6 +229,7 @@ export function toPassengerPayload(value: RequestPassengerInput): RequestPasseng
     has_annual_insurance: value.has_annual_insurance ?? false,
     annual_insurance_expires_at: value.annual_insurance_expires_at?.trim() || null,
     annual_insurance_policy_number: value.annual_insurance_policy_number?.trim() || null,
+    cruise_loyalty_numbers: normalizeCruiseLoyaltyNumbers(value.cruise_loyalty_numbers ?? []),
     ...normalizeAddressInput(value),
   };
 }

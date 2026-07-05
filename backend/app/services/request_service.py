@@ -173,7 +173,9 @@ def detail_query(db: Session):
     return db.query(TravelRequest).options(
         joinedload(TravelRequest.created_by),
         joinedload(TravelRequest.updated_by),
-        selectinload(TravelRequest.request_passengers).joinedload(RequestPassenger.passenger),
+        selectinload(TravelRequest.request_passengers).joinedload(RequestPassenger.passenger).selectinload(
+            Passenger.cruise_loyalty_numbers
+        ),
         selectinload(TravelRequest.request_notes).options(
             joinedload(RequestNote.created_by),
             joinedload(RequestNote.updated_by),
@@ -183,7 +185,8 @@ def detail_query(db: Session):
             joinedload(ProposedCruise.updated_by),
             selectinload(ProposedCruise.passenger_links)
             .joinedload(ProposedCruisePassenger.request_passenger)
-            .joinedload(RequestPassenger.passenger),
+            .joinedload(RequestPassenger.passenger)
+            .selectinload(Passenger.cruise_loyalty_numbers),
         ),
         selectinload(TravelRequest.quoted_insurance).options(
             joinedload(QuotedInsurance.created_by),

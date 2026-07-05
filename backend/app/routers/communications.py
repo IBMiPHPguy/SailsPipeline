@@ -140,6 +140,9 @@ def add_communication(
         subject=payload.subject,
         body=payload.body,
         status=payload.status,
+        sender_email=str(payload.sender_email) if payload.sender_email else None,
+        received_at=payload.received_at,
+        is_response_to_agent=payload.is_response_to_agent,
     )
 
 

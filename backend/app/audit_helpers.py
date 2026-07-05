@@ -26,6 +26,8 @@ TRAVEL_REQUEST_AUDIT_FIELDS = (
     "lead_source",
     "referral_source_name",
     "marketing_campaign_id",
+    "intake_mode",
+    "intake_social_platform",
     "ship_name",
     "group_id",
     "group_inventory_id",

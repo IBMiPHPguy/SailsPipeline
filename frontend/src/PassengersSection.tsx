@@ -1,6 +1,7 @@
 import { Fragment, useState } from "react";
 import { addPassenger, deletePassenger, updatePassenger } from "./api";
 import ChickenSwitchModal from "./ChickenSwitchModal";
+import CruiseLineLoyaltyFields from "./CruiseLineLoyaltyFields";
 import EditIcon from "./EditIcon";
 import PassengerFields, { emptyPassengerInput, toPassengerPayload } from "./PassengerFields";
 import PassengerPickerModal from "./PassengerPickerModal";
@@ -66,6 +67,11 @@ export default function PassengersSection({
       phone: passenger.phone,
       date_of_birth: passenger.date_of_birth ?? "",
       qualifiers: passenger.qualifiers ?? [],
+      cruise_loyalty_numbers:
+        passenger.cruise_loyalty_numbers?.map((entry) => ({
+          cruise_line: entry.cruise_line,
+          loyalty_number: entry.loyalty_number,
+        })) ?? [],
       ...passengerAddressToInput(passenger),
     });
   }
@@ -153,6 +159,16 @@ export default function PassengersSection({
           disabled={disabled || saving}
           showAddress
           showQualifiers
+        />
+        <CruiseLineLoyaltyFields
+          value={editForm.cruise_loyalty_numbers ?? []}
+          onChange={(cruise_loyalty_numbers) =>
+            setEditForm((current) => ({
+              ...current,
+              cruise_loyalty_numbers,
+            }))
+          }
+          disabled={disabled || saving}
         />
         <p className="field-hint">
           Updates apply to this person across all requests where they appear.

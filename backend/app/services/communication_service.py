@@ -195,6 +195,9 @@ def create_communication(
     subject: str,
     body: str,
     status: str,
+    sender_email: str | None = None,
+    received_at: datetime | None = None,
+    is_response_to_agent: bool = False,
 ) -> RequestCommunication:
     _assert_workflow_belongs_to_request(
         db,
@@ -209,7 +212,10 @@ def create_communication(
         communication_type=communication_type,
         subject=subject.strip(),
         body=body,
+        sender_email=sender_email.strip() if sender_email else None,
         status=status,
+        received_at=received_at,
+        is_response_to_agent=is_response_to_agent,
         created_by_id=current_user.id,
         updated_by_id=current_user.id,
     )
@@ -231,8 +237,13 @@ def update_communication_record(
     updates: dict,
 ) -> RequestCommunication:
     for field, value in updates.items():
-        if field in {"subject", "communication_type", "body", "status"} and value is not None:
-            setattr(communication, field, value.strip() if field == "subject" else value)
+        if field in {"subject", "communication_type", "body", "status", "sender_email"} and value is not None:
+            setattr(communication, field, value.strip() if field in {"subject", "sender_email"} else value)
+        elif field == "received_at":
+            if value is not None:
+                setattr(communication, field, value)
+        elif field == "is_response_to_agent":
+            setattr(communication, field, bool(value))
 
     if updates.get("status") == COMMUNICATION_STATUS_SENT and communication.sent_at is None:
         communication.sent_at = datetime.now(UTC).replace(tzinfo=None)
@@ -304,6 +315,14 @@ def delete_draft_communication(
     communication: RequestCommunication,
     current_user: User,
 ) -> None:
+    from app.constants import COMMUNICATION_STATUS_DRAFT, COMMUNICATION_TYPE_INBOUND_EMAIL
+
+    if communication.communication_type == COMMUNICATION_TYPE_INBOUND_EMAIL:
+        db.delete(communication)
+        touch_request(request, current_user)
+        db.commit()
+        return
+
     if communication.status != COMMUNICATION_STATUS_DRAFT:
         raise HTTPException(status_code=400, detail="Only draft communications can be deleted.")
 

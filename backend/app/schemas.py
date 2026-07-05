@@ -459,6 +459,8 @@ class TravelRequestBase(BaseModel):
     lead_source: str | None = Field(default=None, max_length=100)
     referral_source_name: str | None = Field(default=None, max_length=255)
     marketing_campaign_id: str | None = Field(default=None, max_length=36)
+    intake_mode: str | None = Field(default=None, max_length=100)
+    intake_social_platform: str | None = Field(default=None, max_length=50)
     ship_name: str | None = Field(default=None, max_length=100)
     group_id: str | None = Field(default=None, max_length=36)
     group_inventory_id: str | None = Field(default=None, max_length=36)
@@ -474,6 +476,17 @@ class TravelRequestBase(BaseModel):
             raise ValueError("Invalid lead source selected.")
         return value
 
+    @field_validator("intake_mode")
+    @classmethod
+    def validate_intake_mode(cls, value: str | None) -> str | None:
+        if value is None or not value.strip():
+            return None
+        from app.constants import INTAKE_MODES
+
+        if value not in INTAKE_MODES:
+            raise ValueError("Invalid intake mode selected.")
+        return value
+
     @model_validator(mode="after")
     def validate_lead_attribution(self) -> "TravelRequestBase":
         from app.lead_attribution import normalize_lead_attribution
@@ -486,6 +499,18 @@ class TravelRequestBase(BaseModel):
         self.lead_source = source
         self.referral_source_name = referral
         self.marketing_campaign_id = campaign_id
+        return self
+
+    @model_validator(mode="after")
+    def validate_intake_attribution(self) -> "TravelRequestBase":
+        from app.intake_attribution import normalize_intake_attribution
+
+        mode, platform = normalize_intake_attribution(
+            intake_mode=self.intake_mode,
+            intake_social_platform=self.intake_social_platform,
+        )
+        self.intake_mode = mode
+        self.intake_social_platform = platform
         return self
 
     @model_validator(mode="after")
@@ -575,6 +600,24 @@ class TravelRequestGroupBookingInput(BaseModel):
     cabins_requested: int = Field(ge=1, le=10)
 
 
+class PassengerLoyaltyNumberInput(BaseModel):
+    cruise_line: str = Field(min_length=1, max_length=100)
+    loyalty_number: str = Field(min_length=1, max_length=80)
+
+    @field_validator("cruise_line")
+    @classmethod
+    def validate_cruise_line(cls, value: str) -> str:
+        return validate_cruise_line_values([value], require_at_least_one=True)[0]
+
+
+class PassengerLoyaltyNumberRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    cruise_line: str
+    loyalty_number: str
+
+
 class PassengerRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -595,6 +638,7 @@ class PassengerRead(BaseModel):
     has_annual_insurance: bool = False
     annual_insurance_expires_at: date | None = None
     annual_insurance_policy_number: str | None = None
+    cruise_loyalty_numbers: list[PassengerLoyaltyNumberRead] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 
@@ -637,6 +681,7 @@ class PassengerUpdate(BaseModel):
     has_annual_insurance: bool | None = None
     annual_insurance_expires_at: date | None = None
     annual_insurance_policy_number: str | None = Field(default=None, max_length=80)
+    cruise_loyalty_numbers: list[PassengerLoyaltyNumberInput] | None = None
 
     @field_validator("qualifiers")
     @classmethod
@@ -669,6 +714,7 @@ class PassengerCreate(BaseModel):
     has_annual_insurance: bool = False
     annual_insurance_expires_at: date | None = None
     annual_insurance_policy_number: str | None = Field(default=None, max_length=80)
+    cruise_loyalty_numbers: list[PassengerLoyaltyNumberInput] = Field(default_factory=list)
 
     @field_validator("qualifiers")
     @classmethod
@@ -699,6 +745,7 @@ class RequestPassengerBase(BaseModel):
     has_annual_insurance: bool = False
     annual_insurance_expires_at: date | None = None
     annual_insurance_policy_number: str | None = None
+    cruise_loyalty_numbers: list[PassengerLoyaltyNumberRead] = Field(default_factory=list)
 
     @field_validator("qualifiers")
     @classmethod
@@ -770,6 +817,7 @@ class RequestPassengerUpdate(BaseModel):
     has_annual_insurance: bool | None = None
     annual_insurance_expires_at: date | None = None
     annual_insurance_policy_number: str | None = Field(default=None, max_length=80)
+    cruise_loyalty_numbers: list[PassengerLoyaltyNumberInput] | None = None
 
     @field_validator("email", "phone", mode="before")
     @classmethod
@@ -817,6 +865,8 @@ class TravelRequestUpdate(BaseModel):
     lead_source: str | None = Field(default=None, max_length=100)
     referral_source_name: str | None = Field(default=None, max_length=255)
     marketing_campaign_id: str | None = Field(default=None, max_length=36)
+    intake_mode: str | None = Field(default=None, max_length=100)
+    intake_social_platform: str | None = Field(default=None, max_length=50)
     ship_name: str | None = Field(default=None, max_length=100)
     group_id: str | None = Field(default=None, max_length=36)
     group_inventory_id: str | None = Field(default=None, max_length=36)
@@ -831,6 +881,17 @@ class TravelRequestUpdate(BaseModel):
 
         if value not in LEAD_SOURCES:
             raise ValueError("Invalid lead source selected.")
+        return value
+
+    @field_validator("intake_mode")
+    @classmethod
+    def validate_update_intake_mode(cls, value: str | None) -> str | None:
+        if value is None or not value.strip():
+            return None
+        from app.constants import INTAKE_MODES
+
+        if value not in INTAKE_MODES:
+            raise ValueError("Invalid intake mode selected.")
         return value
 
     @model_validator(mode="after")
@@ -851,6 +912,20 @@ class TravelRequestUpdate(BaseModel):
         self.lead_source = source
         self.referral_source_name = referral
         self.marketing_campaign_id = campaign_id
+        return self
+
+    @model_validator(mode="after")
+    def validate_update_intake_attribution(self) -> "TravelRequestUpdate":
+        if self.intake_mode is None and self.intake_social_platform is None:
+            return self
+        from app.intake_attribution import normalize_intake_attribution
+
+        mode, platform = normalize_intake_attribution(
+            intake_mode=self.intake_mode,
+            intake_social_platform=self.intake_social_platform,
+        )
+        self.intake_mode = mode
+        self.intake_social_platform = platform
         return self
 
     @field_validator("cabin_hold_reservation_ids", mode="before")
@@ -1482,6 +1557,9 @@ class RequestCommunicationCreate(BaseModel):
     body: str = Field(min_length=1)
     request_workflow_id: str | None = None
     status: str = Field(default="Draft", min_length=1, max_length=40)
+    sender_email: EmailStr | None = None
+    received_at: datetime | None = None
+    is_response_to_agent: bool = False
 
     @field_validator("communication_type")
     @classmethod
@@ -1501,12 +1579,29 @@ class RequestCommunicationCreate(BaseModel):
             raise ValueError("Invalid communication status selected.")
         return value
 
+    @model_validator(mode="after")
+    def validate_inbound_email_fields(self) -> "RequestCommunicationCreate":
+        from app.constants import COMMUNICATION_STATUS_RECEIVED, COMMUNICATION_TYPE_INBOUND_EMAIL
+
+        if self.communication_type != COMMUNICATION_TYPE_INBOUND_EMAIL:
+            return self
+        if self.status != COMMUNICATION_STATUS_RECEIVED:
+            raise ValueError("Inbound emails must use the Received status.")
+        if not self.sender_email:
+            raise ValueError("Sender email is required for inbound emails.")
+        if self.received_at is None:
+            raise ValueError("Received date and time are required for inbound emails.")
+        return self
+
 
 class RequestCommunicationUpdate(BaseModel):
     communication_type: str | None = Field(default=None, min_length=1, max_length=40)
     subject: str | None = Field(default=None, min_length=1, max_length=255)
     body: str | None = Field(default=None, min_length=1)
     status: str | None = Field(default=None, min_length=1, max_length=40)
+    sender_email: EmailStr | None = None
+    received_at: datetime | None = None
+    is_response_to_agent: bool | None = None
 
     @field_validator("communication_type")
     @classmethod
@@ -1535,8 +1630,11 @@ class RequestCommunicationRead(BaseModel):
     subject: str
     body: str
     status: str
+    sender_email: EmailStr | None = None
     request_workflow_id: str | None = Field(default=None, validation_alias="request_workflow_live_id")
     sent_at: datetime | None = None
+    received_at: datetime | None = None
+    is_response_to_agent: bool = False
     created_by: UserAudit
     updated_by: UserAudit
     created_at: datetime
@@ -1550,8 +1648,11 @@ class RequestCommunicationSummaryRead(BaseModel):
     communication_type: str
     subject: str
     status: str
+    sender_email: EmailStr | None = None
     request_workflow_id: str | None = Field(default=None, validation_alias="request_workflow_live_id")
     sent_at: datetime | None = None
+    received_at: datetime | None = None
+    is_response_to_agent: bool = False
     created_by: UserAudit
     updated_by: UserAudit
     created_at: datetime

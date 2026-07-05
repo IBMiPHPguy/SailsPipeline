@@ -2,7 +2,7 @@ import AiSummaryIcon from "./AiSummaryIcon";
 import IconTooltip from "./IconTooltip";
 import ViewIcon from "./ViewIcon";
 import type { CommunicationRecord } from "./communicationAi";
-import { COMMUNICATION_STATUS_DRAFT } from "./formOptions";
+import { COMMUNICATION_STATUS_DRAFT, COMMUNICATION_TYPE_INBOUND_EMAIL } from "./formOptions";
 import { formatTimestamp } from "./utils";
 
 function TrashIcon() {
@@ -57,7 +57,8 @@ export default function CommunicationRecordsTable({
           {records.map((record) => {
             const canDeleteEmail =
               record.kind === "email" &&
-              record.communication?.status === COMMUNICATION_STATUS_DRAFT &&
+              (record.communication?.status === COMMUNICATION_STATUS_DRAFT ||
+                record.communication?.communication_type === COMMUNICATION_TYPE_INBOUND_EMAIL) &&
               onDeleteEmail;
 
             return (
