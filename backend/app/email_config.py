@@ -36,18 +36,22 @@ class EmailDeliverySettings:
     smtp_username: str
     smtp_password: str
     smtp_use_tls: bool
-    from_address: str
+    mailgun_domain: str
     api_key: str | None
     api_provider: str
 
 
 class _EmailSettingsSource(Protocol):
     app_env: str
-    email_from_address: str
-    email_from_address_staging: str | None
+    resolved_smtp_host: str
+    resolved_smtp_port: int
+    email_username: str
+    email_password: str
+    email_use_tls: bool
+    mailgun_domain: str
+    resolved_mailgun_api_key: str | None
+    resolved_mailgun_api_key_staging: str | None
     email_api_provider: str
-    email_api_key: str | None
-    email_api_key_staging: str | None
 
 
 def resolve_email_delivery_settings(settings: _EmailSettingsSource) -> EmailDeliverySettings:
@@ -58,22 +62,21 @@ def resolve_email_delivery_settings(settings: _EmailSettingsSource) -> EmailDeli
         return EmailDeliverySettings(
             environment=env,
             backend="smtp",
-            smtp_host=DEVELOPMENT_MAILPIT_HOST,
-            smtp_port=DEVELOPMENT_MAILPIT_PORT,
-            smtp_username="",
-            smtp_password="",
-            smtp_use_tls=False,
-            from_address=settings.email_from_address,
+            smtp_host=settings.resolved_smtp_host,
+            smtp_port=settings.resolved_smtp_port,
+            smtp_username=settings.email_username,
+            smtp_password=settings.email_password,
+            smtp_use_tls=settings.email_use_tls,
+            mailgun_domain=settings.mailgun_domain,
             api_key=None,
             api_provider=settings.email_api_provider,
         )
 
     if env == APP_ENV_STAGING:
-        # Cloud sandbox tier: Resend/Postmark (or similar) with staging-only credentials.
-        if not settings.email_api_key_staging:
+        if not settings.resolved_mailgun_api_key_staging:
             raise RuntimeError(
-                "EMAIL_API_KEY_STAGING is required when APP_ENV=staging. "
-                "Configure a provider sandbox key before sending mail."
+                "MAILGUN_API_KEY_STAGING (or legacy EMAIL_API_KEY_STAGING) is required when APP_ENV=staging. "
+                "Configure a Mailgun sandbox key before sending mail."
             )
         return EmailDeliverySettings(
             environment=env,
@@ -83,16 +86,16 @@ def resolve_email_delivery_settings(settings: _EmailSettingsSource) -> EmailDeli
             smtp_username="",
             smtp_password="",
             smtp_use_tls=False,
-            from_address=settings.email_from_address_staging or settings.email_from_address,
-            api_key=settings.email_api_key_staging,
+            mailgun_domain=settings.mailgun_domain,
+            api_key=settings.resolved_mailgun_api_key_staging,
             api_provider=settings.email_api_provider,
         )
 
     if env == APP_ENV_PRODUCTION:
-        if not settings.email_api_key:
+        if not settings.resolved_mailgun_api_key:
             raise RuntimeError(
-                "EMAIL_API_KEY is required when APP_ENV=production. "
-                "Refusing to start email delivery without live provider credentials."
+                "MAILGUN_API_KEY (or legacy EMAIL_API_KEY) is required when APP_ENV=production. "
+                "Refusing to start email delivery without live Mailgun credentials."
             )
         return EmailDeliverySettings(
             environment=env,
@@ -102,8 +105,8 @@ def resolve_email_delivery_settings(settings: _EmailSettingsSource) -> EmailDeli
             smtp_username="",
             smtp_password="",
             smtp_use_tls=False,
-            from_address=settings.email_from_address,
-            api_key=settings.email_api_key,
+            mailgun_domain=settings.mailgun_domain,
+            api_key=settings.resolved_mailgun_api_key,
             api_provider=settings.email_api_provider,
         )
 

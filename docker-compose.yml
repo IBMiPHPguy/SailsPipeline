@@ -39,7 +39,9 @@ services:
       ATTACHMENTS_DIR: /app/uploads
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash-lite}
-      EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS:-notifications@sailspipeline.com}
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      MAILGUN_DOMAIN: ${MAILGUN_DOMAIN:-mail.sailspipeline.com}
       PUBLIC_APP_BASE_URL: ${PUBLIC_APP_BASE_URL:-http://localhost:8080}
       CC_AUTH_PORTAL_BASE_URL: ${CC_AUTH_PORTAL_BASE_URL:-http://localhost:8080/cc-auth}
       TERMS_PORTAL_BASE_URL: ${TERMS_PORTAL_BASE_URL:-http://localhost:8080/accept-terms}

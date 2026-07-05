@@ -42,6 +42,13 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:8080,http://localhost:5173,http://127.0.0.1:8080"
     expose_openapi: bool = True
     auth_rate_limit: str = "10/minute"
+    # Local development SMTP (Mailpit). Ignored when APP_ENV=production.
+    smtp_host: str = "mailpit"
+    smtp_port: int = 1025
+    # Production Mailgun REST API.
+    mailgun_api_key: str | None = None
+    mailgun_domain: str = "mail.sailspipeline.com"
+    mailgun_api_key_staging: str | None = None
     # Legacy overrides (ignored when APP_ENV=development; routing is tier-driven).
     email_backend: str = "smtp"
     email_host: str = "mailpit"
@@ -51,7 +58,7 @@ class Settings(BaseSettings):
     email_use_tls: bool = False
     email_from_address: str = "notifications@sailspipeline.com"
     email_from_address_staging: str | None = None
-    email_api_provider: str = "resend"
+    email_api_provider: str = "mailgun"
     email_api_key: str | None = None
     email_api_key_staging: str | None = None
     cc_auth_portal_base_url: str = "http://localhost:5173/cc-auth"
@@ -135,6 +142,22 @@ class Settings(BaseSettings):
 
     def resolve_email_delivery_settings(self) -> EmailDeliverySettings:
         return resolve_email_delivery_settings(self)
+
+    @property
+    def resolved_mailgun_api_key(self) -> str | None:
+        return self.mailgun_api_key or self.email_api_key
+
+    @property
+    def resolved_mailgun_api_key_staging(self) -> str | None:
+        return self.mailgun_api_key_staging or self.email_api_key_staging
+
+    @property
+    def resolved_smtp_host(self) -> str:
+        return self.smtp_host or self.email_host
+
+    @property
+    def resolved_smtp_port(self) -> int:
+        return self.smtp_port or self.email_port
 
     def resolve_cc_auth_encryption_key(self) -> str:
         if self.cc_auth_encryption_key and self.cc_auth_encryption_key.strip():

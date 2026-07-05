@@ -169,8 +169,8 @@ async def dispatch_tenant_welcome_email(
     return await mailer.send_transactional_email(
         agency_id=agency.id,
         user_id=str(user.id),
-        user_name=BRAND_NAME,
-        user_email=user.email,
+        agency_name=agency.name,
+        agent_email=user.email,
         recipient=user.email,
         email_type=WELCOME_EMAIL_TYPE,
         subject=subject,

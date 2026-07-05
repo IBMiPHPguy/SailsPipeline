@@ -3,11 +3,11 @@ from __future__ import annotations
 import asyncio
 from datetime import date
 from decimal import Decimal
+from email.utils import parseaddr
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from email.utils import parseaddr
 
 from app.agency_email_branding import AgencyEmailBranding
 from app.branding import BRAND_NAME
@@ -34,8 +34,10 @@ from app.services.email_service import (
     EmailDeliveryService,
     extract_communication_html_content,
     render_email_base_html,
+    send_tenant_email,
 )
 from app.tenant_constants import DEFAULT_AGENCY_ID
+from app.tenant_email_identity import build_agency_email_local_part, build_tenant_from_header
 
 
 def _sample_cruise(**overrides):
@@ -79,7 +81,27 @@ def _development_delivery(**overrides) -> EmailDeliverySettings:
         smtp_username=overrides.get("smtp_username", delivery.smtp_username),
         smtp_password=overrides.get("smtp_password", delivery.smtp_password),
         smtp_use_tls=overrides.get("smtp_use_tls", delivery.smtp_use_tls),
-        from_address=overrides.get("from_address", delivery.from_address),
+        mailgun_domain=overrides.get("mailgun_domain", delivery.mailgun_domain),
+        api_key=overrides.get("api_key", delivery.api_key),
+        api_provider=overrides.get("api_provider", delivery.api_provider),
+    )
+
+
+def _production_delivery(**overrides) -> EmailDeliverySettings:
+    delivery = resolve_email_delivery_settings(
+        Settings(app_env=APP_ENV_PRODUCTION, mailgun_api_key="mg_live_test")
+    )
+    if not overrides:
+        return delivery
+    return EmailDeliverySettings(
+        environment=overrides.get("environment", delivery.environment),
+        backend=overrides.get("backend", delivery.backend),
+        smtp_host=overrides.get("smtp_host", delivery.smtp_host),
+        smtp_port=overrides.get("smtp_port", delivery.smtp_port),
+        smtp_username=overrides.get("smtp_username", delivery.smtp_username),
+        smtp_password=overrides.get("smtp_password", delivery.smtp_password),
+        smtp_use_tls=overrides.get("smtp_use_tls", delivery.smtp_use_tls),
+        mailgun_domain=overrides.get("mailgun_domain", delivery.mailgun_domain),
         api_key=overrides.get("api_key", delivery.api_key),
         api_provider=overrides.get("api_provider", delivery.api_provider),
     )
@@ -89,8 +111,8 @@ def _send_kwargs(**overrides):
     base = {
         "agency_id": DEFAULT_AGENCY_ID,
         "user_id": "1",
-        "user_name": "Jane Agent",
-        "user_email": "jane.agent@agency.com",
+        "agency_name": "Cruise Sea-kers Travel",
+        "agent_email": "jane.agent@agency.com",
         "recipient": "client@example.com",
         "email_type": "research_proposal",
         "subject": "Cruise Proposal – Caribbean (2 options)",
@@ -99,6 +121,28 @@ def _send_kwargs(**overrides):
     }
     base.update(overrides)
     return base
+
+
+# --- tenant from header ---
+
+
+def test_build_agency_email_local_part_strips_punctuation_and_hyphens():
+    assert build_agency_email_local_part("Cruise Sea-kers Travel") == "CruiseSeakersTravelConcierge"
+
+
+def test_build_agency_email_local_part_falls_back_for_empty_name():
+    assert build_agency_email_local_part("   ") == "AgencyConcierge"
+
+
+def test_build_tenant_from_header_formats_display_name_and_mailbox():
+    formatted = build_tenant_from_header(
+        agency_name="Cruise Sea-kers Travel",
+        mail_domain="mail.sailspipeline.com",
+    )
+
+    display_name, mailbox = parseaddr(formatted)
+    assert display_name == "Cruise Sea-kers Travel"
+    assert mailbox == "CruiseSeakersTravelConcierge@mail.sailspipeline.com"
 
 
 # --- extract_communication_html_content ---
@@ -187,60 +231,6 @@ def test_render_email_base_html_includes_signature_and_branded_header():
     assert BRAND_NAME in html
 
 
-# --- Header construction ---
-
-
-def test_build_message_sets_display_from_sender_and_reply_to():
-    service = EmailDeliveryService(SimpleNamespace(), delivery_settings=_development_delivery())
-    message = service._build_message(
-        recipient="client@example.com",
-        subject="Your cruise proposal",
-        html_content="<p>Hello</p>",
-        user_name="Jane Agent",
-        user_email="jane.agent@agency.com",
-    )
-
-    display_name, from_address = parseaddr(message["From"])
-    assert display_name == f"Jane Agent via {BRAND_NAME}"
-    assert from_address == "notifications@sailspipeline.com"
-    assert message["Sender"] == "notifications@sailspipeline.com"
-    assert message["Reply-To"] == "jane.agent@agency.com"
-    assert message["To"] == "client@example.com"
-    assert message["Subject"] == "Your cruise proposal"
-
-
-def test_format_from_header_strips_agent_name_whitespace():
-    service = EmailDeliveryService(SimpleNamespace(), delivery_settings=_development_delivery())
-
-    formatted = service._format_from_header("  Jane Agent  ")
-
-    display_name, from_address = parseaddr(formatted)
-    assert display_name == f"Jane Agent via {BRAND_NAME}"
-    assert from_address == "notifications@sailspipeline.com"
-
-
-def test_build_message_uses_staging_from_address_when_configured():
-    delivery = resolve_email_delivery_settings(
-        Settings(
-            app_env=APP_ENV_STAGING,
-            email_api_key_staging="re_staging_test",
-            email_from_address_staging="staging@mail.sailspipeline.com",
-        )
-    )
-    service = EmailDeliveryService(SimpleNamespace(), delivery_settings=delivery)
-    message = service._build_message(
-        recipient="client@example.com",
-        subject="Staging proposal",
-        html_content="<p>Hi</p>",
-        user_name="Jane Agent",
-        user_email="jane.agent@agency.com",
-    )
-
-    _, from_address = parseaddr(message["From"])
-    assert message["Sender"] == "staging@mail.sailspipeline.com"
-    assert from_address == "staging@mail.sailspipeline.com"
-
-
 # --- Environment toggles ---
 
 
@@ -251,7 +241,7 @@ def test_development_settings_default_to_mailpit_smtp():
             email_backend="api",
             email_host="smtp.sendgrid.net",
             email_port=587,
-            email_api_key="live-secret",
+            mailgun_api_key="live-secret",
         )
     )
 
@@ -267,7 +257,7 @@ def test_email_delivery_service_init_uses_settings_when_no_override(monkeypatch)
     monkeypatch.setattr(
         config_module,
         "settings",
-        Settings(app_env=APP_ENV_DEVELOPMENT, email_api_key="must-be-ignored"),
+        Settings(app_env=APP_ENV_DEVELOPMENT, mailgun_api_key="must-be-ignored"),
     )
     service = EmailDeliveryService(SimpleNamespace())
 
@@ -283,7 +273,7 @@ def test_development_init_rejects_api_backend_override():
 
 
 def test_development_init_rejects_loaded_api_credentials():
-    delivery = _development_delivery(api_key="re_live_secret")
+    delivery = _development_delivery(api_key="mg_live_secret")
 
     with pytest.raises(DevelopmentEmailIsolationError, match="forbids loading cloud email API credentials"):
         EmailDeliveryService(SimpleNamespace(), delivery_settings=delivery)
@@ -296,17 +286,69 @@ def test_development_init_rejects_non_local_smtp_host():
         EmailDeliveryService(SimpleNamespace(), delivery_settings=delivery)
 
 
+@patch("app.services.email_service.aiosmtplib.send", new_callable=AsyncMock)
+def test_send_tenant_email_smtp_sets_from_and_reply_to(mock_send):
+    mock_send.return_value = {}
+    delivery = _development_delivery()
+
+    asyncio.run(
+        send_tenant_email(
+            agency_name="Cruise Sea-kers Travel",
+            agent_email="jane.agent@agency.com",
+            recipient_email="client@example.com",
+            subject="Your cruise proposal",
+            html_content="<p>Hello</p>",
+            delivery_settings=delivery,
+        )
+    )
+
+    message = mock_send.await_args.args[0]
+    display_name, from_address = parseaddr(message["From"])
+    assert display_name == "Cruise Sea-kers Travel"
+    assert from_address == "CruiseSeakersTravelConcierge@mail.sailspipeline.com"
+    assert message["Reply-To"] == "jane.agent@agency.com"
+    assert message["To"] == "client@example.com"
+    assert message["Subject"] == "Your cruise proposal"
+
+
+@patch("app.services.email_service.requests.post")
+def test_send_tenant_email_production_uses_mailgun(mock_post):
+    mock_post.return_value = MagicMock(status_code=200, raise_for_status=MagicMock())
+    delivery = _production_delivery()
+
+    asyncio.run(
+        send_tenant_email(
+            agency_name="Cruise Sea-kers Travel",
+            agent_email="jane.agent@agency.com",
+            recipient_email="client@example.com",
+            subject="Your cruise proposal",
+            html_content="<p>Hello</p>",
+            delivery_settings=delivery,
+        )
+    )
+
+    mock_post.assert_called_once()
+    call_kwargs = mock_post.call_args.kwargs
+    assert call_kwargs["auth"] == ("api", "mg_live_test")
+    assert call_kwargs["data"]["to"] == "client@example.com"
+    assert call_kwargs["data"]["h:Reply-To"] == "jane.agent@agency.com"
+    assert "CruiseSeakersTravelConcierge@mail.sailspipeline.com" in call_kwargs["data"]["from"]
+    assert call_kwargs["data"]["subject"] == "Your cruise proposal"
+    assert call_kwargs["data"]["html"] == "<p>Hello</p>"
+
+
 def test_development_blocks_external_api_calls():
-    service = EmailDeliveryService(SimpleNamespace(), delivery_settings=_development_delivery())
+    delivery = _development_delivery(backend="api", api_key="mg_test")
 
     with pytest.raises(DevelopmentEmailIsolationError, match="blocked when APP_ENV=development"):
         asyncio.run(
-            service._send_via_api(
-                recipient="client@example.com",
+            send_tenant_email(
+                agency_name="Cruise Sea-kers Travel",
+                agent_email="agent@example.com",
+                recipient_email="client@example.com",
                 subject="Test",
                 html_content="<p>Hi</p>",
-                user_name="Agent",
-                user_email="agent@example.com",
+                delivery_settings=delivery,
             )
         )
 
@@ -330,20 +372,20 @@ def test_development_send_routes_to_mailpit_smtp(mock_send, db, test_user):
 
 def test_staging_resolves_to_api_backend():
     delivery = resolve_email_delivery_settings(
-        Settings(app_env=APP_ENV_STAGING, email_api_key_staging="re_staging_test")
+        Settings(app_env=APP_ENV_STAGING, mailgun_api_key_staging="mg_staging_test")
     )
 
     assert delivery.backend == "api"
-    assert delivery.api_key == "re_staging_test"
+    assert delivery.api_key == "mg_staging_test"
 
 
 def test_production_resolves_to_api_backend():
     delivery = resolve_email_delivery_settings(
-        Settings(app_env=APP_ENV_PRODUCTION, email_api_key="re_live_production")
+        Settings(app_env=APP_ENV_PRODUCTION, mailgun_api_key="mg_live_production")
     )
 
     assert delivery.backend == "api"
-    assert delivery.api_key == "re_live_production"
+    assert delivery.api_key == "mg_live_production"
 
 
 # --- Database auditing ---
@@ -398,9 +440,11 @@ def test_failed_send_writes_failed_audit_log_with_error_message(mock_send, db, t
     assert log.user_id == test_user.id
 
 
-def test_staging_api_failure_writes_failed_audit_log(db, test_user):
+@patch("app.services.email_service.requests.post")
+def test_staging_api_failure_writes_failed_audit_log(mock_post, db, test_user):
+    mock_post.side_effect = RuntimeError("Mailgun timeout")
     delivery = resolve_email_delivery_settings(
-        Settings(app_env=APP_ENV_STAGING, email_api_key_staging="re_staging_test")
+        Settings(app_env=APP_ENV_STAGING, mailgun_api_key_staging="mg_staging_test")
     )
     service = EmailDeliveryService(db, delivery_settings=delivery)
     payload = _send_kwargs(user_id=str(test_user.id))
@@ -417,8 +461,7 @@ def test_staging_api_failure_writes_failed_audit_log(db, test_user):
         .one()
     )
     assert log.status == EMAIL_STATUS_FAILED
-    assert log.error_message is not None
-    assert "provider SDK is not wired" in log.error_message
+    assert "Mailgun timeout" in (log.error_message or "")
 
 
 @patch("app.services.email_service.aiosmtplib.send", new_callable=AsyncMock)
