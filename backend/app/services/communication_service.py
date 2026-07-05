@@ -4,7 +4,6 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
 
 from app.agency_email_branding import load_agency_email_branding
-from app.config import settings
 from app.constants import (
     COMMUNICATION_STATUS_DRAFT,
     COMMUNICATION_STATUS_SENT,
@@ -21,6 +20,7 @@ from app.research_proposal_email import build_research_proposal_email_html
 from app.schemas import GenerateResearchCommunicationResponse
 from app.services.agency_service import assert_child_belongs_to_request, require_record_for_agency
 from app.services.email_service import EmailDeliveryService, extract_communication_html_content, render_email_base_html
+from app.services.gemini_config_service import resolve_gemini_credentials
 from app.services.gemini_context_service import (
     build_request_context_for_gemini,
     proposed_cruise_to_gemini_dict,
@@ -145,9 +145,10 @@ def generate_research_communication_from_proposed_cruises(
     ]
 
     try:
+        api_key, model_name = resolve_gemini_credentials(db, agency_id=request.agency_id)
         email_subject, intro, closing, model_name = generate_research_communication_from_proposals(
-            api_key=settings.gemini_api_key or "",
-            model_name=settings.gemini_model,
+            api_key=api_key,
+            model_name=model_name,
             request_context=request_context,
             proposed_cruises=cruise_payload,
         )
@@ -157,10 +158,7 @@ def generate_research_communication_from_proposed_cruises(
             cruises=validated_cruises,
         )
     except GeminiConfigurationError as exc:
-        raise HTTPException(
-            status_code=503,
-            detail="Gemini is not configured. Add GEMINI_API_KEY to your environment.",
-        ) from exc
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     except GeminiParseError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

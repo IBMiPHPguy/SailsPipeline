@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS agency_settings (
     email_signature_block MEDIUMTEXT NULL,
     business_address VARCHAR(512) NULL,
     business_phone VARCHAR(50) NULL,
+    encrypted_gemini_api_key TEXT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_agency_settings_agency FOREIGN KEY (agency_id) REFERENCES agencies (id) ON DELETE CASCADE

@@ -390,6 +390,20 @@ class AgencyPublicBrandingRead(BaseModel):
     custom_master_tc: str | None = None
 
 
+class AgencyAiSettingsRead(BaseModel):
+    configured: bool
+
+
+class AgencyAiStatusRead(BaseModel):
+    configured: bool
+    can_manage: bool
+    uses_tenant_key: bool
+
+
+class AgencyAiSettingsUpdate(BaseModel):
+    gemini_api_key: str = Field(min_length=20, max_length=512)
+
+
 class AgencySettingsLogoUploadResponse(BaseModel):
     brand_logo_url: str
     message: str = "Brand logo uploaded."

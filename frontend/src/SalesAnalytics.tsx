@@ -18,6 +18,7 @@ import type {
   SalesAnalyticsRejectionReason,
   SalesAnalyticsYearSummary,
 } from "./types";
+import { useAgencyAiStatus } from "./useAgencyAiStatus";
 
 const COPILOT_QUICK_PROMPTS = [
   "Find our high-value premium leads",
@@ -513,10 +514,12 @@ function FirstMateCopilot() {
   const [answer, setAnswer] = useState("");
   const [asking, setAsking] = useState(false);
   const [error, setError] = useState("");
+  const { aiUnavailableMessage } = useAgencyAiStatus();
+  const aiBlocked = Boolean(aiUnavailableMessage);
 
   async function submitQuestion(prompt: string) {
     const trimmed = prompt.trim();
-    if (!trimmed) {
+    if (!trimmed || aiBlocked) {
       return;
     }
     setAsking(true);
@@ -552,27 +555,30 @@ function FirstMateCopilot() {
               type="text"
               value={question}
               placeholder="e.g. Where is commission peaking next quarter?"
-              disabled={asking}
+              disabled={asking || aiBlocked}
               onChange={(event) => setQuestion(event.target.value)}
             />
           </label>
           <button
             type="submit"
             className="modal-primary sales-analytics-copilot-submit"
-            disabled={asking || !question.trim()}
+            disabled={asking || aiBlocked || !question.trim()}
           >
             {asking ? "Thinking..." : "Ask First Mate"}
           </button>
         </form>
       </header>
       <div className="sales-analytics-copilot-body">
+        {aiUnavailableMessage ? (
+          <p className="status warning sales-analytics-copilot-status">{aiUnavailableMessage}</p>
+        ) : null}
         <div className="sales-analytics-copilot-prompts">
           {COPILOT_QUICK_PROMPTS.map((prompt) => (
             <button
               key={prompt}
               type="button"
               className="sales-analytics-prompt-pill"
-              disabled={asking}
+              disabled={asking || aiBlocked}
               onClick={() => {
                 setQuestion(prompt);
                 void submitQuestion(prompt);

@@ -1,4 +1,4 @@
-import json
+from sqlalchemy.orm import Session
 
 from app.gemini_service import (
     GeminiConfigurationError,
@@ -6,6 +6,7 @@ from app.gemini_service import (
     generate_sales_analytics_copilot_answer,
 )
 from app.schemas import SalesAnalyticsResponse
+from app.services.gemini_config_service import resolve_gemini_credentials, uses_tenant_gemini_api_key
 
 
 def _build_analytics_context(analytics: SalesAnalyticsResponse) -> dict:
@@ -25,6 +26,8 @@ def _build_analytics_context(analytics: SalesAnalyticsResponse) -> dict:
 
 
 def _fallback_answer(question: str, analytics: SalesAnalyticsResponse) -> str:
+    import json
+
     normalized = question.lower()
     context = _build_analytics_context(analytics)
 
@@ -75,9 +78,25 @@ def _fallback_answer(question: str, analytics: SalesAnalyticsResponse) -> str:
     )
 
 
-def answer_sales_copilot_question(question: str, analytics: SalesAnalyticsResponse) -> str:
+def answer_sales_copilot_question(
+    db: Session,
+    *,
+    agency_id: str,
+    question: str,
+    analytics: SalesAnalyticsResponse,
+) -> str:
     context = _build_analytics_context(analytics)
     try:
-        return generate_sales_analytics_copilot_answer(question, context)
-    except (GeminiConfigurationError, GeminiParseError):
+        api_key, model_name = resolve_gemini_credentials(db, agency_id=agency_id)
+        return generate_sales_analytics_copilot_answer(
+            api_key=api_key,
+            model_name=model_name,
+            question=question,
+            analytics_context=context,
+        )
+    except GeminiConfigurationError:
+        raise
+    except GeminiParseError:
+        if uses_tenant_gemini_api_key():
+            raise
         return _fallback_answer(question, analytics)

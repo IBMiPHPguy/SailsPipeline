@@ -8,6 +8,7 @@ type CommunicationUploadBannerProps = {
   uploading: boolean;
   disabled: boolean;
   autoGenerateAiSummary: boolean;
+  aiUnavailableMessage?: string | null;
   onAutoGenerateChange: (value: boolean) => void;
   onUpload: (file: File, options: { autoGenerateAiSummary: boolean }) => Promise<void>;
 };
@@ -27,9 +28,11 @@ export default function CommunicationUploadBanner({
   uploading,
   disabled,
   autoGenerateAiSummary,
+  aiUnavailableMessage = null,
   onAutoGenerateChange,
   onUpload,
 }: CommunicationUploadBannerProps) {
+  const aiBlocked = Boolean(aiUnavailableMessage);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const label = kind === "transcripts" ? "call transcript" : "chat log";
@@ -121,12 +124,13 @@ export default function CommunicationUploadBanner({
         <label className="communication-auto-ai-toggle" onClick={(event) => event.stopPropagation()}>
           <input
             type="checkbox"
-            checked={autoGenerateAiSummary}
-            disabled={uploading}
+            checked={autoGenerateAiSummary && !aiBlocked}
+            disabled={uploading || aiBlocked}
             onChange={(event) => onAutoGenerateChange(event.target.checked)}
           />
           <span>✨ Auto-generate AI Summary &amp; Research Brief on upload</span>
         </label>
+        {aiUnavailableMessage ? <p className="status warning communication-ai-blocked-note">{aiUnavailableMessage}</p> : null}
       </div>
     </div>
   );

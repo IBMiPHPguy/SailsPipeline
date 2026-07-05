@@ -23,6 +23,7 @@ import type {
   RequestWorkflow,
 } from "./types";
 import { getActiveWorkflow } from "./workflowForm";
+import { useAgencyAiStatus } from "./useAgencyAiStatus";
 
 type ClientContentTab = "transcripts" | "chats" | "communications";
 
@@ -82,6 +83,7 @@ export default function RequestClientContentSection({
 }: RequestClientContentSectionProps) {
   const [activeTab, setActiveTab] = useState<ClientContentTab>("transcripts");
   const [autoGenerateAiSummary, setAutoGenerateAiSummary] = useState(readAutoGeneratePreference);
+  const { aiUnavailableMessage } = useAgencyAiStatus();
   const [viewingAttachment, setViewingAttachment] = useState<{
     attachment: Attachment;
     kind: AttachmentKind;
@@ -286,6 +288,7 @@ export default function RequestClientContentSection({
             uploading={activeTab === "transcripts" ? uploadingTranscript : uploadingChat}
             disabled={disabled}
             autoGenerateAiSummary={autoGenerateAiSummary}
+            aiUnavailableMessage={aiUnavailableMessage}
             onAutoGenerateChange={handleAutoGenerateChange}
             onUpload={activeTab === "transcripts" ? onUploadTranscript : onUploadChat}
           />

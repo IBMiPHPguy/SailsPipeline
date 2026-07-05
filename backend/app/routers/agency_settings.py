@@ -10,6 +10,9 @@ from app.database import get_db
 from app.deps import get_current_user, require_tenant_super_user
 from app.models import User
 from app.schemas import (
+    AgencyAiSettingsRead,
+    AgencyAiSettingsUpdate,
+    AgencyAiStatusRead,
     AgencyBrandingChromeRead,
     AgencyPublicBrandingRead,
     AgencySettingsLogoUploadResponse,
@@ -23,6 +26,14 @@ from app.services.agency_settings_service import (
     get_agency_settings_row,
     update_agency_settings,
 )
+from app.services.gemini_config_service import (
+    agency_has_gemini_api_key,
+    clear_agency_gemini_api_key,
+    is_gemini_configured,
+    save_agency_gemini_api_key,
+    uses_tenant_gemini_api_key,
+)
+from app.tenant_roles import USER_ROLE_TENANT_SUPER_USER
 
 settings_router = APIRouter(prefix="/api/agency", tags=["agency-settings"])
 public_router = APIRouter(prefix="/api/public", tags=["public-branding"])
@@ -37,6 +48,66 @@ def read_agency_branding_chrome(
 ) -> AgencyBrandingChromeRead:
     row = get_agency_settings_row(db, agency_id=current_user.agency_id)
     return AgencyBrandingChromeRead.model_validate(build_portal_branding_payload(row))
+
+
+@settings_router.get("/ai-status", response_model=AgencyAiStatusRead)
+def read_agency_ai_status(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AgencyAiStatusRead:
+    return AgencyAiStatusRead(
+        configured=is_gemini_configured(db, agency_id=current_user.agency_id),
+        can_manage=current_user.role == USER_ROLE_TENANT_SUPER_USER,
+        uses_tenant_key=uses_tenant_gemini_api_key(),
+    )
+
+
+@settings_router.get("/ai-settings", response_model=AgencyAiSettingsRead)
+def read_agency_ai_settings(
+    current_user: User = Depends(require_tenant_super_user),
+    db: Session = Depends(get_db),
+) -> AgencyAiSettingsRead:
+    row = get_agency_settings_row(db, agency_id=current_user.agency_id)
+    configured = agency_has_gemini_api_key(row) if uses_tenant_gemini_api_key() else is_gemini_configured(
+        db, agency_id=current_user.agency_id
+    )
+    return AgencyAiSettingsRead(configured=configured)
+
+
+@settings_router.put("/ai-settings", response_model=AgencyAiSettingsRead)
+def put_agency_ai_settings(
+    payload: AgencyAiSettingsUpdate,
+    current_user: User = Depends(require_tenant_super_user),
+    db: Session = Depends(get_db),
+) -> AgencyAiSettingsRead:
+    if not uses_tenant_gemini_api_key():
+        raise HTTPException(
+            status_code=400,
+            detail="Agency AI keys are only managed in production. Local development uses GEMINI_API_KEY.",
+        )
+    try:
+        row = save_agency_gemini_api_key(
+            db,
+            agency_id=current_user.agency_id,
+            api_key=payload.gemini_api_key,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return AgencyAiSettingsRead(configured=agency_has_gemini_api_key(row))
+
+
+@settings_router.delete("/ai-settings", response_model=AgencyAiSettingsRead)
+def delete_agency_ai_settings(
+    current_user: User = Depends(require_tenant_super_user),
+    db: Session = Depends(get_db),
+) -> AgencyAiSettingsRead:
+    if not uses_tenant_gemini_api_key():
+        raise HTTPException(
+            status_code=400,
+            detail="Agency AI keys are only managed in production. Local development uses GEMINI_API_KEY.",
+        )
+    clear_agency_gemini_api_key(db, agency_id=current_user.agency_id)
+    return AgencyAiSettingsRead(configured=False)
 
 
 @settings_router.get("/settings", response_model=AgencySettingsRead)
