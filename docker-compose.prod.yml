@@ -18,6 +18,8 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-https://sailspipeline.com,https://app.sailspipeline.com}
       MAILGUN_API_KEY: ${MAILGUN_API_KEY}
       MAILGUN_DOMAIN: ${MAILGUN_DOMAIN:-mail.sailspipeline.com}
+      PUBLIC_APP_BASE_URL: ${PUBLIC_APP_BASE_URL:-https://app.sailspipeline.com}
+      BRAND_ASSET_PUBLIC_BASE_URL: ${BRAND_ASSET_PUBLIC_BASE_URL:-https://app.sailspipeline.com}
 
   frontend:
     ports: !reset []

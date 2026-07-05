@@ -7,8 +7,11 @@ from sqlalchemy.orm import Session
 
 from app.agency_email_branding import (
     AgencyEmailBranding,
+    render_email_brand_logo_img,
     render_email_cta_button,
     render_platform_compliance_footer,
+    resolve_absolute_brand_asset_url,
+    resolve_brand_asset_public_base_url,
 )
 from app.agency_email_branding import load_agency_email_branding
 from app.branding import BRAND_APP_TITLE, BRAND_NAME
@@ -22,11 +25,13 @@ WELCOME_EMAIL_TYPE = "tenant_welcome"
 
 def load_system_welcome_branding() -> AgencyEmailBranding:
     """Default SailsPipeline branding for platform onboarding emails."""
+    logo_path = "/sailspipeline-logo.png"
+    asset_base = resolve_brand_asset_public_base_url()
     return AgencyEmailBranding(
         agency_id="system",
         agency_name=BRAND_NAME,
-        brand_logo_url="/sailspipeline-logo.png",
-        brand_logo_absolute_url=f"{settings.public_app_base_url.rstrip('/')}/sailspipeline-logo.png",
+        brand_logo_url=logo_path,
+        brand_logo_absolute_url=resolve_absolute_brand_asset_url(logo_path, public_base_url=asset_base),
         primary_color=DEFAULT_PRIMARY_COLOR,
         secondary_color=DEFAULT_SECONDARY_COLOR,
         primary_text_color="#ffffff",
@@ -125,18 +130,12 @@ def render_system_welcome_header_html(branding: AgencyEmailBranding) -> str:
     safe_platform = escape(BRAND_NAME)
     safe_primary = escape(branding.primary_color)
     safe_secondary = escape(branding.secondary_color)
-
-    if branding.brand_logo_absolute_url:
-        safe_logo = escape(branding.brand_logo_absolute_url, quote=True)
-        brand_markup = (
-            f'<img src="{safe_logo}" alt="{safe_platform}" width="220" '
-            f'style="display:block;margin:0 auto;max-width:220px;width:100%;height:auto;border:0;" />'
-        )
-    else:
-        brand_markup = (
-            f'<div style="font-size:26px;font-weight:700;line-height:1.25;color:{safe_primary};'
-            f'text-align:center;">{safe_platform}</div>'
-        )
+    brand_markup = render_email_brand_logo_img(
+        branding,
+        width=220,
+        alt=BRAND_NAME,
+        centered=True,
+    )
 
     return f"""
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">

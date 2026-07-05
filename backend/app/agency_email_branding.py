@@ -15,6 +15,12 @@ from app.services.agency_settings_service import (
 )
 
 _HEX_COLOR_PATTERN = re.compile(r"^#[0-9A-Fa-f]{6}$")
+_STATIC_UPLOADS_PREFIX = "/static/uploads/"
+_STATIC_ASSET_PREFIX = "/static/"
+_EMAIL_IMG_SRC_PATTERN = re.compile(
+    r'(<img\b[^>]*\bsrc=["\'])([^"\']+)(["\'])',
+    re.IGNORECASE,
+)
 
 
 def contrast_text_color(hex_color: str) -> str:
@@ -37,16 +43,55 @@ def normalize_brand_hex(color: str | None, *, default: str) -> str:
     return default
 
 
-def resolve_absolute_brand_asset_url(url: str | None, *, public_base_url: str) -> str | None:
+def resolve_brand_asset_public_base_url() -> str:
+    return settings.resolved_brand_asset_public_base_url
+
+
+def _normalize_asset_path(url: str) -> str:
+    stripped = url.strip()
+    if stripped.startswith(("http://", "https://")):
+        for marker in (_STATIC_UPLOADS_PREFIX, _STATIC_ASSET_PREFIX):
+            marker_index = stripped.find(marker)
+            if marker_index != -1:
+                return stripped[marker_index:]
+        return stripped
+
+    if stripped.startswith("static/"):
+        return f"/{stripped}"
+    if not stripped.startswith("/"):
+        return f"/{stripped}"
+    return stripped
+
+
+def resolve_absolute_brand_asset_url(url: str | None, *, public_base_url: str | None = None) -> str | None:
+    """Convert stored brand asset paths to fully qualified URLs for email clients."""
     if not url or not url.strip():
         return None
-    stripped = url.strip()
-    if stripped.startswith("http://") or stripped.startswith("https://"):
-        return stripped
-    base = public_base_url.rstrip("/")
-    if not stripped.startswith("/"):
-        stripped = f"/{stripped}"
-    return f"{base}{stripped}"
+
+    base = (public_base_url or resolve_brand_asset_public_base_url()).rstrip("/")
+    normalized = _normalize_asset_path(url.strip())
+
+    if normalized.startswith(("http://", "https://")):
+        return normalized
+
+    return f"{base}{normalized}"
+
+
+def absolutize_email_html_asset_urls(html: str | None) -> str:
+    """Rewrite relative /static asset paths inside email HTML fragments to absolute URLs."""
+    if not html:
+        return ""
+
+    base = resolve_brand_asset_public_base_url()
+
+    def _replace_img_src(match: re.Match[str]) -> str:
+        prefix, src, suffix = match.groups()
+        absolute = resolve_absolute_brand_asset_url(src, public_base_url=base)
+        if not absolute:
+            return match.group(0)
+        return f'{prefix}{escape(absolute, quote=True)}{suffix}'
+
+    return _EMAIL_IMG_SRC_PATTERN.sub(_replace_img_src, html)
 
 
 @dataclass(frozen=True)
@@ -65,10 +110,11 @@ def load_agency_email_branding(db: Session, *, agency_id: str) -> AgencyEmailBra
     row = get_agency_settings_row(db, agency_id=agency_id)
     primary = normalize_brand_hex(row.primary_color, default=DEFAULT_PRIMARY_COLOR)
     secondary = normalize_brand_hex(row.secondary_color, default=DEFAULT_SECONDARY_COLOR)
-    public_base = settings.public_app_base_url.rstrip("/")
-    logo_absolute = resolve_absolute_brand_asset_url(row.brand_logo_url, public_base_url=public_base)
+    asset_base = resolve_brand_asset_public_base_url()
+    logo_absolute = resolve_absolute_brand_asset_url(row.brand_logo_url, public_base_url=asset_base)
     agency_name = (row.agency_name or "").strip() or "Your travel agency"
-    signature = (row.email_signature_block or "").strip() or None
+    signature_raw = (row.email_signature_block or "").strip()
+    signature = absolutize_email_html_asset_urls(signature_raw) or None
     return AgencyEmailBranding(
         agency_id=row.agency_id,
         agency_name=agency_name,
@@ -81,23 +127,37 @@ def load_agency_email_branding(db: Session, *, agency_id: str) -> AgencyEmailBra
     )
 
 
+def render_email_brand_logo_img(
+    branding: AgencyEmailBranding,
+    *,
+    width: int = 200,
+    alt: str | None = None,
+    centered: bool = False,
+) -> str:
+    safe_alt = escape(alt or branding.agency_name)
+    if branding.brand_logo_absolute_url:
+        safe_logo = escape(branding.brand_logo_absolute_url, quote=True)
+        center_style = "margin:0 auto;" if centered else ""
+        return (
+            f'<img src="{safe_logo}" alt="{safe_alt}" width="{width}" '
+            f'style="display:block;{center_style}max-width:{width}px;width:100%;height:auto;border:0;" />'
+        )
+
+    safe_agency = escape(branding.agency_name)
+    safe_primary = escape(branding.primary_color)
+    text_align = "text-align:center;" if centered else ""
+    return (
+        f'<div style="font-size:24px;font-weight:700;line-height:1.25;color:{safe_primary};{text_align}">'
+        f"{safe_agency}</div>"
+    )
+
+
 def render_email_brand_header_html(branding: AgencyEmailBranding, *, agent_name: str) -> str:
     safe_agent = escape(agent_name)
     safe_agency = escape(branding.agency_name)
     safe_primary = escape(branding.primary_color)
     safe_secondary = escape(branding.secondary_color)
-
-    if branding.brand_logo_absolute_url:
-        safe_logo = escape(branding.brand_logo_absolute_url, quote=True)
-        brand_markup = (
-            f'<img src="{safe_logo}" alt="{safe_agency}" width="200" '
-            f'style="display:block;max-width:200px;width:100%;height:auto;border:0;" />'
-        )
-    else:
-        brand_markup = (
-            f'<div style="font-size:24px;font-weight:700;line-height:1.25;color:{safe_primary};">'
-            f"{safe_agency}</div>"
-        )
+    brand_markup = render_email_brand_logo_img(branding, width=200, alt=branding.agency_name)
 
     return f"""
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
@@ -149,7 +209,7 @@ def render_email_signature_section(signature_html: str | None) -> str:
     return (
         '<div style="margin-top:28px;padding-top:20px;border-top:1px solid #d9e2ec;'
         'font-size:15px;line-height:1.6;color:#334e68;word-break:break-word;overflow-wrap:anywhere;">'
-        f"{signature_html}"
+        f"{absolutize_email_html_asset_urls(signature_html)}"
         "</div>"
     )
 

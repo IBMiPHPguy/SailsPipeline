@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.agency_email_branding import (
     AgencyEmailBranding,
     load_agency_email_branding,
+    render_email_brand_logo_img,
     render_email_cta_button,
     render_platform_compliance_footer,
 )
@@ -29,22 +30,15 @@ def resolve_password_reset_branding(db: Session, user: User) -> AgencyEmailBrand
 
 
 def render_password_reset_header_html(branding: AgencyEmailBranding) -> str:
-    safe_agency = escape(branding.agency_name)
     safe_platform = escape(BRAND_APP_TITLE)
     safe_primary = escape(branding.primary_color)
     safe_secondary = escape(branding.secondary_color)
-
-    if branding.brand_logo_absolute_url:
-        safe_logo = escape(branding.brand_logo_absolute_url, quote=True)
-        brand_markup = (
-            f'<img src="{safe_logo}" alt="{safe_agency}" width="200" '
-            f'style="display:block;margin:0 auto;max-width:200px;width:100%;height:auto;border:0;" />'
-        )
-    else:
-        brand_markup = (
-            f'<div style="font-size:24px;font-weight:700;line-height:1.25;color:{safe_primary};'
-            f'text-align:center;">{safe_agency}</div>'
-        )
+    brand_markup = render_email_brand_logo_img(
+        branding,
+        width=200,
+        alt=branding.agency_name,
+        centered=True,
+    )
 
     return f"""
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
