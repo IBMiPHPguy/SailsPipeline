@@ -291,14 +291,6 @@ export default function RequestClientContentSection({
           />
         ) : null}
 
-        {activeTab === "communications" ? (
-          <div className="communication-records-toolbar">
-            {!disabled ? (
-              <TabHeaderAddButton label="Save received email" onClick={openCreateInboundModal} />
-            ) : null}
-          </div>
-        ) : null}
-
         <div className="section-tablist" role="tablist" aria-label="Client content">
           <button
             type="button"
@@ -336,6 +328,11 @@ export default function RequestClientContentSection({
         </div>
 
         <div className="section-card-body section-tab-body communication-records-panel">
+          {activeTab === "communications" && !disabled ? (
+            <div className="communication-records-toolbar">
+              <TabHeaderAddButton label="Save and email" onClick={openCreateInboundModal} />
+            </div>
+          ) : null}
           <CommunicationRecordsTable
             records={activeRecords}
             emptyMessage={activeEmptyMessage}

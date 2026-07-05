@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import CommunicationBodyField from "./CommunicationBodyField";
+import YesNoPillToggle from "./YesNoPillToggle";
 import {
   COMMUNICATION_STATUS_RECEIVED,
   COMMUNICATION_TYPE_INBOUND_EMAIL,
@@ -169,17 +170,12 @@ export default function InboundEmailModal({
                 onChange={(body) => setForm({ ...form, body })}
               />
 
-              <label className="checkbox-inline inbound-email-response-toggle">
-                <input
-                  type="checkbox"
-                  disabled={disabled || saving}
-                  checked={form.is_response_to_agent}
-                  onChange={(event) =>
-                    setForm({ ...form, is_response_to_agent: event.target.checked })
-                  }
-                />
-                This email is a response to a query from the agent
-              </label>
+              <YesNoPillToggle
+                label="This email is a response to a query from the agent"
+                value={form.is_response_to_agent}
+                disabled={disabled || saving}
+                onChange={(is_response_to_agent) => setForm({ ...form, is_response_to_agent })}
+              />
             </div>
           </div>
 
