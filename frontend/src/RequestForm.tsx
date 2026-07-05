@@ -590,6 +590,8 @@ export const emptyRequestForm: TravelRequestInput = {
   lead_source: "",
   referral_source_name: "",
   marketing_campaign_id: "",
+  intake_mode: "",
+  intake_social_platform: "",
 };
 
 export { isReturnAfterDeparture };

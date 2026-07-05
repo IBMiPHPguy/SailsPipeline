@@ -40,7 +40,18 @@ function displayValue(value: string | null | undefined): string {
   return trimmed ? trimmed : "—";
 }
 
-function PassengerDetailCard({ passenger }: { passenger: RequestPassenger }) {
+function PassengerDetailCard({
+  passenger,
+  cruiseLine,
+}: {
+  passenger: RequestPassenger;
+  cruiseLine?: string;
+}) {
+  const matchingLoyalty =
+    cruiseLine != null
+      ? passenger.cruise_loyalty_numbers?.find((entry) => entry.cruise_line === cruiseLine)
+      : undefined;
+
   return (
     <article
       className={`crm-entry-passenger-card${isInactiveClient(passenger) ? " passenger-item-inactive" : ""}`}
@@ -100,6 +111,12 @@ function PassengerDetailCard({ passenger }: { passenger: RequestPassenger }) {
           <dt>Country</dt>
           <dd>{displayValue(passenger.country)}</dd>
         </div>
+        {matchingLoyalty ? (
+          <div>
+            <dt>{matchingLoyalty.cruise_line} loyalty #</dt>
+            <dd>{matchingLoyalty.loyalty_number}</dd>
+          </div>
+        ) : null}
         <div>
           <dt>Qualifying discounts</dt>
           <dd>{passenger.qualifiers?.length ? passenger.qualifiers.join(", ") : "—"}</dd>
@@ -320,7 +337,11 @@ export default function CreateTripInCrmTaskPanel({
                           ) : (
                             <div className="crm-entry-passenger-list">
                               {roomPassengers.map((passenger) => (
-                                <PassengerDetailCard key={passenger.id} passenger={passenger} />
+                                <PassengerDetailCard
+                                  key={passenger.id}
+                                  passenger={passenger}
+                                  cruiseLine={cruise.cruise_line}
+                                />
                               ))}
                             </div>
                           )}

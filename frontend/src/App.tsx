@@ -24,6 +24,7 @@ import AgencyBrandMark from "./AgencyBrandMark";
 import { fetchAgencyBrandingChrome } from "./agencySettingsApi";
 import { formatCruiseLines } from "./CruiseLineMultiSelect";
 import {
+  INTAKE_MODE_SOCIAL_MEDIA,
   LEAD_SOURCE_MARKETING_CAMPAIGN,
   LEAD_SOURCE_REFERRAL,
 } from "./formOptions";
@@ -302,6 +303,7 @@ function App() {
     }
 
     const leadSource = form.lead_source?.trim() || undefined;
+    const intakeMode = form.intake_mode?.trim() || undefined;
     const payload: TravelRequestInput = {
       ...form,
       excluded_cruise_lines: form.excluded_cruise_lines ?? [],
@@ -316,6 +318,11 @@ function App() {
       marketing_campaign_id:
         leadSource === LEAD_SOURCE_MARKETING_CAMPAIGN
           ? form.marketing_campaign_id?.trim() || undefined
+          : undefined,
+      intake_mode: intakeMode,
+      intake_social_platform:
+        intakeMode === INTAKE_MODE_SOCIAL_MEDIA
+          ? form.intake_social_platform?.trim() || undefined
           : undefined,
     };
 

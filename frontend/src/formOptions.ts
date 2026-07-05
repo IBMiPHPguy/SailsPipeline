@@ -297,6 +297,9 @@ export const COMMUNICATION_TYPE_RESEARCH_PROPOSAL = "research_proposal";
 export const COMMUNICATION_TYPE_RESEARCH_FOLLOW_UP = "research_follow_up";
 export const COMMUNICATION_TYPE_BOOKING = "booking_confirmation";
 export const COMMUNICATION_TYPE_AGENCY = "agency_follow_up";
+export const COMMUNICATION_TYPE_INBOUND_EMAIL = "inbound_email";
+
+export const COMMUNICATION_STATUS_RECEIVED = "Received";
 
 export const LEAD_SOURCE_REPEAT_CUSTOMER = "Repeat Customer";
 export const LEAD_SOURCE_REFERRAL = "Referral";
@@ -309,6 +312,38 @@ export const LEAD_SOURCES = [
   LEAD_SOURCE_GOOGLE_SEARCH,
   LEAD_SOURCE_AI_SUGGESTION,
   LEAD_SOURCE_MARKETING_CAMPAIGN,
+] as const;
+
+export const INTAKE_MODE_EMAIL = "Email";
+export const INTAKE_MODE_PHONE_CALL = "Phone Call";
+export const INTAKE_MODE_TEXT_MESSAGE = "Text Message";
+export const INTAKE_MODE_SOCIAL_MEDIA = "Social Media Request";
+export const INTAKE_MODE_WEBSITE = "Website Request";
+export const INTAKE_MODE_SURVEY = "Travel Interest Survey Form";
+export const INTAKE_MODE_FACE_TO_FACE = "Face to Face";
+export const INTAKE_MODE_OTHER = "Other";
+export const INTAKE_MODES = [
+  INTAKE_MODE_EMAIL,
+  INTAKE_MODE_PHONE_CALL,
+  INTAKE_MODE_TEXT_MESSAGE,
+  INTAKE_MODE_SOCIAL_MEDIA,
+  INTAKE_MODE_WEBSITE,
+  INTAKE_MODE_SURVEY,
+  INTAKE_MODE_FACE_TO_FACE,
+  INTAKE_MODE_OTHER,
+] as const;
+
+export const SOCIAL_MEDIA_FACEBOOK = "Facebook";
+export const SOCIAL_MEDIA_INSTAGRAM = "Instagram";
+export const SOCIAL_MEDIA_TIKTOK = "TickTok";
+export const SOCIAL_MEDIA_YOUTUBE = "YouTube";
+export const SOCIAL_MEDIA_OTHER = "Other";
+export const SOCIAL_MEDIA_PLATFORMS = [
+  SOCIAL_MEDIA_FACEBOOK,
+  SOCIAL_MEDIA_INSTAGRAM,
+  SOCIAL_MEDIA_TIKTOK,
+  SOCIAL_MEDIA_YOUTUBE,
+  SOCIAL_MEDIA_OTHER,
 ] as const;
 
 export const MARKETING_CAMPAIGN_TYPES = [

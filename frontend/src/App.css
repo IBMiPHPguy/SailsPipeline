@@ -3255,6 +3255,110 @@ button:disabled {
   padding-top: 0.85rem;
 }
 
+.communication-records-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.85rem;
+}
+
+.yes-no-pill-toggle {
+  margin-top: 0.75rem;
+}
+
+.yes-no-pill-toggle-label {
+  display: block;
+  margin-bottom: 0.55rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #243b53;
+}
+
+.yes-no-pill-toggle-track {
+  display: inline-flex;
+  padding: 0.2rem;
+  border-radius: 999px;
+  background: #e2e8f0;
+  border: 1px solid #cbd5e0;
+  gap: 0.15rem;
+}
+
+.yes-no-pill-toggle-option {
+  border: none;
+  border-radius: 999px;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #486581;
+  background: transparent;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.yes-no-pill-toggle-option.is-active {
+  background: #ffffff;
+  color: #0b7285;
+  box-shadow: 0 1px 3px rgba(16, 42, 67, 0.12);
+}
+
+.yes-no-pill-toggle-option:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.yes-no-pill-toggle-option:not(.is-active):hover:not(:disabled) {
+  color: #243b53;
+}
+
+.cruise-loyalty-fields {
+  margin-top: 1rem;
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.cruise-loyalty-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.cruise-loyalty-row {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+  padding: 0.85rem;
+  border: 1px solid #d9e2ec;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.cruise-loyalty-row label {
+  min-width: 0;
+}
+
+.cruise-loyalty-remove {
+  align-self: end;
+  white-space: nowrap;
+}
+
+.cruise-loyalty-add {
+  margin-top: 0.75rem;
+}
+
+.client-loyalty-list {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+@media (max-width: 720px) {
+  .cruise-loyalty-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .communication-records-empty {
   margin: 0;
 }

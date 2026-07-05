@@ -120,6 +120,17 @@ def create_passenger_registry(
         annual_insurance_policy_number=payload.annual_insurance_policy_number,
         created_by_id=current_user.id,
     )
+    if payload.cruise_loyalty_numbers:
+        from app.services.passenger_loyalty_service import sync_passenger_loyalty_numbers
+
+        try:
+            sync_passenger_loyalty_numbers(
+                db,
+                passenger=passenger,
+                entries=[entry.model_dump() for entry in payload.cruise_loyalty_numbers],
+            )
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
     db.commit()
     db.refresh(passenger)
     return passenger
@@ -147,8 +158,20 @@ def update_passenger_registry(
     if updates.get("has_annual_insurance") is False:
         updates["annual_insurance_expires_at"] = None
         updates["annual_insurance_policy_number"] = None
+    loyalty_entries = updates.pop("cruise_loyalty_numbers", None)
     for field, value in updates.items():
         setattr(passenger, field, value)
+    if loyalty_entries is not None:
+        from app.services.passenger_loyalty_service import sync_passenger_loyalty_numbers
+
+        try:
+            sync_passenger_loyalty_numbers(
+                db,
+                passenger=passenger,
+                entries=[entry for entry in loyalty_entries],
+            )
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
     passenger.updated_at = datetime.now(UTC).replace(tzinfo=None)
     db.commit()
     db.refresh(passenger)
@@ -257,7 +280,19 @@ def update_passenger(
     updates = payload.model_dump(exclude_unset=True)
     passenger_changes = collect_field_changes(passenger, updates, PASSENGER_AUDIT_FIELDS)
     record_passenger_field_changes(db, passenger, passenger_changes, current_user)
+    loyalty_entries = updates.pop("cruise_loyalty_numbers", None)
     apply_updates(passenger, updates)
+    if loyalty_entries is not None:
+        from app.services.passenger_loyalty_service import sync_passenger_loyalty_numbers
+
+        try:
+            sync_passenger_loyalty_numbers(
+                db,
+                passenger=passenger.passenger,
+                entries=[entry for entry in loyalty_entries],
+            )
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
 
     sync_request_from_primary_passenger(db, request, passenger, current_user)
     touch_request(request, current_user)

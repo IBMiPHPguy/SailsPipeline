@@ -1,4 +1,5 @@
 import type { Attachment, AttachmentKind, RequestCommunicationSummary, RequestNoteSummary } from "./types";
+import { COMMUNICATION_TYPE_INBOUND_EMAIL } from "./formOptions";
 
 export type CommunicationRefKind = AttachmentKind | "email";
 
@@ -51,12 +52,15 @@ export function buildAttachmentRecord(
 
 export function buildEmailRecord(communication: RequestCommunicationSummary, notes: RequestNoteSummary[]) {
   const ref: CommunicationRef = { kind: "email", id: communication.id };
+  const isInbound = communication.communication_type === COMMUNICATION_TYPE_INBOUND_EMAIL;
   return {
     id: communication.id,
     kind: "email" as const,
     subject: communication.subject,
-    dateTime: communication.updated_at,
-    uploadedBy: communication.updated_by.username,
+    dateTime: communication.received_at ?? communication.updated_at,
+    uploadedBy: isInbound
+      ? communication.sender_email ?? communication.created_by.username
+      : communication.updated_by.username,
     aiNoteId: findAiSummaryNoteId(notes, ref, communication.subject),
     communication,
   };

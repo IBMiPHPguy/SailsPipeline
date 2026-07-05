@@ -224,6 +224,59 @@ def _ensure_agency_business_address_schema(engine) -> None:
                 connection.execute(text(f"ALTER TABLE agencies ADD COLUMN {column_name} {column_type}"))
 
 
+def _ensure_intake_mode_schema(engine) -> None:
+    database_url = os.environ["DATABASE_URL"]
+    if database_url.startswith("sqlite"):
+        return
+
+    inspector = inspect(engine)
+    if "travel_requests" not in inspector.get_table_names():
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("travel_requests")}
+    additions = [
+        ("intake_mode", "VARCHAR(100) NULL"),
+        ("intake_social_platform", "VARCHAR(50) NULL"),
+    ]
+    with engine.begin() as connection:
+        for column_name, column_type in additions:
+            if column_name not in columns:
+                connection.execute(text(f"ALTER TABLE travel_requests ADD COLUMN {column_name} {column_type}"))
+
+
+def _ensure_inbound_email_communications_schema(engine) -> None:
+    database_url = os.environ["DATABASE_URL"]
+    if database_url.startswith("sqlite"):
+        return
+
+    inspector = inspect(engine)
+    if "request_communications" not in inspector.get_table_names():
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("request_communications")}
+    additions = [
+        ("sender_email", "VARCHAR(255) NULL"),
+        ("received_at", "DATETIME NULL"),
+        ("is_response_to_agent", "TINYINT(1) NOT NULL DEFAULT 0"),
+    ]
+    with engine.begin() as connection:
+        for column_name, column_type in additions:
+            if column_name not in columns:
+                connection.execute(text(f"ALTER TABLE request_communications ADD COLUMN {column_name} {column_type}"))
+
+
+def _ensure_passenger_loyalty_numbers_schema(engine) -> None:
+    database_url = os.environ["DATABASE_URL"]
+    if database_url.startswith("sqlite"):
+        return
+
+    from app.models import PassengerLoyaltyNumber  # noqa: WPS433
+
+    inspector = inspect(engine)
+    if "passenger_loyalty_numbers" not in inspector.get_table_names():
+        Base.metadata.create_all(bind=engine, tables=[PassengerLoyaltyNumber.__table__])
+
+
 def _ensure_credit_card_authorizations_schema(engine) -> None:
     database_url = os.environ["DATABASE_URL"]
     if database_url.startswith("sqlite"):
@@ -268,6 +321,9 @@ def engine():
         _ensure_agency_groups_schema(test_engine)
         _ensure_agency_email_logs_schema(test_engine)
         _ensure_agency_business_address_schema(test_engine)
+        _ensure_intake_mode_schema(test_engine)
+        _ensure_inbound_email_communications_schema(test_engine)
+        _ensure_passenger_loyalty_numbers_schema(test_engine)
         _ensure_credit_card_authorizations_schema(test_engine)
     yield test_engine
     if database_url.startswith("sqlite"):

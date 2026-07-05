@@ -1,16 +1,18 @@
 import { useMemo, useState } from "react";
-import { deleteCommunication, fetchCommunication, updateCommunication } from "./api";
+import { addCommunication, deleteCommunication, fetchCommunication, updateCommunication } from "./api";
 import AttachmentReaderModal from "./AttachmentReaderModal";
 import ChickenSwitchModal from "./ChickenSwitchModal";
 import CommunicationModal from "./CommunicationModal";
 import CommunicationRecordsTable from "./CommunicationRecordsTable";
 import CommunicationUploadBanner from "./CommunicationUploadBanner";
+import InboundEmailModal from "./InboundEmailModal";
+import TabHeaderAddButton from "./TabHeaderAddButton";
 import {
   buildAttachmentRecord,
   buildEmailRecord,
   type CommunicationRecord,
 } from "./communicationAi";
-import { COMMUNICATION_STATUS_DRAFT } from "./formOptions";
+import { COMMUNICATION_STATUS_DRAFT, COMMUNICATION_TYPE_INBOUND_EMAIL } from "./formOptions";
 import type {
   Attachment,
   AttachmentKind,
@@ -85,7 +87,9 @@ export default function RequestClientContentSection({
     kind: AttachmentKind;
   } | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [inboundModalOpen, setInboundModalOpen] = useState(false);
   const [editingCommunication, setEditingCommunication] = useState<RequestCommunication | null>(null);
+  const [editingInboundCommunication, setEditingInboundCommunication] = useState<RequestCommunication | null>(null);
   const [saving, setSaving] = useState(false);
   const [loadingCommunication, setLoadingCommunication] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -112,10 +116,25 @@ export default function RequestClientContentSection({
   }
 
   async function openEditModal(communication: RequestCommunicationSummary) {
+    onError("");
+    if (communication.communication_type === COMMUNICATION_TYPE_INBOUND_EMAIL) {
+      setInboundModalOpen(true);
+      setLoadingCommunication(true);
+      setEditingInboundCommunication(null);
+      try {
+        setEditingInboundCommunication(await fetchCommunication(requestId, communication.id));
+      } catch (loadError) {
+        setInboundModalOpen(false);
+        onError(loadError instanceof Error ? loadError.message : "Unable to load communication.");
+      } finally {
+        setLoadingCommunication(false);
+      }
+      return;
+    }
+
     setModalOpen(true);
     setLoadingCommunication(true);
     setEditingCommunication(null);
-    onError("");
     try {
       setEditingCommunication(await fetchCommunication(requestId, communication.id));
     } catch (loadError) {
@@ -123,6 +142,34 @@ export default function RequestClientContentSection({
       onError(loadError instanceof Error ? loadError.message : "Unable to load communication.");
     } finally {
       setLoadingCommunication(false);
+    }
+  }
+
+  function openCreateInboundModal() {
+    if (disabled) {
+      return;
+    }
+    onError("");
+    setEditingInboundCommunication(null);
+    setInboundModalOpen(true);
+  }
+
+  async function handleSaveInbound(payload: RequestCommunicationInput) {
+    setSaving(true);
+    onError("");
+    try {
+      if (editingInboundCommunication) {
+        await updateCommunication(requestId, editingInboundCommunication.id, payload);
+      } else {
+        await addCommunication(requestId, payload);
+      }
+      setInboundModalOpen(false);
+      setEditingInboundCommunication(null);
+      await onChanged();
+    } catch (saveError) {
+      onError(saveError instanceof Error ? saveError.message : "Unable to save email communication.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -166,6 +213,10 @@ export default function RequestClientContentSection({
         setModalOpen(false);
         setEditingCommunication(null);
       }
+      if (editingInboundCommunication?.id === pendingDelete.id) {
+        setInboundModalOpen(false);
+        setEditingInboundCommunication(null);
+      }
       setPendingDelete(null);
       await onChanged();
     } catch (deleteError) {
@@ -202,6 +253,12 @@ export default function RequestClientContentSection({
 
   function handleDeleteEmail(record: CommunicationRecord) {
     if (record.kind !== "email" || !record.communication) {
+      return;
+    }
+    const canDelete =
+      record.communication.status === COMMUNICATION_STATUS_DRAFT ||
+      record.communication.communication_type === COMMUNICATION_TYPE_INBOUND_EMAIL;
+    if (!canDelete) {
       return;
     }
     requestDelete({ id: record.id, subject: record.subject });
@@ -271,6 +328,11 @@ export default function RequestClientContentSection({
         </div>
 
         <div className="section-card-body section-tab-body communication-records-panel">
+          {activeTab === "communications" && !disabled ? (
+            <div className="communication-records-toolbar">
+              <TabHeaderAddButton label="Save and email" onClick={openCreateInboundModal} />
+            </div>
+          ) : null}
           <CommunicationRecordsTable
             records={activeRecords}
             emptyMessage={activeEmptyMessage}
@@ -290,6 +352,27 @@ export default function RequestClientContentSection({
         kind={viewingAttachment?.kind ?? "transcripts"}
         attachment={viewingAttachment?.attachment ?? null}
         onClose={() => setViewingAttachment(null)}
+      />
+
+      <InboundEmailModal
+        open={inboundModalOpen}
+        communication={editingInboundCommunication}
+        saving={saving || loadingCommunication}
+        disabled={disabled}
+        onCancel={() => {
+          setInboundModalOpen(false);
+          setEditingInboundCommunication(null);
+        }}
+        onSave={handleSaveInbound}
+        onDelete={
+          editingInboundCommunication
+            ? () =>
+                requestDelete({
+                  id: editingInboundCommunication.id,
+                  subject: editingInboundCommunication.subject,
+                })
+            : undefined
+        }
       />
 
       <CommunicationModal
@@ -316,8 +399,18 @@ export default function RequestClientContentSection({
 
       <ChickenSwitchModal
         open={pendingDelete !== null}
-        title="Delete draft communication?"
-        description="This draft will be permanently removed from the request."
+        title={
+          pendingDelete && communications.find((item) => item.id === pendingDelete.id)?.communication_type ===
+            COMMUNICATION_TYPE_INBOUND_EMAIL
+            ? "Delete received email?"
+            : "Delete draft communication?"
+        }
+        description={
+          pendingDelete && communications.find((item) => item.id === pendingDelete.id)?.communication_type ===
+            COMMUNICATION_TYPE_INBOUND_EMAIL
+            ? "This received email will be permanently removed from the request."
+            : "This draft will be permanently removed from the request."
+        }
         itemName={pendingDelete?.subject}
         switchLabel="Yes, delete this draft communication"
         confirmLabel="Delete communication"

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { activateClient, createClient, deactivateClient, fetchClient, updateClient } from "./api";
 import AnnualInsuranceFields from "./AnnualInsuranceFields";
 import ChickenSwitchModal from "./ChickenSwitchModal";
+import CruiseLineLoyaltyFields, { normalizeCruiseLoyaltyNumbers } from "./CruiseLineLoyaltyFields";
 import InactiveClientBadge from "./InactiveClientBadge";
 import PassengerQualifierBadges from "./PassengerQualifierBadges";
 import PassengerFields, { emptyPassengerInput, toPassengerPayload } from "./PassengerFields";
@@ -37,6 +38,11 @@ function clientToForm(client: ClientDetail): RequestPassengerInput {
     has_annual_insurance: client.has_annual_insurance ?? false,
     annual_insurance_expires_at: client.annual_insurance_expires_at ?? "",
     annual_insurance_policy_number: client.annual_insurance_policy_number ?? "",
+    cruise_loyalty_numbers:
+      client.cruise_loyalty_numbers?.map((entry) => ({
+        cruise_line: entry.cruise_line,
+        loyalty_number: entry.loyalty_number,
+      })) ?? [],
     ...passengerAddressToInput(client),
   };
 }
@@ -60,6 +66,7 @@ function buildClientPayload(payload: RequestPassengerInput) {
       payload.has_annual_insurance ? payload.annual_insurance_expires_at?.trim() || null : null,
     annual_insurance_policy_number:
       payload.has_annual_insurance ? payload.annual_insurance_policy_number?.trim() || null : null,
+    cruise_loyalty_numbers: normalizeCruiseLoyaltyNumbers(payload.cruise_loyalty_numbers ?? []),
   };
 }
 
@@ -358,6 +365,22 @@ export default function ClientModal({
                     </dd>
                   </div>
                   <div>
+                    <dt>Cruise loyalty numbers</dt>
+                    <dd>
+                      {client.cruise_loyalty_numbers && client.cruise_loyalty_numbers.length > 0 ? (
+                        <ul className="client-loyalty-list">
+                          {client.cruise_loyalty_numbers.map((entry) => (
+                            <li key={entry.id}>
+                              {entry.cruise_line}: {entry.loyalty_number}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        "—"
+                      )}
+                    </dd>
+                  </div>
+                  <div>
                     <dt>Status</dt>
                     <dd>{client.is_active ? "Active" : "Inactive"}</dd>
                   </div>
@@ -386,6 +409,16 @@ export default function ClientModal({
                     setEditForm((current) => ({
                       ...current,
                       ...annualValue,
+                    }))
+                  }
+                  disabled={saving}
+                />
+                <CruiseLineLoyaltyFields
+                  value={editForm.cruise_loyalty_numbers ?? []}
+                  onChange={(cruise_loyalty_numbers) =>
+                    setEditForm((current) => ({
+                      ...current,
+                      cruise_loyalty_numbers,
                     }))
                   }
                   disabled={saving}

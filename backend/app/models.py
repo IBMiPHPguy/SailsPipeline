@@ -218,6 +218,8 @@ class TravelRequest(Base):
     marketing_campaign_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("marketing_campaigns.id"), nullable=True, index=True
     )
+    intake_mode: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    intake_social_platform: Mapped[str | None] = mapped_column(String(50), nullable=True)
     ship_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     group_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("agency_groups.id", ondelete="SET NULL"), nullable=True, index=True
@@ -359,6 +361,27 @@ class Passenger(Base):
 
     created_by: Mapped[User | None] = relationship(foreign_keys=[created_by_id])
     request_links: Mapped[list["RequestPassenger"]] = relationship(back_populates="passenger")
+    cruise_loyalty_numbers: Mapped[list["PassengerLoyaltyNumber"]] = relationship(
+        back_populates="passenger",
+        cascade="all, delete-orphan",
+        order_by="PassengerLoyaltyNumber.cruise_line",
+    )
+
+
+class PassengerLoyaltyNumber(Base):
+    __tablename__ = "passenger_loyalty_numbers"
+    __table_args__ = (UniqueConstraint("passenger_id", "cruise_line", name="uq_passenger_loyalty_line"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    passenger_id: Mapped[int] = mapped_column(ForeignKey("passengers.id", ondelete="CASCADE"), nullable=False, index=True)
+    cruise_line: Mapped[str] = mapped_column(String(100), nullable=False)
+    loyalty_number: Mapped[str] = mapped_column(String(80), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    passenger: Mapped[Passenger] = relationship(back_populates="cruise_loyalty_numbers")
 
 
 class RequestPassenger(Base):
@@ -494,6 +517,10 @@ class RequestPassenger(Base):
     @annual_insurance_policy_number.setter
     def annual_insurance_policy_number(self, value: str | None) -> None:
         self.passenger.annual_insurance_policy_number = value
+
+    @property
+    def cruise_loyalty_numbers(self) -> list["PassengerLoyaltyNumber"]:
+        return self.passenger.cruise_loyalty_numbers
 
 
 class TravelRequestAudit(Base):
@@ -787,8 +814,11 @@ class RequestCommunication(Base):
     communication_type: Mapped[str] = mapped_column(String(40), nullable=False)
     subject: Mapped[str] = mapped_column(String(255), nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False)
+    sender_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(String(40), nullable=False, default="Draft")
     sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    received_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    is_response_to_agent: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     updated_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

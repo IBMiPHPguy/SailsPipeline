@@ -193,6 +193,12 @@ export type Attachment = {
 
 export type AttachmentKind = "transcripts" | "chats";
 
+export type CruiseLoyaltyNumber = {
+  id: number;
+  cruise_line: string;
+  loyalty_number: string;
+};
+
 export type PassengerProfile = {
   id: number;
   first_name: string;
@@ -205,6 +211,7 @@ export type PassengerProfile = {
   has_annual_insurance?: boolean;
   annual_insurance_expires_at?: string | null;
   annual_insurance_policy_number?: string | null;
+  cruise_loyalty_numbers?: CruiseLoyaltyNumber[];
   created_at: string;
   updated_at: string;
 };
@@ -257,6 +264,7 @@ export type ClientUpdateInput = {
   has_annual_insurance?: boolean;
   annual_insurance_expires_at?: string | null;
   annual_insurance_policy_number?: string | null;
+  cruise_loyalty_numbers?: CruiseLoyaltyNumber[];
 };
 
 export type ClientCreateInput = {
@@ -272,6 +280,7 @@ export type ClientCreateInput = {
   postal_code?: string | null;
   country?: string | null;
   qualifiers?: string[];
+  cruise_loyalty_numbers?: Array<{ cruise_line: string; loyalty_number: string }>;
 };
 
 export type RequestPassenger = {
@@ -294,6 +303,7 @@ export type RequestPassenger = {
   has_annual_insurance?: boolean;
   annual_insurance_expires_at?: string | null;
   annual_insurance_policy_number?: string | null;
+  cruise_loyalty_numbers?: CruiseLoyaltyNumber[];
   created_at: string;
   updated_at: string;
 };
@@ -315,6 +325,7 @@ export type RequestPassengerInput = {
   has_annual_insurance?: boolean;
   annual_insurance_expires_at?: string | null;
   annual_insurance_policy_number?: string | null;
+  cruise_loyalty_numbers?: Array<{ cruise_line: string; loyalty_number: string }>;
 };
 
 export type RequestNoteAudit = {
@@ -600,6 +611,8 @@ export type TravelRequest = {
   lead_source: string | null;
   referral_source_name: string | null;
   marketing_campaign_id: string | null;
+  intake_mode: string | null;
+  intake_social_platform: string | null;
   ship_name?: string | null;
   group_id?: string | null;
   group_inventory_id?: string | null;
@@ -659,6 +672,9 @@ export type RequestCommunication = {
   status: string;
   request_workflow_id: string | null;
   sent_at: string | null;
+  received_at: string | null;
+  is_response_to_agent?: boolean;
+  sender_email?: string | null;
   created_by: UserAudit;
   updated_by: UserAudit;
   created_at: string;
@@ -754,6 +770,9 @@ export type RequestCommunicationInput = {
   body: string;
   request_workflow_id?: string | null;
   status?: string;
+  sender_email?: string;
+  received_at?: string;
+  is_response_to_agent?: boolean;
 };
 
 export type ClosedRequestsPage = {
@@ -834,6 +853,8 @@ export type TravelRequestInput = {
   lead_source?: string;
   referral_source_name?: string;
   marketing_campaign_id?: string;
+  intake_mode?: string;
+  intake_social_platform?: string;
   ship_name?: string;
   group_id?: string;
   group_bookings?: TravelRequestGroupBookingInput[];

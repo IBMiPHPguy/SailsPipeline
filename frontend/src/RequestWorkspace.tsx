@@ -63,6 +63,8 @@ function requestToForm(request: TravelRequestDetail): TravelRequestInput {
     lead_source: request.lead_source ?? "",
     referral_source_name: request.referral_source_name ?? "",
     marketing_campaign_id: request.marketing_campaign_id ?? "",
+    intake_mode: request.intake_mode ?? "",
+    intake_social_platform: request.intake_social_platform ?? "",
   };
 }
 

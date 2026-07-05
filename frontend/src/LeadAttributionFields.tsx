@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchMarketingCampaigns } from "./api";
+import IntakeModeFields from "./IntakeModeFields";
 import {
   LEAD_SOURCE_MARKETING_CAMPAIGN,
   LEAD_SOURCE_REFERRAL,
@@ -59,7 +60,7 @@ export default function LeadAttributionFields({ form, setForm, disabled = false 
   }
 
   return (
-    <section className="request-form-band" aria-label="Lead source">
+    <section className="request-form-band" aria-label="Lead source and intake">
       <div className="request-form-zone">
         <div className="request-form-zone-panel request-form-zone-panel-full">
           <div className="request-form-panel-body lead-attribution-fields">
@@ -115,6 +116,8 @@ export default function LeadAttributionFields({ form, setForm, disabled = false 
                 </select>
               </label>
             ) : null}
+
+            <IntakeModeFields form={form} setForm={setForm} disabled={disabled} />
           </div>
         </div>
       </div>
