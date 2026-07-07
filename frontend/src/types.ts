@@ -394,6 +394,7 @@ export type CabinPricingEntry = {
 export type ProposedCruiseIncludes = {
   drink_package: NamedInclude;
   wifi: NamedInclude;
+  specialty_dining: NamedInclude;
   excursion_credit: CreditInclude;
   onboard_credit: CreditInclude;
   gift_obc: CreditInclude;

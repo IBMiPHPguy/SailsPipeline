@@ -4,8 +4,9 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.agency_email_branding import load_agency_email_branding
-from app.constants import COMMUNICATION_TYPE_MASTER_TERMS, TC_EMAIL_SUBJECT
+from app.constants import COMMUNICATION_STATUS_SENT, COMMUNICATION_TYPE_MASTER_TERMS, TC_EMAIL_SUBJECT
 from app.models import TravelRequest, User
+from app.services.communication_service import create_communication
 from app.services.email_service import EmailDeliveryService, render_email_base_html
 from app.services.tc_service import TCService
 from app.tc_email import TC_CONTENT_END, TC_CONTENT_START, build_master_terms_email_html
@@ -73,6 +74,19 @@ async def send_master_terms_email(
             status_code=502,
             detail="Master Terms & Conditions email could not be delivered. Check agency email logs.",
         )
+
+    create_communication(
+        db,
+        request=request,
+        current_user=current_user,
+        request_id=request.id,
+        request_workflow_live_id=None,
+        communication_type=COMMUNICATION_TYPE_MASTER_TERMS,
+        subject=TC_EMAIL_SUBJECT,
+        body=html_content,
+        status=COMMUNICATION_STATUS_SENT,
+        sender_email=current_user.email,
+    )
 
     return {
         "message": "Master Terms & Conditions review email sent via SailsPipeline.",

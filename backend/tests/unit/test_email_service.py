@@ -34,6 +34,7 @@ from app.services.email_service import (
     EmailDeliveryService,
     extract_communication_html_content,
     render_email_base_html,
+    render_email_logo_only_base_html,
     send_tenant_email,
 )
 from app.tenant_constants import DEFAULT_AGENCY_ID
@@ -229,6 +230,25 @@ def test_render_email_base_html_includes_signature_and_branded_header():
     assert "Cruise Seakers Travel LLC" in html
     assert "Best regards" in html
     assert BRAND_NAME in html
+
+
+def test_render_email_logo_only_base_html_omits_advisor_header_and_centers_logo():
+    html = render_email_logo_only_base_html(
+        content="<p>Waiver body</p>",
+        agent_name="jane.agent",
+        branding=_sample_email_branding(
+            agency_name="Cruise Seakers Travel LLC",
+            brand_logo_absolute_url="https://cdn.example.com/logo.png",
+        ),
+    )
+
+    header_html = html.split("<p>Waiver body</p>")[0]
+
+    assert "Your travel advisor" not in html
+    assert "jane.agent" not in header_html
+    assert "text-align:center" in header_html
+    assert "https://cdn.example.com/logo.png" in header_html
+    assert "<p>Waiver body</p>" in html
 
 
 # --- Environment toggles ---

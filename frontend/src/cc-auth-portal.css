@@ -9,12 +9,6 @@
   margin: 0 auto;
 }
 
-.cc-auth-portal-header h1 {
-  margin: 0;
-  font-size: 1.35rem;
-  color: #102a43;
-}
-
 .cc-auth-portal-brand {
   display: flex;
   align-items: center;

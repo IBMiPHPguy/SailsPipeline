@@ -188,6 +188,12 @@ export default function AgencySettingsPage({
             </header>
             <div className="section-card-body agency-settings-brand-grid">
               <label>
+                Organization handle
+                <input type="text" value={settings.organization_handle} readOnly disabled />
+                <span className="field-hint">Used at sign-in. Contact support to change your organization handle.</span>
+              </label>
+
+              <label>
                 Agency name
                 <input
                   type="text"
@@ -196,6 +202,7 @@ export default function AgencySettingsPage({
                   maxLength={255}
                   required
                 />
+                <span className="field-hint">Display name shown on client portals, emails, and branding.</span>
               </label>
 
               <div className="agency-settings-logo-block">

@@ -24,6 +24,10 @@ export function cloneProposedCruiseIncludes(includes: ProposedCruiseIncludes): P
       included: includes.wifi.included,
       name: includes.wifi.name ?? "",
     },
+    specialty_dining: {
+      included: includes.specialty_dining?.included ?? false,
+      name: includes.specialty_dining?.name ?? "",
+    },
     tips: includes.tips,
     excursion: includes.excursion,
     excursion_credit: {
@@ -88,6 +92,10 @@ export function proposedCruiseToCabinRooms(cruise: ProposedCruise, cabinsNeeded:
     wifi: {
       included: cruise.includes.wifi.included,
       name: cruise.includes.wifi.name ?? "",
+    },
+    specialty_dining: {
+      included: cruise.includes.specialty_dining?.included ?? false,
+      name: cruise.includes.specialty_dining?.name ?? "",
     },
     tips: cruise.includes.tips,
     excursion: cruise.includes.excursion,
@@ -217,6 +225,12 @@ export function sanitizeCabinRoomIncludes(includes: ProposedCruiseIncludes): Pro
     wifi: {
       included: includes.wifi.included,
       name: includes.wifi.included ? includes.wifi.name?.trim() || null : null,
+    },
+    specialty_dining: {
+      included: includes.specialty_dining?.included ?? false,
+      name: includes.specialty_dining?.included
+        ? includes.specialty_dining.name?.trim() || null
+        : null,
     },
     tips: includes.tips,
     excursion: includes.excursion,

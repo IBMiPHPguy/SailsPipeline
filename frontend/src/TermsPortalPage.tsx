@@ -109,6 +109,7 @@ export default function TermsPortalPage({ token }: TermsPortalPageProps) {
       <section className="card bridge-card terms-portal-card">
         <PortalBrandingHeader
           branding={portal?.branding}
+          agencyNameFallback={portal?.agency_name}
           title="Master Terms & Conditions"
           className="terms-portal-header"
         />

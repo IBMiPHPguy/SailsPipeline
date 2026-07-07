@@ -61,7 +61,7 @@ def _normalize_includes(raw: Any) -> dict[str, Any]:
     if not isinstance(raw, dict):
         return base
 
-    for key in ("drink_package", "wifi"):
+    for key in ("drink_package", "wifi", "specialty_dining"):
         item = raw.get(key)
         if isinstance(item, dict):
             base[key]["included"] = bool(item.get("included", False))
@@ -159,6 +159,7 @@ Return JSON only, with this exact shape:
       "includes": {{
         "drink_package": {{"included": false, "name": null}},
         "wifi": {{"included": false, "name": null}},
+        "specialty_dining": {{"included": false, "name": null}},
         "tips": false,
         "excursion": false,
         "excursion_credit": {{"included": false, "amount": null}},

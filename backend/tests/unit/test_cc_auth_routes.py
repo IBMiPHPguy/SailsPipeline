@@ -88,6 +88,7 @@ def test_public_validate_and_complete_routes(client, db, test_user):
     body = validate_response.json()
     assert body["passenger_name"] == "Jane Cruise"
     assert body["total_deposit_due"] == "500.00"
+    assert body["branding"]["agency_name"]
 
     complete_response = client.post(f"/api/cc-auth/complete/{token}", json=SAMPLE_CARD_PAYLOAD)
     assert complete_response.status_code == 200, complete_response.text

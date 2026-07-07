@@ -21,6 +21,7 @@ export function emptyProposedCruiseIncludes(): ProposedCruiseIncludes {
   return {
     drink_package: { included: false, name: "" },
     wifi: { included: false, name: "" },
+    specialty_dining: { included: false, name: "" },
     tips: false,
     excursion: false,
     excursion_credit: { included: false, amount: null },
@@ -103,6 +104,7 @@ export function buildProposedCruisePayload(form: ProposedCruiseInput, cabinsNeed
 
   const base: ProposedCruiseInput = {
     ...form,
+    cruise_line: normalizeCruiseLineValue(form.cruise_line),
     itinerary_details: form.itinerary_details?.trim() || null,
     room_category: legacy.room_category,
     room_number: legacy.room_number,

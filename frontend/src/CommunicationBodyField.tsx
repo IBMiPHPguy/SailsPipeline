@@ -26,7 +26,7 @@ export default function CommunicationBodyField({
   useEffect(() => {
     setMode(isHtmlCommunicationBody(body) ? "preview" : "html");
     setCopyMessage(null);
-  }, [resetKey]);
+  }, [resetKey, body]);
 
   async function handleCopy() {
     if (!body.trim()) {

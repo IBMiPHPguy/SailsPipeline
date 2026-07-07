@@ -69,6 +69,16 @@ def test_proposed_cruise_update_accepts_empty_rejection_reason_for_room_save():
     assert payload.room_number == "1234"
 
 
+def test_proposed_cruise_update_accepts_legacy_cruise_line_labels():
+    from app.schemas import ProposedCruiseUpdate
+
+    payload = ProposedCruiseUpdate.model_validate({"cruise_line": "TBD"})
+    assert payload.cruise_line == "TBD"
+
+    normalized = ProposedCruiseUpdate.model_validate({"cruise_line": "Royal Caribbean"})
+    assert normalized.cruise_line == "Royal Caribbean International"
+
+
 def test_proposed_cruise_update_normalizes_cabin_hold_reservation_ids():
     from app.schemas import ProposedCruiseRead, ProposedCruiseUpdate
 
