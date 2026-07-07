@@ -39,6 +39,11 @@ export function formatProposedCruiseIncludes(includes: ProposedCruiseIncludes): 
   if (includes.wifi.included) {
     lines.push(`Wi-Fi${includes.wifi.name?.trim() ? `: ${includes.wifi.name.trim()}` : ""}`);
   }
+  if (includes.specialty_dining.included) {
+    lines.push(
+      `Specialty dining${includes.specialty_dining.name?.trim() ? `: ${includes.specialty_dining.name.trim()}` : ""}`,
+    );
+  }
   if (includes.tips) {
     lines.push("Gratuities / tips included");
   }

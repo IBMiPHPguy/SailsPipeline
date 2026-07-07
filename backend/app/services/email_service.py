@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from app.agency_email_branding import (
     AgencyEmailBranding,
     render_email_brand_header_html,
+    render_email_logo_only_header_html,
     render_email_signature_section,
     render_platform_compliance_footer,
 )
@@ -78,6 +79,26 @@ def render_email_base_html(*, content: str, agent_name: str, branding: AgencyEma
             "{{ agency_header }}",
             render_email_brand_header_html(branding, agent_name=agent_name),
         )
+        .replace("{{ content }}", content)
+        .replace("{{ email_signature }}", render_email_signature_section(branding.email_signature_block))
+        .replace(
+            "{{ platform_footer }}",
+            render_platform_compliance_footer(
+                agent_name=agent_name,
+                agency_name=branding.agency_name,
+            ),
+        )
+    )
+
+
+def render_email_logo_only_base_html(*, content: str, agent_name: str, branding: AgencyEmailBranding) -> str:
+    """Wrap email content with a centered logo header (no advisor name or agency name band)."""
+    template = _TEMPLATE_PATH.read_text(encoding="utf-8")
+    preview_text = f"Message from {branding.agency_name}."
+    return (
+        template.replace("{{ page_title }}", escape(branding.agency_name))
+        .replace("{{ preview_text }}", escape(preview_text))
+        .replace("{{ agency_header }}", render_email_logo_only_header_html(branding))
         .replace("{{ content }}", content)
         .replace("{{ email_signature }}", render_email_signature_section(branding.email_signature_block))
         .replace(

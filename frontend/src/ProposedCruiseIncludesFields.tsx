@@ -79,6 +79,36 @@ export default function ProposedCruiseIncludesFields({
           <input
             type="checkbox"
             disabled={disabled}
+            checked={value.specialty_dining.included}
+            onChange={(event) =>
+              onChange({
+                ...value,
+                specialty_dining: { ...value.specialty_dining, included: event.target.checked },
+              })
+            }
+          />
+          Specialty dining
+        </label>
+        {value.specialty_dining.included ? (
+          <label>
+            Specialty dining perk
+            <input
+              disabled={disabled}
+              value={value.specialty_dining.name ?? ""}
+              onChange={(event) =>
+                onChange({
+                  ...value,
+                  specialty_dining: { ...value.specialty_dining, name: event.target.value },
+                })
+              }
+            />
+          </label>
+        ) : null}
+
+        <label className="checkbox-inline">
+          <input
+            type="checkbox"
+            disabled={disabled}
             checked={value.tips}
             onChange={(event) => onChange({ ...value, tips: event.target.checked })}
           />

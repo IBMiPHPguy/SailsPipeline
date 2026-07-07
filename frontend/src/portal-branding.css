@@ -1,62 +1,76 @@
 .portal-branding-header {
-  background: linear-gradient(135deg, var(--portal-primary, #0d5c75), color-mix(in srgb, var(--portal-primary, #0d5c75) 72%, #ffffff));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 1.25rem 1.5rem 1rem;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--portal-primary, #0d5c75) 8%, #ffffff) 0%,
+    #f0f4f8 100%
+  );
   border-bottom: 2px solid var(--portal-secondary, #17a2b8);
-  color: var(--portal-primary-text, #ffffff);
-}
-
-.portal-branding-header .muted,
-.portal-branding-header .portal-branding-subtitle,
-.portal-branding-header .portal-branding-contact,
-.portal-branding-header .portal-branding-powered {
-  color: color-mix(in srgb, var(--portal-primary-text, #ffffff) 82%, var(--portal-primary, #0d5c75));
+  color: var(--portal-primary, #0d5c75);
 }
 
 .portal-branding-header-inner {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem;
+  width: 100%;
   min-width: 0;
 }
 
 .portal-branding-logo {
+  display: block;
   flex-shrink: 0;
-  max-height: 52px;
+  max-height: 4.5rem;
   width: auto;
+  max-width: min(100%, 280px);
   object-fit: contain;
 }
 
 .portal-branding-agency-name {
-  flex-shrink: 0;
-  max-width: 9rem;
-  font-size: 1.1rem;
+  margin: 0;
+  max-width: 100%;
+  font-size: 1.25rem;
   font-weight: 700;
   line-height: 1.25;
+  color: var(--portal-primary, #0d5c75);
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 
 .portal-branding-copy {
   min-width: 0;
+  width: 100%;
 }
 
 .portal-branding-copy h1 {
   margin: 0;
-  font-size: 1.35rem;
-  line-height: 1.25;
+  font-size: 1.25rem;
+  line-height: 1.3;
+  font-weight: 700;
+  color: var(--portal-primary, #0d5c75);
   overflow-wrap: anywhere;
 }
 
 .portal-branding-subtitle,
-.portal-branding-contact,
-.portal-branding-powered {
-  margin: 0.2rem 0 0;
-  font-size: 0.92rem;
+.portal-branding-contact {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: #486581;
   overflow-wrap: anywhere;
 }
 
 .portal-branding-powered {
-  margin-top: 0.75rem;
-  font-size: 0.8rem;
+  margin: 0.65rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: #627d98;
+  overflow-wrap: anywhere;
 }
 
 .portal-branding-submit,

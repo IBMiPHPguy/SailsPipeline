@@ -15,7 +15,7 @@ from app.gemini_service import (
     GeminiParseError,
     generate_research_communication_from_proposals,
 )
-from app.models import ProposedCruise, RequestCommunication, RequestWorkflowLive, TravelRequest, User
+from app.models import ProposedCruise, ProposedCruisePassenger, RequestCommunication, RequestPassenger, RequestWorkflowLive, TravelRequest, User
 from app.research_proposal_email import build_research_proposal_email_html
 from app.schemas import GenerateResearchCommunicationResponse
 from app.services.agency_service import assert_child_belongs_to_request, require_record_for_agency
@@ -130,6 +130,11 @@ def generate_research_communication_from_proposed_cruises(
 ) -> GenerateResearchCommunicationResponse:
     proposed_cruises = (
         db.query(ProposedCruise)
+        .options(
+            joinedload(ProposedCruise.passenger_links)
+            .joinedload(ProposedCruisePassenger.request_passenger)
+            .joinedload(RequestPassenger.passenger),
+        )
         .filter(
             ProposedCruise.travel_request_id == request.id,
             ProposedCruise.status == PROPOSED_CRUISE_STATUS_PROPOSED,
@@ -143,6 +148,8 @@ def generate_research_communication_from_proposed_cruises(
         proposed_cruise_to_gemini_dict(cruise, index)
         for index, cruise in enumerate(validated_cruises, start=1)
     ]
+    branding = load_agency_email_branding(db, agency_id=request.agency_id)
+    cabins_needed = max(1, int(request.cabins_needed or 1))
 
     try:
         api_key, model_name = resolve_gemini_credentials(db, agency_id=request.agency_id)
@@ -156,6 +163,8 @@ def generate_research_communication_from_proposed_cruises(
             intro=intro,
             closing=closing,
             cruises=validated_cruises,
+            branding=branding,
+            cabins_needed=cabins_needed,
         )
     except GeminiConfigurationError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

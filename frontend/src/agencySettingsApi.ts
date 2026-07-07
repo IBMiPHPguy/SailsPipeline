@@ -2,6 +2,7 @@ import { API_BASE, apiFetch, authHeaders, parseApiError } from "./apiClient";
 
 export type AgencySettings = {
   agency_id: string;
+  organization_handle: string;
   agency_name: string;
   brand_logo_url?: string | null;
   primary_color: string;

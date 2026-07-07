@@ -49,6 +49,7 @@ export type InsuranceWaiverSignResponse = {
 
 export type SendInsuranceWaiverEmailResponse = {
   message: string;
+  resent?: boolean;
   portal_url: string;
   email_sent: boolean;
   recipient: string;

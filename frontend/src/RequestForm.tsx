@@ -1,4 +1,5 @@
 import { FormEvent } from "react";
+import ClientSearchField from "./ClientSearchField";
 import CruiseLineMultiSelect from "./CruiseLineMultiSelect";
 import DestinationFields from "./DestinationFields";
 import GroupAmenitiesCard from "./GroupAmenitiesCard";
@@ -7,7 +8,7 @@ import TravelDatesField, { isReturnAfterDeparture } from "./TravelDatesField";
 import WorkspaceBandHeader from "./WorkspaceBandHeader";
 import { buildGroupIntakeDraftSummary } from "./groupIntakeHelpers";
 import { CABIN_TYPES, DESTINATIONS } from "./formOptions";
-import type { DestinationDetailField, GroupIntakeDraft, TravelRequestInput } from "./types";
+import type { DestinationDetailField, GroupIntakeDraft, PassengerProfile, TravelRequestInput } from "./types";
 import { formatDate } from "./utils";
 
 type RequestFormProps = {
@@ -70,6 +71,26 @@ export default function RequestForm({
       ...form,
       ...patch,
       ...(clearLinkedPassenger ? { primary_passenger_id: undefined } : {}),
+    });
+  }
+
+  function linkExistingClient(client: PassengerProfile) {
+    setForm({
+      ...form,
+      primary_passenger_id: client.id,
+      first_name: client.first_name,
+      last_name: client.last_name,
+      email: client.email ?? "",
+      phone: client.phone ?? "",
+      first_passenger_date_of_birth: client.date_of_birth ?? "",
+    });
+  }
+
+  function clearLinkedClient() {
+    setForm({
+      ...form,
+      primary_passenger_id: undefined,
+      first_passenger_date_of_birth: "",
     });
   }
 
@@ -323,7 +344,15 @@ export default function RequestForm({
           <div className="request-form-zone">
             <div className="request-form-zone-panel">
               <WorkspaceBandHeader title="Contact" panel />
-              <div className="request-form-panel-body">{contactFields}</div>
+              <div className="request-form-panel-body">
+                <ClientSearchField
+                  disabled={disabled}
+                  linkedClientId={form.primary_passenger_id}
+                  onSelect={linkExistingClient}
+                  onClearLink={clearLinkedClient}
+                />
+                {contactFields}
+              </div>
             </div>
             <div className="request-form-zone-divider" role="separator" aria-orientation="vertical" />
             <div className="request-form-zone-panel">

@@ -77,16 +77,28 @@ class InsuranceService:
         if pending:
             self.db.flush()
 
-    async def create_waiver_request(self, travel_request_id: int) -> str:
+    async def create_waiver_request(self, travel_request_id: int) -> tuple[str, bool]:
         request = get_open_request(self.db, travel_request_id)
         if not request.email.strip():
             raise HTTPException(status_code=400, detail="Travel request is missing a client email address.")
 
         self.ensure_tracking(request)
+        self._expire_stale_pending_waivers(travel_request_id)
+        now = _utcnow()
+        active_pending = (
+            self.db.query(InsuranceWaiverRequest)
+            .filter(
+                InsuranceWaiverRequest.travel_request_id == travel_request_id,
+                InsuranceWaiverRequest.status == INSURANCE_WAIVER_REQUEST_STATUS_PENDING,
+                InsuranceWaiverRequest.expires_at > now,
+            )
+            .count()
+        )
+        had_active_pending = active_pending > 0
         self._expire_pending_waiver_tokens(travel_request_id)
 
         token = secrets.token_urlsafe(48)
-        expires_at = _utcnow() + timedelta(hours=INSURANCE_WAIVER_TTL_HOURS)
+        expires_at = now + timedelta(hours=INSURANCE_WAIVER_TTL_HOURS)
         record = InsuranceWaiverRequest(
             id=str(uuid.uuid4()),
             agency_id=request.agency_id,
@@ -98,7 +110,7 @@ class InsuranceService:
         self.db.add(record)
         self.db.commit()
         self.db.refresh(record)
-        return self._build_portal_url(token)
+        return self._build_portal_url(token), had_active_pending
 
     def _get_waiver_by_token(self, token: str) -> InsuranceWaiverRequest | None:
         normalized = token.strip()

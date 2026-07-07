@@ -97,6 +97,17 @@ def validate_single_cruise_line_field(value: str) -> str:
     return normalized
 
 
+def validate_update_cruise_line_field(value: str) -> str:
+    """Allow legacy free-text cruise lines on PATCH while normalizing known values."""
+    normalized = normalize_cruise_line_value(value)
+    if normalized in CRUISE_LINES:
+        return normalized
+    stripped = value.strip()
+    if not stripped:
+        raise ValueError("Select a cruise line.")
+    return stripped
+
+
 class DestinationDetails(BaseModel):
     caribbean_regions: list[str] | None = None
     alaska_options: list[str] | None = None
@@ -335,6 +346,7 @@ class AgencySettingsRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     agency_id: str
+    organization_handle: str
     agency_name: str
     brand_logo_url: str | None = None
     primary_color: str
@@ -1086,6 +1098,7 @@ class CreditInclude(BaseModel):
 class ProposedCruiseIncludes(BaseModel):
     drink_package: NamedInclude = Field(default_factory=NamedInclude)
     wifi: NamedInclude = Field(default_factory=NamedInclude)
+    specialty_dining: NamedInclude = Field(default_factory=NamedInclude)
     tips: bool = False
     excursion: bool = False
     excursion_credit: CreditInclude = Field(default_factory=CreditInclude)
@@ -1233,7 +1246,7 @@ class ProposedCruiseUpdate(BaseModel):
     def validate_update_cruise_line(cls, value: str | None) -> str | None:
         if value is None:
             return None
-        return validate_single_cruise_line_field(value)
+        return validate_update_cruise_line_field(value)
 
     @field_validator("itinerary_details", mode="before")
     @classmethod
@@ -1724,6 +1737,7 @@ class CcAuthValidateResponse(BaseModel):
     total_deposit_due: str
     expires_at: datetime
     authorization_id: str
+    branding: PortalBrandingPayload
 
 
 class CcAuthCompleteResponse(BaseModel):
@@ -1828,6 +1842,7 @@ class TermsValidateResponse(BaseModel):
     terms_text: str
     expires_at: str
     request_id: str
+    branding: PortalBrandingPayload
 
 
 class TermsAcceptResponse(BaseModel):
@@ -1889,6 +1904,7 @@ class SendInsuranceWaiverEmailRequest(BaseModel):
 
 class SendInsuranceWaiverEmailResponse(BaseModel):
     message: str
+    resent: bool = False
     portal_url: str
     email_sent: bool
     recipient: str
@@ -1902,6 +1918,7 @@ class InsuranceWaiverValidateResponse(BaseModel):
     waiver_text: str
     expires_at: str
     request_id: int
+    branding: PortalBrandingPayload
 
 
 class InsuranceWaiverSignResponse(BaseModel):

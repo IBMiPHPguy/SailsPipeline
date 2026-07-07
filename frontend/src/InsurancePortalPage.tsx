@@ -107,11 +107,25 @@ export default function InsurancePortalPage({ token }: InsurancePortalPageProps)
   return (
     <main className="page auth-page insurance-portal-page" style={portalBrandingStyle(portal?.branding)}>
       <section className="card bridge-card insurance-portal-card">
-        <PortalBrandingHeader
-          branding={portal?.branding}
-          title="Travel Protection Declination"
-          className="insurance-portal-header"
-        />
+        {portal ? (
+          <PortalBrandingHeader
+            branding={portal.branding}
+            agencyNameFallback={portal.agency_name}
+            title="Travel Protection Declination"
+            className="insurance-portal-header"
+          />
+        ) : (
+          <header className="portal-branding-header insurance-portal-header">
+            <div className="portal-branding-header-inner">
+              <div className="portal-branding-copy">
+                <h1>Travel Protection Declination</h1>
+                <p className="portal-branding-subtitle">
+                  {loading ? "Verifying your secure waiver link…" : "Secure client portal"}
+                </p>
+              </div>
+            </div>
+          </header>
+        )}
 
         <div className="bridge-card-body insurance-portal-body">
           {loading ? <p className="muted">Verifying your secure waiver link…</p> : null}

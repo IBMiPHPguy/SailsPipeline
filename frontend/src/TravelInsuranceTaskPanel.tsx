@@ -132,18 +132,24 @@ export default function TravelInsuranceTaskPanel({
     setAnnualCheckConfirmed(readAnnualCheckConfirmed(task.result));
   }, [task.id, task.result]);
 
-  const refreshStatus = useCallback(async () => {
-    setLoading(true);
+  const refreshStatus = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setLoading(true);
+    }
     onError("");
     try {
       const nextStatus = await fetchInsuranceStatusForRequest(requestId);
       setStatus(nextStatus);
       return nextStatus;
     } catch (loadError) {
-      onError(loadError instanceof Error ? loadError.message : "Unable to load insurance status.");
+      if (!options?.silent) {
+        onError(loadError instanceof Error ? loadError.message : "Unable to load insurance status.");
+      }
       return null;
     } finally {
-      setLoading(false);
+      if (!options?.silent) {
+        setLoading(false);
+      }
     }
   }, [onError, requestId]);
 
@@ -177,6 +183,20 @@ export default function TravelInsuranceTaskPanel({
       void refreshStatus();
     }
   }, [refreshStatus, waiverPending, waiverTimeRemaining]);
+
+  useEffect(() => {
+    if (!waiverPending || readOnly) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void refreshStatus({ silent: true });
+    }, 30000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [readOnly, refreshStatus, waiverPending]);
 
   const statusReady = !loading && status !== null;
   const clientHasAnnualInsurance = Boolean(status?.has_annual_insurance);
@@ -215,6 +235,7 @@ export default function TravelInsuranceTaskPanel({
     showPerTripTrack &&
     Boolean(status?.waiver_sent_at) &&
     (waiverPending || waiverExpiredUnanswered);
+  const showWaiverSignedBanner = showPerTripTrack && Boolean(status?.waiver_signed);
   const showPerTripCompleteButton =
     showPerTripTrack &&
     !showPerTripPreferenceStep &&
@@ -598,7 +619,7 @@ export default function TravelInsuranceTaskPanel({
 
               {noQuotesYet ? (
                 <>
-                  {!waiverPending && !waiverExpiredUnanswered ? (
+                  {!status?.waiver_signed && !waiverPending && !waiverExpiredUnanswered ? (
                     <p className="workflow-task-guidance">
                       No insurance quotes are stored for this request yet. Does the client want you to prepare insurance
                       options?
@@ -673,35 +694,72 @@ export default function TravelInsuranceTaskPanel({
                     );
                   })}
                   </div>
-
-                  {status?.waiver_signed ? (
-                    <p className="travel-insurance-waiver-sent">
-                      Waiver signed
-                      {status.waiver_signed_at ? ` · ${formatDate(status.waiver_signed_at)}` : ""}
-                    </p>
-                  ) : null}
                 </>
               )}
 
-              {(waiverPending && status?.waiver_sent_at) ||
-              (waiverExpiredUnanswered && status?.waiver_sent_at) ||
-              waiverSentMessage ? (
+              {showWaiverSignedBanner ? (
+                <div className="travel-insurance-waiver-status-bottom">
+                  <p className="travel-insurance-waiver-sent">
+                    Waiver signed
+                    {status?.waiver_signed_at ? ` · ${formatDate(status.waiver_signed_at)}` : ""}
+                  </p>
+                  <p className="workflow-task-guidance muted">
+                    The client declined travel protection and signed the declination waiver. You can complete this task.
+                  </p>
+                </div>
+              ) : null}
+
+              {!showWaiverSignedBanner &&
+              ((waiverPending && status?.waiver_sent_at) ||
+                (waiverExpiredUnanswered && status?.waiver_sent_at) ||
+                waiverSentMessage) ? (
                 <div className="travel-insurance-waiver-status-bottom">
                   {waiverPending && status?.waiver_sent_at ? (
-                    <p className="travel-insurance-waiver-pending">
-                      Waiver email sent {formatTimestamp(status.waiver_sent_at)}. The client has{" "}
-                      <strong>{waiverTimeRemaining}</strong> left to respond before the secure link expires.
-                    </p>
+                    <>
+                      <p className="travel-insurance-waiver-pending">
+                        Waiver email sent {formatTimestamp(status.waiver_sent_at)}. The client has{" "}
+                        <strong>{waiverTimeRemaining}</strong> left to respond before the secure link expires.
+                      </p>
+                      {!readOnly && !status.waiver_signed ? (
+                        <div className="travel-insurance-fallback-actions">
+                          <button
+                            type="button"
+                            className="modal-secondary"
+                            disabled={footerBusy}
+                            onClick={() => void handleSendWaiver()}
+                          >
+                            {sendingWaiver ? "Sending…" : "Resend waiver email"}
+                          </button>
+                          <p className="field-hint">
+                            Resending deactivates the previous secure link and emails a new 48-hour waiver portal.
+                          </p>
+                        </div>
+                      ) : null}
+                    </>
                   ) : null}
 
                   {waiverExpiredUnanswered && status?.waiver_sent_at ? (
-                    <p className="travel-insurance-waiver-expired">
-                      The client did not respond to the waiver email sent {formatTimestamp(status.waiver_sent_at)}
-                      {status.waiver_expires_at
-                        ? ` before it expired on ${formatTimestamp(status.waiver_expires_at)}`
-                        : ""}
-                      . Call the client to follow up, then resend the waiver if they still decline coverage.
-                    </p>
+                    <>
+                      <p className="travel-insurance-waiver-expired">
+                        The client did not respond to the waiver email sent {formatTimestamp(status.waiver_sent_at)}
+                        {status.waiver_expires_at
+                          ? ` before it expired on ${formatTimestamp(status.waiver_expires_at)}`
+                          : ""}
+                        . Call the client to follow up, then resend the waiver if they still decline coverage.
+                      </p>
+                      {!readOnly && !status.waiver_signed && !showSendWaiverButton ? (
+                        <div className="travel-insurance-fallback-actions">
+                          <button
+                            type="button"
+                            className="modal-secondary"
+                            disabled={footerBusy}
+                            onClick={() => void handleSendWaiver()}
+                          >
+                            {sendingWaiver ? "Sending…" : "Resend waiver email"}
+                          </button>
+                        </div>
+                      ) : null}
+                    </>
                   ) : null}
 
                   {waiverSentMessage ? <p className="travel-insurance-waiver-sent">{waiverSentMessage}</p> : null}

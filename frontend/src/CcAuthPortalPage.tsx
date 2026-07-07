@@ -126,6 +126,7 @@ export default function CcAuthPortalPage({ token }: CcAuthPortalPageProps) {
       <section className="card bridge-card cc-auth-portal-card">
         <PortalBrandingHeader
           branding={portal?.branding}
+          agencyNameFallback={portal?.agency_name}
           title="Secure card authorization"
           subtitle="Encrypted passenger portal"
           className="cc-auth-portal-header"

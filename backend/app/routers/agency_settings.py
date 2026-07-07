@@ -8,7 +8,7 @@ from app.brand_logo_storage import (
 )
 from app.database import get_db
 from app.deps import get_current_user, require_tenant_super_user
-from app.models import User
+from app.models import Agency, User
 from app.schemas import (
     AgencyAiSettingsRead,
     AgencyAiSettingsUpdate,
@@ -116,7 +116,21 @@ def read_agency_settings(
     db: Session = Depends(get_db),
 ) -> AgencySettingsRead:
     row = get_agency_settings_row(db, agency_id=current_user.agency_id)
-    return AgencySettingsRead.model_validate(row)
+    agency = db.get(Agency, current_user.agency_id)
+    if agency is None:
+        raise HTTPException(status_code=404, detail="Agency not found.")
+    return AgencySettingsRead(
+        agency_id=row.agency_id,
+        organization_handle=agency.organization_handle,
+        agency_name=row.agency_name,
+        brand_logo_url=row.brand_logo_url,
+        primary_color=row.primary_color,
+        secondary_color=row.secondary_color,
+        custom_master_tc=row.custom_master_tc,
+        email_signature_block=row.email_signature_block,
+        business_address=row.business_address,
+        business_phone=row.business_phone,
+    )
 
 
 @settings_router.put("/settings", response_model=AgencySettingsRead)
@@ -136,7 +150,18 @@ def put_agency_settings(
         business_address=payload.business_address,
         business_phone=payload.business_phone,
     )
-    return AgencySettingsRead.model_validate(row)
+    return AgencySettingsRead(
+        agency_id=row.agency_id,
+        organization_handle=db.get(Agency, current_user.agency_id).organization_handle,
+        agency_name=row.agency_name,
+        brand_logo_url=row.brand_logo_url,
+        primary_color=row.primary_color,
+        secondary_color=row.secondary_color,
+        custom_master_tc=row.custom_master_tc,
+        email_signature_block=row.email_signature_block,
+        business_address=row.business_address,
+        business_phone=row.business_phone,
+    )
 
 
 @settings_router.post("/settings/upload-logo", response_model=AgencySettingsLogoUploadResponse)

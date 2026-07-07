@@ -642,6 +642,7 @@ def default_proposed_cruise_includes() -> dict:
     return {
         "drink_package": {"included": False, "name": None},
         "wifi": {"included": False, "name": None},
+        "specialty_dining": {"included": False, "name": None},
         "tips": False,
         "excursion": False,
         "excursion_credit": {"included": False, "amount": None},
