@@ -25,6 +25,7 @@ from app.schemas import (
 from app.security import create_access_token
 from app.services.auth_service import authenticate_agency_user, authenticate_platform_operator
 from app.services.subscription_service import raise_if_login_blocked
+from app.services.user_read_service import user_to_read
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -58,7 +59,7 @@ def bridge_login(
         agency_id=user.agency_id,
         role=user.role,
     )
-    return TokenResponse(access_token=token, user=UserRead.model_validate(user))
+    return TokenResponse(access_token=token, user=user_to_read(db, user))
 
 
 @router.post("/register", response_model=UserRead, status_code=201)
@@ -104,12 +105,15 @@ def login(
         agency_id=user.agency_id,
         role=user.role,
     )
-    return TokenResponse(access_token=token, user=UserRead.model_validate(user))
+    return TokenResponse(access_token=token, user=user_to_read(db, user))
 
 
 @router.get("/me", response_model=UserRead)
-def read_current_user(current_user: User = Depends(get_current_user)) -> User:
-    return current_user
+def read_current_user(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> UserRead:
+    return user_to_read(db, current_user)
 
 
 @router.put("/me/signature", response_model=UserRead)
@@ -117,7 +121,7 @@ def update_current_user_signature(
     payload: UserSignatureUpdate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> User:
+) -> UserRead:
     normalized = (payload.email_signature_block or "").strip() or None
     if normalized:
         try:
@@ -132,7 +136,7 @@ def update_current_user_signature(
     db.add(current_user)
     db.commit()
     db.refresh(current_user)
-    return current_user
+    return user_to_read(db, current_user)
 
 
 @router.post("/me/avatar", response_model=UserAvatarUploadResponse)
@@ -176,13 +180,13 @@ async def upload_current_user_avatar(
 def delete_current_user_avatar(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> User:
+) -> UserRead:
     purge_stale_local_user_avatar(current_user.avatar_url)
     current_user.avatar_url = None
     db.add(current_user)
     db.commit()
     db.refresh(current_user)
-    return current_user
+    return user_to_read(db, current_user)
 
 
 @router.post("/me/signature-image", response_model=UserSignatureImageUploadResponse)

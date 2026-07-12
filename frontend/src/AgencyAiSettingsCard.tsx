@@ -68,8 +68,52 @@ export default function AgencyAiSettingsCard() {
     );
   }
 
+  if (error && !aiStatus) {
+    return (
+      <section className="card section-card agency-ai-settings-card">
+        <header className="section-card-header">
+          <div>
+            <h3>AI (Gemini)</h3>
+            <p className="muted">Agency Gemini API configuration.</p>
+          </div>
+        </header>
+        <div className="section-card-body">
+          <p className="status error">{error}</p>
+        </div>
+      </section>
+    );
+  }
+
+  // Local/dev uses GEMINI_API_KEY from the environment — still show the card so Agency Settings
+  // keeps a stable layout, with an explanation instead of the production key form.
   if (!aiStatus?.uses_tenant_key) {
-    return null;
+    return (
+      <section className="card section-card agency-ai-settings-card">
+        <header className="section-card-header">
+          <div>
+            <h3>AI (Gemini)</h3>
+            <p className="muted">
+              One Gemini API key powers AI for your entire agency — research extraction, communication drafts, and
+              summaries.
+            </p>
+          </div>
+        </header>
+        <div className="section-card-body agency-ai-settings-body">
+          <p className="muted">
+            This local environment uses the server <code>GEMINI_API_KEY</code> instead of a per-agency key. In
+            production, agency owners manage the Gemini API key from this card.
+          </p>
+          {aiStatus?.configured ? (
+            <p className="agency-ai-settings-configured-note">Gemini is configured via the environment key.</p>
+          ) : (
+            <p className="status warning agency-ai-settings-missing-note">
+              Gemini is not configured. Add <code>GEMINI_API_KEY</code> to your environment to enable AI features
+              locally.
+            </p>
+          )}
+        </div>
+      </section>
+    );
   }
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {

@@ -17,6 +17,7 @@ from app.schemas import (
     SendCcAuthEmailRequest,
     SendCcAuthEmailResponse,
 )
+from app.services.agency_service import get_travel_request_for_user
 from app.services.cc_auth_agent_service import (
     list_request_cc_authorizations,
     purge_request_cc_authorization,
@@ -59,7 +60,7 @@ async def send_cc_auth_email_route(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> SendCcAuthEmailResponse:
-    request = get_open_request(db, payload.travel_request_id)
+    request = get_open_request(db, payload.travel_request_id, current_user)
     result = await send_cc_auth_email(db, request=request, current_user=current_user)
     return SendCcAuthEmailResponse.model_validate(result)
 
@@ -68,8 +69,9 @@ async def send_cc_auth_email_route(
 def list_request_cc_authorizations_route(
     request_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> list[CcAuthSummaryRead]:
+    get_travel_request_for_user(db, request_id, current_user, require_manage=False)
     records = list_request_cc_authorizations(db, request_id=request_id)
     return [CcAuthSummaryRead.model_validate(record) for record in records]
 
@@ -82,8 +84,9 @@ def reveal_request_cc_authorization_route(
     authorization_id: str,
     payload: CcAuthVaultAccessRequest,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> CcAuthRevealResponse:
+    get_open_request(db, request_id, current_user)
     result = reveal_request_cc_authorization(
         db,
         request_id=request_id,
@@ -98,7 +101,8 @@ def purge_request_cc_authorization_route(
     request_id: int,
     authorization_id: str,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> CcAuthPurgeResponse:
+    get_open_request(db, request_id, current_user)
     result = purge_request_cc_authorization(db, request_id=request_id, authorization_id=authorization_id)
     return CcAuthPurgeResponse.model_validate(result)

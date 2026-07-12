@@ -217,7 +217,7 @@ def add_passenger(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> RequestPassenger:
-    request = get_open_request(db, request_id)
+    request = get_open_request(db, request_id, current_user)
     try:
         if payload.passenger_id is not None:
             passenger = get_passenger_for_agency(db, payload.passenger_id, current_user.agency_id)
@@ -269,7 +269,7 @@ def update_passenger(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> RequestPassenger:
-    request = get_open_request(db, request_id)
+    request = get_open_request(db, request_id, current_user)
     passenger = get_request_passenger_for_agency(
         db,
         passenger_id,
@@ -312,7 +312,7 @@ def delete_passenger(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> None:
-    request = get_open_request(db, request_id)
+    request = get_open_request(db, request_id, current_user)
     passenger = get_request_passenger_for_agency(
         db,
         passenger_id,

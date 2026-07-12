@@ -138,6 +138,34 @@ class BridgeLogin(BaseModel):
     password: str = Field(min_length=1, max_length=128)
 
 
+class AgentConfigurablePermissionsRead(BaseModel):
+    view_other_agent_requests: bool = False
+    manage_other_agent_requests: bool = False
+    create_own_groups: bool = False
+    manage_other_agent_groups: bool = False
+    book_other_agent_groups: bool = False
+
+
+class AgentCapabilitiesRead(BaseModel):
+    view_other_agent_requests: bool = False
+    manage_other_agent_requests: bool = False
+    create_own_groups: bool = False
+    manage_other_agent_groups: bool = False
+    book_other_agent_groups: bool = False
+    sales_analytics_own_only: bool = True
+    reports_own_only: bool = True
+    show_marketing_campaigns_tab: bool = False
+    show_workflows_tab: bool = False
+    show_agency_settings_tab: bool = False
+    show_team_tab: bool = False
+    clients_full_access: bool = True
+    show_group_blocks_tab: bool = False
+    skip_group_intake_prompt: bool = True
+    other_agent_groups_read_only: bool = False
+    can_manage_marketing_campaigns: bool = False
+    is_unrestricted: bool = False
+
+
 class UserRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -150,6 +178,7 @@ class UserRead(BaseModel):
     can_view_all_agency_leads: bool
     avatar_url: str | None = None
     email_signature_block: str | None = None
+    capabilities: AgentCapabilitiesRead | None = None
 
 
 class UserSignatureUpdate(BaseModel):
@@ -371,6 +400,9 @@ class AgencySettingsRead(BaseModel):
     email_signature_block: str | None = None
     business_address: str | None = None
     business_phone: str | None = None
+    agent_permissions: AgentConfigurablePermissionsRead = Field(
+        default_factory=AgentConfigurablePermissionsRead
+    )
 
 
 class AgencySettingsUpdate(BaseModel):
@@ -381,6 +413,7 @@ class AgencySettingsUpdate(BaseModel):
     email_signature_block: str | None = None
     business_address: str | None = Field(default=None, max_length=512)
     business_phone: str | None = Field(default=None, max_length=50)
+    agent_permissions: AgentConfigurablePermissionsRead | None = None
 
     @model_validator(mode="after")
     def validate_at_least_one_field(self) -> "AgencySettingsUpdate":
@@ -394,6 +427,7 @@ class AgencySettingsUpdate(BaseModel):
                 self.email_signature_block,
                 self.business_address,
                 self.business_phone,
+                self.agent_permissions,
             )
         ):
             raise ValueError("At least one settings field must be provided.")
@@ -2487,6 +2521,7 @@ class AgencyGroupRead(AgencyGroupBase):
 
     id: str
     agency_id: str
+    created_by_id: int | None = None
     inventory_items: list[AgencyGroupInventoryRead] = Field(default_factory=list)
     summary: AgencyGroupSummaryRead
     created_at: datetime
@@ -2498,6 +2533,7 @@ class AgencyGroupListItemRead(BaseModel):
 
     id: str
     agency_id: str
+    created_by_id: int | None = None
     group_name: str
     cruise_line: str
     ship_name: str

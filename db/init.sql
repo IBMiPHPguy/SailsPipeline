@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS agency_settings (
     business_address VARCHAR(512) NULL,
     business_phone VARCHAR(50) NULL,
     encrypted_gemini_api_key TEXT NULL,
+    agent_permissions JSON NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_agency_settings_agency FOREIGN KEY (agency_id) REFERENCES agencies (id) ON DELETE CASCADE
@@ -176,6 +177,7 @@ CREATE INDEX idx_travel_requests_marketing_campaign ON travel_requests(marketing
 CREATE TABLE IF NOT EXISTS agency_groups (
     id CHAR(36) NOT NULL PRIMARY KEY,
     agency_id CHAR(36) NOT NULL,
+    created_by_id INT NULL,
     group_name VARCHAR(255) NOT NULL,
     cruise_line VARCHAR(100) NOT NULL,
     ship_name VARCHAR(100) NOT NULL,
@@ -188,9 +190,11 @@ CREATE TABLE IF NOT EXISTS agency_groups (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_agency_groups_agency FOREIGN KEY (agency_id) REFERENCES agencies(id) ON DELETE CASCADE,
+    CONSTRAINT fk_agency_groups_created_by FOREIGN KEY (created_by_id) REFERENCES users(id) ON DELETE RESTRICT,
     INDEX idx_agency_groups_agency (agency_id),
     INDEX idx_agency_groups_agency_active (agency_id, is_active),
-    INDEX idx_agency_groups_agency_sailing (agency_id, sailing_date)
+    INDEX idx_agency_groups_agency_sailing (agency_id, sailing_date),
+    INDEX idx_agency_groups_created_by (created_by_id)
 );
 
 CREATE TABLE IF NOT EXISTS agency_group_inventory (

@@ -1,5 +1,13 @@
 import { API_BASE, apiFetch, authHeaders, parseApiError } from "./apiClient";
 
+export type AgentConfigurablePermissions = {
+  view_other_agent_requests: boolean;
+  manage_other_agent_requests: boolean;
+  create_own_groups: boolean;
+  manage_other_agent_groups: boolean;
+  book_other_agent_groups: boolean;
+};
+
 export type AgencySettings = {
   agency_id: string;
   organization_handle: string;
@@ -11,6 +19,7 @@ export type AgencySettings = {
   email_signature_block?: string | null;
   business_address?: string | null;
   business_phone?: string | null;
+  agent_permissions?: AgentConfigurablePermissions;
 };
 
 export type AgencySettingsUpdate = {
@@ -20,6 +29,7 @@ export type AgencySettingsUpdate = {
   custom_master_tc?: string | null;
   business_address?: string | null;
   business_phone?: string | null;
+  agent_permissions?: AgentConfigurablePermissions;
 };
 
 export type AgencyLogoUploadResponse = {

@@ -64,6 +64,7 @@ class AgencySettings(Base):
     business_address: Mapped[str | None] = mapped_column(String(512), nullable=True)
     business_phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
     encrypted_gemini_api_key: Mapped[str | None] = mapped_column(Text, nullable=True)
+    agent_permissions: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
@@ -866,6 +867,9 @@ class AgencyGroup(Base):
     agency_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("agencies.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    created_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
     group_name: Mapped[str] = mapped_column(String(255), nullable=False)
     cruise_line: Mapped[str] = mapped_column(String(100), nullable=False)
     ship_name: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -881,6 +885,7 @@ class AgencyGroup(Base):
     )
 
     agency: Mapped["Agency"] = relationship(back_populates="agency_groups")
+    created_by: Mapped["User | None"] = relationship(foreign_keys=[created_by_id])
     inventory_items: Mapped[list["AgencyGroupInventory"]] = relationship(
         back_populates="group",
         cascade="all, delete-orphan",

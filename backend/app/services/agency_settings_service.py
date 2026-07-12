@@ -154,6 +154,7 @@ def update_agency_settings(
     business_address: str | None = None,
     business_phone: str | None = None,
     brand_logo_url: str | None = None,
+    agent_permissions: dict | None = None,
 ) -> AgencySettings:
     row = get_agency_settings_row(db, agency_id=agency_id)
 
@@ -179,6 +180,14 @@ def update_agency_settings(
         row.business_phone = business_phone.strip() or None
     if brand_logo_url is not None:
         row.brand_logo_url = brand_logo_url.strip() or None
+    if agent_permissions is not None:
+        from app.agent_capabilities import validate_configurable_permissions_payload
+
+        try:
+            normalized = validate_configurable_permissions_payload(agent_permissions)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        row.agent_permissions = normalized.model_dump()
 
     db.commit()
     db.refresh(row)

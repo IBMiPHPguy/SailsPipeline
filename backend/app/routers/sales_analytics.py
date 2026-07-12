@@ -25,9 +25,17 @@ from app.services.client_import_template_service import (
 )
 from app.services.sales_analytics_copilot_service import answer_sales_copilot_question
 from app.services.sales_analytics_service import get_sales_analytics, get_sales_analytics_key_metrics_year
+from app.services.agent_capability_service import get_capabilities_for_user
 from app.gemini_service import GeminiConfigurationError, GeminiParseError
 
 router = APIRouter(prefix="/api/analytics/sales", tags=["sales-analytics"])
+
+
+def _owned_by_user_id(db: Session, current_user: User) -> int | None:
+    caps = get_capabilities_for_user(db, current_user)
+    if caps.sales_analytics_own_only:
+        return current_user.id
+    return None
 
 
 @router.get("", response_model=SalesAnalyticsResponse)
@@ -35,7 +43,11 @@ def get_sales_analytics_route(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> SalesAnalyticsResponse:
-    return get_sales_analytics(db, current_user.agency_id)
+    return get_sales_analytics(
+        db,
+        current_user.agency_id,
+        owned_by_user_id=_owned_by_user_id(db, current_user),
+    )
 
 
 @router.get("/key-metrics/{year}", response_model=SalesAnalyticsYearSummary)
@@ -45,7 +57,12 @@ def get_sales_analytics_key_metrics_route(
     current_user: User = Depends(get_current_user),
 ) -> SalesAnalyticsYearSummary:
     try:
-        return get_sales_analytics_key_metrics_year(db, year, current_user.agency_id)
+        return get_sales_analytics_key_metrics_year(
+            db,
+            year,
+            current_user.agency_id,
+            owned_by_user_id=_owned_by_user_id(db, current_user),
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -124,7 +141,11 @@ def sales_copilot_route(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> SalesCopilotResponse:
-    analytics = get_sales_analytics(db, current_user.agency_id)
+    analytics = get_sales_analytics(
+        db,
+        current_user.agency_id,
+        owned_by_user_id=_owned_by_user_id(db, current_user),
+    )
     try:
         answer = answer_sales_copilot_question(
             db,

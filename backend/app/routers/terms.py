@@ -13,6 +13,7 @@ from app.schemas import (
     TermsRequestStatusResponse,
     TermsValidateResponse,
 )
+from app.services.agency_service import get_travel_request_for_user
 from app.services.request_service import get_open_request
 from app.services.tc_communication_service import send_master_terms_email
 from app.services.tc_portal_service import complete_terms_portal, get_terms_portal_context
@@ -59,7 +60,7 @@ async def send_master_terms_email_route(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> SendMasterTermsEmailResponse:
-    travel_request = get_open_request(db, payload.travel_request_id)
+    travel_request = get_open_request(db, payload.travel_request_id, current_user)
     result = await send_master_terms_email(db, request=travel_request, current_user=current_user)
     return SendMasterTermsEmailResponse.model_validate(result)
 
@@ -68,7 +69,8 @@ async def send_master_terms_email_route(
 async def get_terms_status_for_request_route(
     request_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> TermsRequestStatusResponse:
+    get_travel_request_for_user(db, request_id, current_user, require_manage=False)
     status = await TCService(db).check_request_status(request_id)
     return TermsRequestStatusResponse.model_validate(status)

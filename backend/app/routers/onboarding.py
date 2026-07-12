@@ -4,10 +4,11 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.rate_limit import limiter
-from app.schemas import AgentInviteRead, OnboardingAccept, OnboardingInviteRead, TokenResponse, UserRead
+from app.schemas import AgentInviteRead, OnboardingAccept, OnboardingInviteRead, TokenResponse
 from app.security import create_access_token
 from app.services.agency_invite_service import accept_agency_invitation, get_valid_agency_invitation
 from app.services.bridge_service import accept_platform_invitation, get_valid_platform_invitation
+from app.services.user_read_service import user_to_read
 
 router = APIRouter(prefix="/api/onboarding", tags=["onboarding"])
 
@@ -47,7 +48,7 @@ def accept_onboarding_invitation(
         agency_id=user.agency_id,
         role=user.role,
     )
-    return TokenResponse(access_token=access_token, user=UserRead.model_validate(user))
+    return TokenResponse(access_token=access_token, user=user_to_read(db, user))
 
 
 @router.get("/agent/invites/verify", response_model=AgentInviteRead)
@@ -87,4 +88,4 @@ def accept_agent_invitation(
         agency_id=user.agency_id,
         role=user.role,
     )
-    return TokenResponse(access_token=access_token, user=UserRead.model_validate(user))
+    return TokenResponse(access_token=access_token, user=user_to_read(db, user))

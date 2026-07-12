@@ -23,46 +23,100 @@ type AppSidebarProps = {
   onNavigate: (item: AppNavItem) => void;
 };
 
-const BASE_NAV_ITEMS: Array<{
+type NavEntry = {
   id: AppNavItem;
   label: string;
   icon: () => ReactNode;
-}> = [
+};
+
+const ALWAYS_NAV_ITEMS: NavEntry[] = [
   { id: "dashboard", label: REQUEST_DASHBOARD_PAGE_TITLE, icon: CruiseShipNavIcon },
   { id: "sales-analytics", label: "Sales Analytics", icon: BarChartNavIcon },
-  { id: "marketing-campaigns", label: "Marketing Campaigns", icon: FunnelNavIcon },
   { id: "clients", label: "Clients", icon: PersonNavIcon },
   { id: "reports", label: "Reports", icon: ReportsNavIcon },
 ];
 
-const TEAM_NAV_ITEM = {
-  id: "team" as const,
+const MARKETING_NAV_ITEM: NavEntry = {
+  id: "marketing-campaigns",
+  label: "Marketing Campaigns",
+  icon: FunnelNavIcon,
+};
+
+const TEAM_NAV_ITEM: NavEntry = {
+  id: "team",
   label: "Team",
   icon: TeamNavIcon,
 };
 
-const AGENCY_SETTINGS_NAV_ITEM = {
-  id: "agency-settings" as const,
+const AGENCY_SETTINGS_NAV_ITEM: NavEntry = {
+  id: "agency-settings",
   label: "Agency Settings",
   icon: SettingsNavIcon,
 };
 
-const WORKFLOWS_NAV_ITEM = {
-  id: "workflows" as const,
+const WORKFLOWS_NAV_ITEM: NavEntry = {
+  id: "workflows",
   label: "Workflows & Tasks",
   icon: WorkflowsNavIcon,
 };
 
-const GROUP_BLOCKS_NAV_ITEM = {
-  id: "group-blocks" as const,
+const GROUP_BLOCKS_NAV_ITEM: NavEntry = {
+  id: "group-blocks",
   label: "Group Blocks",
   icon: GroupBlocksNavIcon,
 };
 
+function buildTenantNavItems(currentUser: User): NavEntry[] {
+  const caps = currentUser.capabilities;
+  const items: NavEntry[] = [
+    ALWAYS_NAV_ITEMS[0], // dashboard
+    ALWAYS_NAV_ITEMS[1], // sales-analytics
+  ];
+
+  const includeMarketing = caps
+    ? caps.show_marketing_campaigns_tab || caps.is_unrestricted
+    : isTenantSuperUser(currentUser.role);
+  if (includeMarketing) {
+    items.push(MARKETING_NAV_ITEM);
+  }
+
+  items.push(ALWAYS_NAV_ITEMS[2], ALWAYS_NAV_ITEMS[3]); // clients, reports
+
+  if (caps) {
+    if (caps.show_workflows_tab || caps.is_unrestricted) {
+      items.push(WORKFLOWS_NAV_ITEM);
+    }
+    if (caps.show_group_blocks_tab || caps.is_unrestricted) {
+      items.push(GROUP_BLOCKS_NAV_ITEM);
+    }
+    if (caps.show_agency_settings_tab || caps.is_unrestricted) {
+      items.push(AGENCY_SETTINGS_NAV_ITEM);
+    }
+    if (caps.show_team_tab || caps.is_unrestricted) {
+      items.push(TEAM_NAV_ITEM);
+    }
+    return items;
+  }
+
+  // Safe fallback when capabilities are missing: preserve prior super-user tabs;
+  // agents only get the always-visible base (no marketing/workflows/groups/settings/team).
+  if (isTenantSuperUser(currentUser.role)) {
+    return [
+      ...ALWAYS_NAV_ITEMS.slice(0, 2),
+      MARKETING_NAV_ITEM,
+      ...ALWAYS_NAV_ITEMS.slice(2),
+      WORKFLOWS_NAV_ITEM,
+      GROUP_BLOCKS_NAV_ITEM,
+      AGENCY_SETTINGS_NAV_ITEM,
+      TEAM_NAV_ITEM,
+    ];
+  }
+
+  return items;
+}
+
 export default function AppSidebar({ activeItem, currentUser, agencyBranding, onNavigate }: AppSidebarProps) {
-  const navItems = isTenantSuperUser(currentUser.role)
-    ? [...BASE_NAV_ITEMS, WORKFLOWS_NAV_ITEM, GROUP_BLOCKS_NAV_ITEM, AGENCY_SETTINGS_NAV_ITEM, TEAM_NAV_ITEM]
-    : BASE_NAV_ITEMS;
+  const navItems = buildTenantNavItems(currentUser);
 
   return (
     <nav className="app-sidebar" aria-label="Main navigation">

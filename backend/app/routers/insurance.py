@@ -14,6 +14,7 @@ from app.schemas import (
     SendInsuranceWaiverEmailRequest,
     SendInsuranceWaiverEmailResponse,
 )
+from app.services.agency_service import get_travel_request_for_user
 from app.services.insurance_communication_service import send_insurance_waiver_email
 from app.services.insurance_portal_service import complete_insurance_waiver_portal, get_insurance_waiver_portal_context
 from app.services.insurance_service import InsuranceService
@@ -60,7 +61,7 @@ async def send_insurance_waiver_email_route(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> SendInsuranceWaiverEmailResponse:
-    travel_request = get_open_request(db, payload.travel_request_id)
+    travel_request = get_open_request(db, payload.travel_request_id, current_user)
     result = await send_insurance_waiver_email(db, request=travel_request, current_user=current_user)
     return SendInsuranceWaiverEmailResponse.model_validate(result)
 
@@ -69,8 +70,9 @@ async def send_insurance_waiver_email_route(
 async def get_insurance_status_for_request_route(
     request_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> InsuranceRequestStatusResponse:
+    get_travel_request_for_user(db, request_id, current_user, require_manage=False)
     status = await InsuranceService(db).get_request_status(request_id)
     return InsuranceRequestStatusResponse.model_validate(status)
 

@@ -14,6 +14,7 @@ from app.schemas import (
     AgencyAiSettingsUpdate,
     AgencyAiStatusRead,
     AgencyBrandingChromeRead,
+    AgentConfigurablePermissionsRead,
     AgencyPublicBrandingRead,
     AgencySettingsLogoUploadResponse,
     AgencySettingsRead,
@@ -26,6 +27,7 @@ from app.services.agency_settings_service import (
     get_agency_settings_row,
     update_agency_settings,
 )
+from app.services.agent_capability_service import get_configurable_permissions_for_agency
 from app.services.gemini_config_service import (
     agency_has_gemini_api_key,
     clear_agency_gemini_api_key,
@@ -39,6 +41,26 @@ settings_router = APIRouter(prefix="/api/agency", tags=["agency-settings"])
 public_router = APIRouter(prefix="/api/public", tags=["public-branding"])
 
 _MAX_LOGO_BYTES = 5 * 1024 * 1024
+
+
+def _settings_to_read(db: Session, row, *, agency_id: str) -> AgencySettingsRead:
+    agency = db.get(Agency, agency_id)
+    if agency is None:
+        raise HTTPException(status_code=404, detail="Agency not found.")
+    permissions = get_configurable_permissions_for_agency(db, agency_id=agency_id)
+    return AgencySettingsRead(
+        agency_id=row.agency_id,
+        organization_handle=agency.organization_handle,
+        agency_name=row.agency_name,
+        brand_logo_url=row.brand_logo_url,
+        primary_color=row.primary_color,
+        secondary_color=row.secondary_color,
+        custom_master_tc=row.custom_master_tc,
+        email_signature_block=row.email_signature_block,
+        business_address=row.business_address,
+        business_phone=row.business_phone,
+        agent_permissions=AgentConfigurablePermissionsRead.model_validate(permissions.model_dump()),
+    )
 
 
 @settings_router.get("/branding", response_model=AgencyBrandingChromeRead)
@@ -116,21 +138,7 @@ def read_agency_settings(
     db: Session = Depends(get_db),
 ) -> AgencySettingsRead:
     row = get_agency_settings_row(db, agency_id=current_user.agency_id)
-    agency = db.get(Agency, current_user.agency_id)
-    if agency is None:
-        raise HTTPException(status_code=404, detail="Agency not found.")
-    return AgencySettingsRead(
-        agency_id=row.agency_id,
-        organization_handle=agency.organization_handle,
-        agency_name=row.agency_name,
-        brand_logo_url=row.brand_logo_url,
-        primary_color=row.primary_color,
-        secondary_color=row.secondary_color,
-        custom_master_tc=row.custom_master_tc,
-        email_signature_block=row.email_signature_block,
-        business_address=row.business_address,
-        business_phone=row.business_phone,
-    )
+    return _settings_to_read(db, row, agency_id=current_user.agency_id)
 
 
 @settings_router.put("/settings", response_model=AgencySettingsRead)
@@ -139,6 +147,9 @@ def put_agency_settings(
     current_user: User = Depends(require_tenant_super_user),
     db: Session = Depends(get_db),
 ) -> AgencySettingsRead:
+    permissions_payload = None
+    if payload.agent_permissions is not None:
+        permissions_payload = payload.agent_permissions.model_dump()
     row = update_agency_settings(
         db,
         agency_id=current_user.agency_id,
@@ -149,19 +160,9 @@ def put_agency_settings(
         email_signature_block=payload.email_signature_block,
         business_address=payload.business_address,
         business_phone=payload.business_phone,
+        agent_permissions=permissions_payload,
     )
-    return AgencySettingsRead(
-        agency_id=row.agency_id,
-        organization_handle=db.get(Agency, current_user.agency_id).organization_handle,
-        agency_name=row.agency_name,
-        brand_logo_url=row.brand_logo_url,
-        primary_color=row.primary_color,
-        secondary_color=row.secondary_color,
-        custom_master_tc=row.custom_master_tc,
-        email_signature_block=row.email_signature_block,
-        business_address=row.business_address,
-        business_phone=row.business_phone,
-    )
+    return _settings_to_read(db, row, agency_id=current_user.agency_id)
 
 
 @settings_router.post("/settings/upload-logo", response_model=AgencySettingsLogoUploadResponse)

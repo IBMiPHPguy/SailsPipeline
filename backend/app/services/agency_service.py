@@ -5,7 +5,7 @@ from typing import TypeVar
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.models import Agency, Passenger, TravelRequest
+from app.models import Agency, Passenger, TravelRequest, User
 from app.tenant_constants import (
     DEFAULT_AGENCY_ID,
     DEFAULT_AGENCY_NAME,
@@ -58,6 +58,31 @@ def get_travel_request_for_agency(db: Session, request_id: int, agency_id: str) 
     if request is None:
         raise NOT_FOUND
     assert_same_agency(entity_agency_id=request.agency_id, expected_agency_id=agency_id)
+    return request
+
+
+def get_travel_request_for_user(
+    db: Session,
+    request_id: int,
+    user: User,
+    *,
+    require_manage: bool = False,
+) -> TravelRequest:
+    """Agency-scoped request load with agent capability checks."""
+    from app.services.agent_capability_service import (
+        assert_can_manage_request,
+        assert_can_view_request,
+        get_capabilities_for_user,
+    )
+
+    if user.agency_id is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Tenant membership required.")
+    request = get_travel_request_for_agency(db, request_id, user.agency_id)
+    caps = get_capabilities_for_user(db, user)
+    if require_manage:
+        assert_can_manage_request(user, request, caps)
+    else:
+        assert_can_view_request(user, request, caps)
     return request
 
 
