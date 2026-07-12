@@ -159,7 +159,7 @@ def upload_agency_logo(
     content_type: str | None,
 ) -> str:
     extension = resolve_upload_extension(filename, content_type)
-    if settings.ENVIRONMENT == "dev":
+    if settings.uses_local_brand_uploads:
         return _save_local_logo(agency_id, content, extension)
     return _upload_logo_to_s3(
         agency_id,
@@ -182,7 +182,7 @@ def upload_agency_signature_image(
     extension = resolve_upload_extension(filename, content_type)
     safe_agency = _sanitize_agency_token(agency_id)
     asset_filename = f"signature_{safe_agency}_{uuid.uuid4().hex[:12]}.{extension}"
-    if settings.ENVIRONMENT == "dev":
+    if settings.uses_local_brand_uploads:
         return _save_local_asset(content, asset_filename)
     return _upload_signature_image_to_s3(
         agency_id,
@@ -206,7 +206,7 @@ def upload_user_avatar(
 
     extension = resolve_upload_extension(filename, content_type)
     asset_filename = f"avatar_user_{user_id}_{uuid.uuid4().hex[:12]}.{extension}"
-    if settings.ENVIRONMENT == "dev":
+    if settings.uses_local_brand_uploads:
         return _save_local_asset(content, asset_filename)
 
     safe_agency = _sanitize_agency_token(agency_id or "platform")
@@ -233,7 +233,7 @@ def upload_user_signature_image(
 
     extension = resolve_upload_extension(filename, content_type)
     asset_filename = f"signature_user_{user_id}_{uuid.uuid4().hex[:12]}.{extension}"
-    if settings.ENVIRONMENT == "dev":
+    if settings.uses_local_brand_uploads:
         return _save_local_asset(content, asset_filename)
 
     safe_agency = _sanitize_agency_token(agency_id or "platform")
