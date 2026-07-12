@@ -140,7 +140,14 @@ class Settings(BaseSettings):
 
     @property
     def uses_local_brand_uploads(self) -> bool:
-        return self.ENVIRONMENT == "dev"
+        """Prefer local disk in development, or whenever S3 is not configured.
+
+        Single-node droplet deploys can omit S3_BRAND_BUCKET and keep using
+        /static/uploads until object storage is enabled.
+        """
+        if self.ENVIRONMENT == "dev":
+            return True
+        return not bool((self.s3_brand_bucket or "").strip())
 
     def resolve_email_delivery_settings(self) -> EmailDeliverySettings:
         return resolve_email_delivery_settings(self)
