@@ -30,18 +30,26 @@ export function resolveBrandLogoUrl(logoUrl?: string | null): string {
   if (!logoUrl) {
     return FALLBACK_LOGO;
   }
-  if (logoUrl.startsWith("http://") || logoUrl.startsWith("https://")) {
-    return logoUrl;
+  return resolveStaticAssetUrl(logoUrl) ?? FALLBACK_LOGO;
+}
+
+/** Resolve a hosted /static/... path for display; returns null when unset. */
+export function resolveStaticAssetUrl(assetUrl?: string | null): string | null {
+  if (!assetUrl?.trim()) {
+    return null;
+  }
+  if (assetUrl.startsWith("http://") || assetUrl.startsWith("https://")) {
+    return assetUrl;
   }
   const apiBase = import.meta.env.VITE_API_BASE_URL ?? "";
   if (apiBase.startsWith("http")) {
     try {
-      return `${new URL(apiBase).origin}${logoUrl}`;
+      return `${new URL(apiBase).origin}${assetUrl.startsWith("/") ? assetUrl : `/${assetUrl}`}`;
     } catch {
-      return logoUrl;
+      return assetUrl;
     }
   }
-  return logoUrl;
+  return assetUrl;
 }
 
 export type AgencyBrandingChrome = PortalBranding;

@@ -14,6 +14,7 @@ from app.constants import (
 from app.models import ProposedCruise, TravelRequest, User
 from app.services.cc_auth_service import CCAuthService
 from app.services.email_service import EmailDeliveryService, render_email_base_html
+from app.user_display import format_username_display_name
 
 
 def _extract_cc_auth_inner_content(html: str) -> str:
@@ -71,10 +72,12 @@ async def send_cc_auth_email(
     )
     inner_html = _extract_cc_auth_inner_content(inner_content)
 
+    agent_name = format_username_display_name(current_user.username) or current_user.username
     html_content = render_email_base_html(
         content=inner_html,
-        agent_name=current_user.username,
+        agent_name=agent_name,
         branding=branding,
+        email_signature=current_user.email_signature_block,
     )
 
     email_service = EmailDeliveryService(db)

@@ -10,6 +10,7 @@ from app.services.communication_service import create_communication
 from app.services.email_service import EmailDeliveryService, render_email_base_html
 from app.services.tc_service import TCService
 from app.tc_email import TC_CONTENT_END, TC_CONTENT_START, build_master_terms_email_html
+from app.user_display import format_username_display_name
 
 
 def _extract_terms_inner_content(html: str) -> str:
@@ -51,10 +52,12 @@ async def send_master_terms_email(
         primary_text_color=branding.primary_text_color,
     )
     inner_html = _extract_terms_inner_content(inner_content)
+    agent_name = format_username_display_name(current_user.username) or current_user.username
     html_content = render_email_base_html(
         content=inner_html,
-        agent_name=current_user.username,
+        agent_name=agent_name,
         branding=branding,
+        email_signature=current_user.email_signature_block,
     )
 
     email_service = EmailDeliveryService(db)

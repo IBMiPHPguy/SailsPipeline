@@ -3,11 +3,9 @@ import {
   fetchAgencySettings,
   updateAgencySettings,
   uploadAgencyLogo,
-  uploadAgencySignatureImage,
   type AgencySettings,
 } from "./agencySettingsApi";
 import { contrastTextColor, resolveBrandLogoUrl } from "./portalBranding";
-import RichTextEditor from "./RichTextEditor";
 import AgencyAiSettingsCard from "./AgencyAiSettingsCard";
 import "./portal-branding.css";
 
@@ -16,7 +14,6 @@ type SettingsDraft = {
   primary_color: string;
   secondary_color: string;
   custom_master_tc: string;
-  email_signature_block: string;
   business_address: string;
   business_phone: string;
 };
@@ -27,7 +24,6 @@ function settingsToDraft(settings: AgencySettings): SettingsDraft {
     primary_color: settings.primary_color,
     secondary_color: settings.secondary_color,
     custom_master_tc: settings.custom_master_tc ?? "",
-    email_signature_block: settings.email_signature_block ?? "",
     business_address: settings.business_address ?? "",
     business_phone: settings.business_phone ?? "",
   };
@@ -40,7 +36,6 @@ function buildSettingsPayload(original: AgencySettings, draft: SettingsDraft) {
     "primary_color",
     "secondary_color",
     "custom_master_tc",
-    "email_signature_block",
     "business_address",
     "business_phone",
   ];
@@ -158,7 +153,7 @@ export default function AgencySettingsPage({
           <div>
             <h2>Agency Settings</h2>
             <p className="muted">
-              White-label branding, corporate contact details, communications, and your Master Terms vault.
+              White-label branding, corporate contact details, and your Master Terms vault.
             </p>
           </div>
         </header>
@@ -325,37 +320,6 @@ export default function AgencySettingsPage({
                   placeholder="(555) 555-0100"
                 />
               </label>
-            </div>
-          </section>
-
-          <section className="card section-card">
-            <header className="section-card-header">
-              <div>
-                <h3>Communications</h3>
-                <p className="muted">Email signature block appended to outbound agency correspondence.</p>
-              </div>
-            </header>
-            <div className="section-card-body">
-              <div className="agency-settings-full-width agency-settings-rich-text-field">
-                <span className="agency-settings-field-label">Email signature block</span>
-                <RichTextEditor
-                  value={draft.email_signature_block}
-                  onChange={(html) =>
-                    setDraft((current) => current && { ...current, email_signature_block: html })
-                  }
-                  uploadImage={async (file) => {
-                    const result = await uploadAgencySignatureImage(file);
-                    return result.image_url;
-                  }}
-                  placeholder="Kind regards, your name, agency name, phone, and logo…"
-                  disabled={saving || uploadingLogo}
-                  minHeight="12rem"
-                  ariaLabel="Email signature block"
-                />
-                <p className="muted agency-settings-rich-text-hint">
-                  Images are uploaded to secure agency storage (not embedded), so large signatures save reliably.
-                </p>
-              </div>
             </div>
           </section>
 

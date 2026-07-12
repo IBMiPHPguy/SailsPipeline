@@ -138,6 +138,8 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(50), nullable=False, default=USER_ROLE_TENANT_AGENT, index=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     can_view_all_agency_leads: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    avatar_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    email_signature_block: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()

@@ -148,6 +148,22 @@ class UserRead(BaseModel):
     role: str
     is_active: bool
     can_view_all_agency_leads: bool
+    avatar_url: str | None = None
+    email_signature_block: str | None = None
+
+
+class UserSignatureUpdate(BaseModel):
+    email_signature_block: str | None = None
+
+
+class UserAvatarUploadResponse(BaseModel):
+    avatar_url: str
+    message: str = "Avatar uploaded."
+
+
+class UserSignatureImageUploadResponse(BaseModel):
+    image_url: str
+    message: str = "Signature image uploaded."
 
 
 class TokenResponse(BaseModel):

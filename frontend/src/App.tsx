@@ -20,6 +20,8 @@ import GroupBlockRequestPromptModal from "./GroupBlockRequestPromptModal";
 import GroupInventoryBookingModal from "./GroupInventoryBookingModal";
 import TeamPage from "./TeamPage";
 import AgencySettingsPage from "./AgencySettingsPage";
+import ProfilePage from "./ProfilePage";
+import UserAvatarMenu from "./UserAvatarMenu";
 import AgencyBrandMark from "./AgencyBrandMark";
 import { fetchAgencyBrandingChrome } from "./agencySettingsApi";
 import { formatCruiseLines } from "./CruiseLineMultiSelect";
@@ -243,6 +245,10 @@ function App() {
       document.title = brandedDocumentTitle("Agency Settings");
       return;
     }
+    if (view.type === "profile") {
+      document.title = brandedDocumentTitle("Profile");
+      return;
+    }
     if (view.type === "workflows") {
       document.title = brandedDocumentTitle("Workflows & Tasks");
       return;
@@ -385,10 +391,15 @@ function App() {
             <AgencyBrandMark branding={agencyBranding} className="app-logo" />
           </div>
           <div className="user-panel">
-            <span>Signed in as {currentUser.username}</span>
-            <button type="button" className="secondary-button" onClick={handleLogout}>
-              Sign out
-            </button>
+            <UserAvatarMenu
+              user={currentUser}
+              onProfile={() => {
+                setMessage("");
+                setError("");
+                setView({ type: "profile" });
+              }}
+              onSignOff={handleLogout}
+            />
           </div>
         </div>
       </section>
@@ -495,6 +506,15 @@ function App() {
       {view.type === "team" && currentUser ? <TeamPage currentUser={currentUser} /> : null}
       {view.type === "agency-settings" && currentUser ? (
         <AgencySettingsPage onBrandingUpdated={() => void loadAgencyBranding()} />
+      ) : null}
+
+      {view.type === "profile" && currentUser ? (
+        <ProfilePage
+          currentUser={currentUser}
+          onUserUpdated={(user) => {
+            setCurrentUser(user);
+          }}
+        />
       ) : null}
 
       {view.type === "reports" ? (

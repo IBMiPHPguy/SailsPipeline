@@ -9,6 +9,8 @@ export type User = {
   role: UserRole;
   is_active: boolean;
   can_view_all_agency_leads: boolean;
+  avatar_url?: string | null;
+  email_signature_block?: string | null;
 };
 
 export type UserAudit = {
@@ -898,6 +900,7 @@ export type AppView =
   | { type: "report"; reportId: ReportId }
   | { type: "team" }
   | { type: "agency-settings" }
+  | { type: "profile" }
   | { type: "closed" }
   | { type: "new" }
   | { type: "edit"; requestId: number };

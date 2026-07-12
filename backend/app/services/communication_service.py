@@ -10,6 +10,7 @@ from app.constants import (
     COMMUNICATION_TYPE_RESEARCH_PROPOSAL,
     PROPOSED_CRUISE_STATUS_PROPOSED,
 )
+from app.user_display import format_username_display_name
 from app.gemini_service import (
     GeminiConfigurationError,
     GeminiParseError,
@@ -282,10 +283,12 @@ async def send_research_communication_via_email(
 
     branding = load_agency_email_branding(db, agency_id=request.agency_id)
     inner_content = extract_communication_html_content(communication.body)
+    agent_name = format_username_display_name(current_user.username) or current_user.username
     html_content = render_email_base_html(
         content=inner_content,
-        agent_name=current_user.username,
+        agent_name=agent_name,
         branding=branding,
+        email_signature=current_user.email_signature_block,
     )
 
     email_service = EmailDeliveryService(db)

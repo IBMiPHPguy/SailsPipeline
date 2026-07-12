@@ -193,6 +193,76 @@ def upload_agency_signature_image(
     )
 
 
+def upload_user_avatar(
+    user_id: int,
+    content: bytes,
+    *,
+    filename: str | None,
+    content_type: str | None,
+    agency_id: str | None = None,
+) -> str:
+    if len(content) > _MAX_SIGNATURE_IMAGE_BYTES:
+        raise ValueError("Avatar image must be 5 MB or smaller.")
+
+    extension = resolve_upload_extension(filename, content_type)
+    asset_filename = f"avatar_user_{user_id}_{uuid.uuid4().hex[:12]}.{extension}"
+    if settings.ENVIRONMENT == "dev":
+        return _save_local_asset(content, asset_filename)
+
+    safe_agency = _sanitize_agency_token(agency_id or "platform")
+    object_key = f"user-avatars/{safe_agency}/{asset_filename}"
+    return _upload_asset_to_s3(
+        agency_id or "platform",
+        content,
+        content_type or f"image/{extension}",
+        extension,
+        object_key=object_key,
+    )
+
+
+def upload_user_signature_image(
+    user_id: int,
+    content: bytes,
+    *,
+    filename: str | None,
+    content_type: str | None,
+    agency_id: str | None = None,
+) -> str:
+    if len(content) > _MAX_SIGNATURE_IMAGE_BYTES:
+        raise ValueError("Signature image must be 5 MB or smaller.")
+
+    extension = resolve_upload_extension(filename, content_type)
+    asset_filename = f"signature_user_{user_id}_{uuid.uuid4().hex[:12]}.{extension}"
+    if settings.ENVIRONMENT == "dev":
+        return _save_local_asset(content, asset_filename)
+
+    safe_agency = _sanitize_agency_token(agency_id or "platform")
+    object_key = f"user-signature-images/{safe_agency}/{asset_filename}"
+    return _upload_asset_to_s3(
+        agency_id or "platform",
+        content,
+        content_type or f"image/{extension}",
+        extension,
+        object_key=object_key,
+    )
+
+
+def purge_stale_local_user_avatar(avatar_url: str | None) -> None:
+    """Remove a superseded local avatar file before replacing it."""
+    if not avatar_url or "/static/uploads/" not in avatar_url:
+        return
+    filename = avatar_url.rsplit("/", 1)[-1]
+    if not filename.startswith("avatar_user_"):
+        return
+    local_path = _local_uploads_dir() / filename
+    if not local_path.is_file():
+        return
+    try:
+        os.remove(local_path)
+    except OSError as exc:
+        logger.warning("Unable to purge stale avatar at %s: %s", local_path, exc)
+
+
 def externalize_inline_signature_images(agency_id: str, html: str | None) -> str | None:
     """Replace inline data-URI images with hosted static URLs to keep signatures storable."""
     if not html or "data:image" not in html:
@@ -218,6 +288,42 @@ def externalize_inline_signature_images(agency_id: str, html: str | None) -> str
             )
         except (ValueError, NotImplementedError) as exc:
             logger.warning("Skipped inline signature image externalization: %s", exc)
+            return match.group(0)
+
+    return _INLINE_DATA_URL_PATTERN.sub(replace_data_url, html)
+
+
+def externalize_inline_user_signature_images(
+    user_id: int,
+    html: str | None,
+    *,
+    agency_id: str | None = None,
+) -> str | None:
+    """Replace inline data-URI images with hosted URLs for a user's email signature."""
+    if not html or "data:image" not in html:
+        return html
+
+    def replace_data_url(match: re.Match[str]) -> str:
+        mime = match.group(1).lower()
+        extension = "jpg" if mime in {"jpeg", "jpg"} else mime.split("+")[0]
+        if extension not in _ALLOWED_EXTENSIONS:
+            extension = "png"
+        try:
+            raw = base64.b64decode(match.group(2), validate=False)
+        except (binascii.Error, ValueError):
+            return match.group(0)
+        if not raw:
+            return match.group(0)
+        try:
+            return upload_user_signature_image(
+                user_id,
+                raw,
+                filename=f"inline.{extension}",
+                content_type=f"image/{extension}",
+                agency_id=agency_id,
+            )
+        except (ValueError, NotImplementedError) as exc:
+            logger.warning("Skipped inline user signature image externalization: %s", exc)
             return match.group(0)
 
     return _INLINE_DATA_URL_PATTERN.sub(replace_data_url, html)
