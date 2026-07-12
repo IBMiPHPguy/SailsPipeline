@@ -221,10 +221,8 @@ def test_render_email_base_html_includes_signature_and_branded_header():
     html = render_email_base_html(
         content="<p>Body</p>",
         agent_name="Jane Agent",
-        branding=_sample_email_branding(
-            agency_name="Cruise Seakers Travel LLC",
-            email_signature_block="<p>Best regards,<br/>Jane</p>",
-        ),
+        branding=_sample_email_branding(agency_name="Cruise Seakers Travel LLC"),
+        email_signature="<p>Best regards,<br/>Jane</p>",
     )
 
     assert "Cruise Seakers Travel LLC" in html

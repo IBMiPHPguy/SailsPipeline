@@ -113,8 +113,6 @@ def load_agency_email_branding(db: Session, *, agency_id: str) -> AgencyEmailBra
     asset_base = resolve_brand_asset_public_base_url()
     logo_absolute = resolve_absolute_brand_asset_url(row.brand_logo_url, public_base_url=asset_base)
     agency_name = (row.agency_name or "").strip() or "Your travel agency"
-    signature_raw = (row.email_signature_block or "").strip()
-    signature = absolutize_email_html_asset_urls(signature_raw) or None
     return AgencyEmailBranding(
         agency_id=row.agency_id,
         agency_name=agency_name,
@@ -123,7 +121,8 @@ def load_agency_email_branding(db: Session, *, agency_id: str) -> AgencyEmailBra
         primary_color=primary,
         secondary_color=secondary,
         primary_text_color=contrast_text_color(primary),
-        email_signature_block=signature,
+        # Agency-level signatures are deprecated; outbound CRM mail uses the sender's signature.
+        email_signature_block=None,
     )
 
 

@@ -42,7 +42,30 @@ def migrate_password_reset_columns(db: Session) -> None:
     db.commit()
 
 
+def migrate_user_profile_columns(db: Session) -> None:
+    columns = {column["name"] for column in inspect(engine).get_columns("users")}
+    if "avatar_url" in columns and "email_signature_block" in columns:
+        return
+
+    if "avatar_url" not in columns:
+        db.execute(
+            text(
+                "ALTER TABLE users ADD COLUMN avatar_url VARCHAR(1024) NULL "
+                "AFTER can_view_all_agency_leads"
+            )
+        )
+    if "email_signature_block" not in columns:
+        db.execute(
+            text(
+                "ALTER TABLE users ADD COLUMN email_signature_block TEXT NULL "
+                "AFTER avatar_url"
+            )
+        )
+    db.commit()
+
+
 def run_startup_schema_migrations(db: Session) -> None:
     """Apply schema reconciliation only. Never inserts tenants, users, or seed rows."""
     migrate_agency_trial_period(db)
     migrate_password_reset_columns(db)
+    migrate_user_profile_columns(db)

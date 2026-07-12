@@ -134,6 +134,67 @@ export async function fetchCurrentUser(scope: AuthScope = "crm"): Promise<User> 
   return response.json();
 }
 
+export async function updateCurrentUserSignature(emailSignatureBlock: string | null): Promise<User> {
+  const response = await apiFetch(`${API_BASE}/auth/me/signature`, {
+    method: "PUT",
+    headers: authHeaders(true, "crm"),
+    body: JSON.stringify({ email_signature_block: emailSignatureBlock }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to save email signature."));
+  }
+
+  return response.json();
+}
+
+export async function uploadCurrentUserAvatar(file: Blob, filename = "avatar.png"): Promise<{ avatar_url: string }> {
+  const formData = new FormData();
+  formData.append("file", file, filename);
+
+  const response = await apiFetch(`${API_BASE}/auth/me/avatar`, {
+    method: "POST",
+    headers: authHeaders(false, "crm"),
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to upload headshot."));
+  }
+
+  return response.json();
+}
+
+export async function deleteCurrentUserAvatar(): Promise<User> {
+  const response = await apiFetch(`${API_BASE}/auth/me/avatar`, {
+    method: "DELETE",
+    headers: authHeaders(false, "crm"),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to remove headshot."));
+  }
+
+  return response.json();
+}
+
+export async function uploadCurrentUserSignatureImage(file: File): Promise<{ image_url: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await apiFetch(`${API_BASE}/auth/me/signature-image`, {
+    method: "POST",
+    headers: authHeaders(false, "crm"),
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to upload signature image."));
+  }
+
+  return response.json();
+}
+
 export function logout(scope: AuthScope = "crm"): void {
   clearToken(scope);
 }

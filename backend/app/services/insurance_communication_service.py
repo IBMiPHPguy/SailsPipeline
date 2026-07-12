@@ -14,6 +14,7 @@ from app.models import TravelRequest, User
 from app.services.communication_service import create_communication
 from app.services.email_service import EmailDeliveryService, render_email_logo_only_base_html
 from app.services.insurance_service import InsuranceService
+from app.user_display import format_username_display_name
 
 
 def _extract_waiver_inner_content(html: str) -> str:
@@ -54,10 +55,12 @@ async def send_insurance_waiver_email(
         primary_text_color=branding.primary_text_color,
     )
     inner_html = _extract_waiver_inner_content(inner_content)
+    agent_name = format_username_display_name(current_user.username) or current_user.username
     html_content = render_email_logo_only_base_html(
         content=inner_html,
-        agent_name=current_user.username,
+        agent_name=agent_name,
         branding=branding,
+        email_signature=current_user.email_signature_block,
     )
 
     email_service = EmailDeliveryService(db)
