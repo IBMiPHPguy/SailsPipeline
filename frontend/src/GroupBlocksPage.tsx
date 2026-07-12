@@ -9,11 +9,10 @@ import GroupShellModal from "./GroupShellModal";
 import IconTooltip from "./IconTooltip";
 import ReportPagination from "./ReportPagination";
 import TopStatusBar from "./TopStatusBar";
+import { DEFAULT_PAGE_SIZE, type PageSizeOption } from "./pagination";
 import type { AgencyGroup, AgencyGroupActiveFilter, AgencyGroupListItem, User } from "./types";
 import { useTopStatusBar } from "./useTopStatusBar";
 import { formatDate } from "./utils";
-
-const GROUP_BLOCKS_PAGE_SIZE = 7;
 
 function statusLabel(group: AgencyGroupListItem): string {
   return group.is_active ? "Active" : "Archived";
@@ -25,6 +24,7 @@ export default function GroupBlocksPage({ currentUser }: { currentUser: User }) 
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<PageSizeOption>(DEFAULT_PAGE_SIZE);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -49,7 +49,7 @@ export default function GroupBlocksPage({ currentUser }: { currentUser: User }) 
           filter,
           q: searchQuery,
           page,
-          pageSize: GROUP_BLOCKS_PAGE_SIZE,
+          pageSize,
         });
         setGroups(response.items);
         setTotal(response.total);
@@ -65,7 +65,7 @@ export default function GroupBlocksPage({ currentUser }: { currentUser: User }) 
         }
       }
     },
-    [filter, page, searchQuery, showStatus],
+    [filter, page, pageSize, searchQuery, showStatus],
   );
 
   useEffect(() => {
@@ -283,16 +283,19 @@ export default function GroupBlocksPage({ currentUser }: { currentUser: User }) 
                 </table>
               </div>
 
-              {totalPages > 1 ? (
-                <ReportPagination
-                  page={page}
-                  total={total}
-                  totalPages={totalPages}
-                  pageSize={GROUP_BLOCKS_PAGE_SIZE}
-                  loading={loading}
-                  onPageChange={setPage}
-                />
-              ) : null}
+              <ReportPagination
+                page={page}
+                total={total}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                loading={loading}
+                summaryLabel="group blocks"
+                onPageChange={setPage}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  setPage(1);
+                }}
+              />
             </>
           )}
         </div>

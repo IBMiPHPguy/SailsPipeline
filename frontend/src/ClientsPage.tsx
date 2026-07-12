@@ -11,11 +11,11 @@ import InactiveClientBadge from "./InactiveClientBadge";
 import PassengerQualifierBadges from "./PassengerQualifierBadges";
 import { formatDisplayPhone } from "./passengerDisplay";
 import ReopenIcon from "./ReopenIcon";
+import ReportPagination from "./ReportPagination";
+import { DEFAULT_PAGE_SIZE, type PageSizeOption } from "./pagination";
 import type { ClientImportResult, ClientListItem } from "./types";
 import ViewIcon from "./ViewIcon";
 import { formatDate } from "./utils";
-
-const CLIENTS_PAGE_SIZE = 25;
 
 type PendingDeactivateClient = {
   id: number;
@@ -29,6 +29,7 @@ export default function ClientsPage() {
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<PageSizeOption>(DEFAULT_PAGE_SIZE);
   const [total, setTotal] = useState(0);
   const [registryCount, setRegistryCount] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
@@ -41,14 +42,14 @@ export default function ClientsPage() {
   const [importSuccessOpen, setImportSuccessOpen] = useState(false);
   const [importError, setImportError] = useState("");
 
-  async function loadClients(activeSearch: string, activePage: number) {
+  async function loadClients(activeSearch: string, activePage: number, activePageSize: number) {
     setLoading(true);
     setError("");
     try {
       const response = await fetchClients({
         q: activeSearch,
         page: activePage,
-        pageSize: CLIENTS_PAGE_SIZE,
+        pageSize: activePageSize,
       });
       setClients(response.items);
       setTotal(response.total);
@@ -74,8 +75,8 @@ export default function ClientsPage() {
   }, [searchInput]);
 
   useEffect(() => {
-    void loadClients(searchQuery, page);
-  }, [searchQuery, page]);
+    void loadClients(searchQuery, page, pageSize);
+  }, [searchQuery, page, pageSize]);
 
   function openClient(clientId: number, mode: "view" | "edit") {
     setModalClientId(clientId);
@@ -109,7 +110,7 @@ export default function ClientsPage() {
     try {
       await deactivateClient(pendingDeactivate.id);
       setPendingDeactivate(null);
-      await loadClients(searchQuery, page);
+      await loadClients(searchQuery, page, pageSize);
     } catch (deactivateError) {
       setError(deactivateError instanceof Error ? deactivateError.message : "Unable to deactivate client.");
     } finally {
@@ -128,14 +129,12 @@ export default function ClientsPage() {
     setError("");
     try {
       await activateClient(client.id);
-      await loadClients(searchQuery, page);
+      await loadClients(searchQuery, page, pageSize);
     } catch (reactivateError) {
       setError(reactivateError instanceof Error ? reactivateError.message : "Unable to reactivate client.");
     }
   }
 
-  const pageStart = total === 0 ? 0 : (page - 1) * CLIENTS_PAGE_SIZE + 1;
-  const pageEnd = total === 0 ? 0 : Math.min(page * CLIENTS_PAGE_SIZE, total);
   const emptyMessage = searchQuery.trim()
     ? "No clients match your search."
     : "No clients yet.";
@@ -278,34 +277,19 @@ export default function ClientsPage() {
                 </table>
               </div>
 
-              <div className="table-pagination">
-                <p className="table-pagination-summary">
-                  {searchQuery.trim()
-                    ? `Showing ${pageStart}-${pageEnd} of ${total} matching clients`
-                    : `Showing ${pageStart}-${pageEnd} of ${total} clients`}
-                </p>
-                <div className="table-pagination-controls">
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    disabled={page <= 1 || loading}
-                    onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
-                  >
-                    Previous
-                  </button>
-                  <span className="table-pagination-status">
-                    Page {totalPages === 0 ? 0 : page} of {totalPages}
-                  </span>
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    disabled={page >= totalPages || totalPages === 0 || loading}
-                    onClick={() => setPage((currentPage) => currentPage + 1)}
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
+              <ReportPagination
+                page={page}
+                total={total}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                loading={loading}
+                summaryLabel={searchQuery.trim() ? "matching clients" : "clients"}
+                onPageChange={setPage}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  setPage(1);
+                }}
+              />
             </>
           )}
         </div>
@@ -322,7 +306,7 @@ export default function ClientsPage() {
           setImportSuccessOpen(true);
           setImporterOpen(false);
           setImportError("");
-          void loadClients(searchQuery, page);
+          void loadClients(searchQuery, page, pageSize);
         }}
       />
       <ClientImportSuccessModal
@@ -340,8 +324,8 @@ export default function ClientsPage() {
         mode={modalMode}
         onClose={closeClientModal}
         onModeChange={setModalMode}
-        onSaved={() => void loadClients(searchQuery, page)}
-        onDeactivated={() => void loadClients(searchQuery, page)}
+        onSaved={() => void loadClients(searchQuery, page, pageSize)}
+        onDeactivated={() => void loadClients(searchQuery, page, pageSize)}
       />
 
       <ChickenSwitchModal

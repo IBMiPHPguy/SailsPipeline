@@ -153,7 +153,7 @@ def test_closed_requests_search_and_pagination(client, auth_headers, sample_requ
     payload = list_response.json()
     assert payload["total"] == 1
     assert payload["page"] == 1
-    assert payload["page_size"] == 25
+    assert payload["page_size"] == 10
     assert payload["total_pages"] == 1
     assert len(payload["items"]) == 1
     assert payload["items"][0]["first_name"] == "Jane"
@@ -177,7 +177,7 @@ def test_open_requests_search_and_pagination(client, auth_headers, sample_reques
     payload = list_response.json()
     assert payload["total"] == 1
     assert payload["page"] == 1
-    assert payload["page_size"] == 25
+    assert payload["page_size"] == 10
     assert payload["total_pages"] == 1
     assert len(payload["items"]) == 1
     assert payload["items"][0]["first_name"] == "Jane"

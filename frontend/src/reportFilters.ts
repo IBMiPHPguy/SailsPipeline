@@ -1,6 +1,7 @@
 import { CRUISE_LINES, PROPOSED_CRUISE_REJECTION_REASONS } from "./formOptions";
+import { DEFAULT_PAGE_SIZE } from "./pagination";
 
-export const REPORT_PAGE_SIZE = 25;
+export const REPORT_PAGE_SIZE = DEFAULT_PAGE_SIZE;
 
 const SORTED_CRUISE_LINES = [...CRUISE_LINES].sort((left, right) => left.localeCompare(right));
 
@@ -48,6 +49,7 @@ export type ReportFilterState = {
   qualifiers: string[];
   state: string;
   page: number;
+  pageSize: number;
 };
 
 export const DEFAULT_REPORT_FILTERS: ReportFilterState = {
@@ -61,13 +63,14 @@ export const DEFAULT_REPORT_FILTERS: ReportFilterState = {
   qualifiers: [],
   state: "all",
   page: 1,
+  pageSize: DEFAULT_PAGE_SIZE,
 };
 
 function baseReportParams(filters: ReportFilterState, page: number): URLSearchParams {
   const params = new URLSearchParams();
   params.set("timeframe", filters.timeframe);
   params.set("page", String(page));
-  params.set("page_size", String(REPORT_PAGE_SIZE));
+  params.set("page_size", String(filters.pageSize || DEFAULT_PAGE_SIZE));
   return params;
 }
 
@@ -104,6 +107,6 @@ export function passengerDemographicsFiltersToQuery(filters: ReportFilterState):
   filters.qualifiers.forEach((qualifier) => params.append("qualifier", qualifier));
   params.set("state", filters.state);
   params.set("page", String(filters.page));
-  params.set("page_size", String(REPORT_PAGE_SIZE));
+  params.set("page_size", String(filters.pageSize || DEFAULT_PAGE_SIZE));
   return params;
 }

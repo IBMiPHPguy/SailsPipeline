@@ -26,7 +26,11 @@ from app.schemas import (
     SalesAnalyticsResponse,
     SalesAnalyticsYearSummary,
 )
-from app.services.booked_cruise_metrics import cruise_total_commission, load_booked_cruises
+from app.services.booked_cruise_metrics import (
+    cruise_room_costs,
+    cruise_total_commission,
+    load_booked_cruises,
+)
 
 
 REJECTION_REASON_NOT_RECORDED = "Reason not recorded"
@@ -205,22 +209,28 @@ def _median_booking_amount(values: list[float]) -> float:
 
 
 def _build_cruise_line_shares(booked_cruises: list[ProposedCruise]) -> list[SalesAnalyticsCruiseLineShare]:
-    costs_by_line: dict[str, list[float]] = defaultdict(list)
+    room_costs_by_line: dict[str, list[float]] = defaultdict(list)
+    booking_count_by_line: dict[str, int] = defaultdict(int)
+    volume_by_line: dict[str, float] = defaultdict(float)
     commission_by_line: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
 
     for cruise in booked_cruises:
         line = (cruise.cruise_line or "Unknown").strip() or "Unknown"
-        costs_by_line[line].append(float(cruise.cost or 0))
+        booking_count_by_line[line] += 1
+        volume_by_line[line] += float(cruise.cost or 0)
+        room_costs_by_line[line].extend(cruise_room_costs(cruise))
         commission_by_line[line] += cruise_total_commission(cruise)
 
-    total_booked = sum(len(costs) for costs in costs_by_line.values())
+    total_booked = sum(booking_count_by_line.values())
     shares: list[SalesAnalyticsCruiseLineShare] = []
-    for line in sorted(costs_by_line.keys(), key=lambda name: (-len(costs_by_line[name]), name)):
-        costs = costs_by_line[line]
-        booking_count = len(costs)
-        total_booking_amount = float(sum(costs))
+    for line in sorted(
+        booking_count_by_line.keys(),
+        key=lambda name: (-booking_count_by_line[name], name),
+    ):
+        booking_count = booking_count_by_line[line]
+        total_booking_amount = volume_by_line[line]
         total_commission = float(commission_by_line[line])
-        median_booking_amount = _median_booking_amount(costs)
+        median_booking_amount = _median_booking_amount(room_costs_by_line[line])
         commission_rate_percent = (
             round((total_commission / total_booking_amount) * 100, 1) if total_booking_amount else 0.0
         )

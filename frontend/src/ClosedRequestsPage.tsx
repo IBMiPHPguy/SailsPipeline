@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import { fetchClosedRequests, reopenRequest } from "./api";
 import { canReopenClosedRequest, closeReasonClassName } from "./closeReasonUtils";
 import IconTooltip from "./IconTooltip";
+import ReportPagination from "./ReportPagination";
+import { DEFAULT_PAGE_SIZE, type PageSizeOption } from "./pagination";
 import type { TravelRequest } from "./types";
 import { formatDestinationSummary, formatDate, formatTimestamp } from "./utils";
 import ReopenIcon from "./ReopenIcon";
 import ViewIcon from "./ViewIcon";
 
-const CLOSED_REQUESTS_PAGE_SIZE = 25;
 const CLOSED_REQUESTS_HEADER_TOOLTIP = `${PRIMARY_CLOSE_REASON} trips stay closed; other requests can be reopened from the table.`;
 
 type ClosedRequestsPageProps = {
@@ -30,17 +31,18 @@ export default function ClosedRequestsPage({
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<PageSizeOption>(DEFAULT_PAGE_SIZE);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
-  async function loadClosedRequests(activeSearch: string, activePage: number) {
+  async function loadClosedRequests(activeSearch: string, activePage: number, activePageSize: number) {
     setLoading(true);
     setError("");
     try {
       const response = await fetchClosedRequests({
         q: activeSearch,
         page: activePage,
-        pageSize: CLOSED_REQUESTS_PAGE_SIZE,
+        pageSize: activePageSize,
       });
       setRequests(response.items);
       setTotal(response.total);
@@ -65,8 +67,8 @@ export default function ClosedRequestsPage({
   }, [searchInput]);
 
   useEffect(() => {
-    void loadClosedRequests(searchQuery, page);
-  }, [searchQuery, page]);
+    void loadClosedRequests(searchQuery, page, pageSize);
+  }, [searchQuery, page, pageSize]);
 
   async function handleReopen(request: TravelRequest) {
     if (!canReopenClosedRequest(request)) {
@@ -77,7 +79,7 @@ export default function ClosedRequestsPage({
     setError("");
     try {
       await reopenRequest(request.id);
-      await loadClosedRequests(searchQuery, page);
+      await loadClosedRequests(searchQuery, page, pageSize);
       onReopened();
     } catch (reopenError) {
       setError(reopenError instanceof Error ? reopenError.message : "Unable to reopen request.");
@@ -86,8 +88,6 @@ export default function ClosedRequestsPage({
     }
   }
 
-  const pageStart = total === 0 ? 0 : (page - 1) * CLOSED_REQUESTS_PAGE_SIZE + 1;
-  const pageEnd = total === 0 ? 0 : Math.min(page * CLOSED_REQUESTS_PAGE_SIZE, total);
   const emptyMessage = searchQuery.trim()
     ? "No closed requests match your search."
     : "No closed requests yet.";
@@ -211,34 +211,19 @@ export default function ClosedRequestsPage({
                 </table>
               </div>
 
-              <div className="table-pagination">
-                <p className="table-pagination-summary">
-                  {searchQuery.trim()
-                    ? `Showing ${pageStart}-${pageEnd} of ${total} matching closed requests`
-                    : `Showing ${pageStart}-${pageEnd} of ${total} closed requests`}
-                </p>
-                <div className="table-pagination-controls">
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    disabled={page <= 1 || loading}
-                    onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
-                  >
-                    Previous
-                  </button>
-                  <span className="table-pagination-status">
-                    Page {totalPages === 0 ? 0 : page} of {totalPages}
-                  </span>
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    disabled={page >= totalPages || totalPages === 0 || loading}
-                    onClick={() => setPage((currentPage) => currentPage + 1)}
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
+              <ReportPagination
+                page={page}
+                total={total}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                loading={loading}
+                summaryLabel={searchQuery.trim() ? "matching closed requests" : "closed requests"}
+                onPageChange={setPage}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  setPage(1);
+                }}
+              />
             </>
           )}
         </div>

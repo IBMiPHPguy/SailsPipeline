@@ -1,5 +1,6 @@
 from datetime import date
 from decimal import Decimal
+from types import SimpleNamespace
 
 from app.constants import (
     PROPOSED_CRUISE_STATUS_ACCEPTED,
@@ -9,6 +10,7 @@ from app.models import ProposedCruise, TravelRequest, User
 from app.security import hash_password
 from app.services.booked_cruise_metrics import (
     count_booked_cruises,
+    cruise_room_costs,
     get_booked_cruise_aggregates,
     sum_booked_cruise_volume,
 )
@@ -99,3 +101,29 @@ def test_booked_cruise_metrics_sum_all_accepted_and_deposited_rows(db):
     assert aggregates.booking_count == 2
     assert aggregates.total_volume == 9000.0
     assert aggregates.total_commission == 900.0
+
+
+def test_cruise_room_costs_expands_multi_room_booking():
+    cruise = SimpleNamespace(
+        cost=8000,
+        cabin_rooms=[
+            {"cost": 3000, "commission": 300},
+            {"cost": 5000, "commission": 500},
+        ],
+        cabin_pricing=[],
+    )
+    assert cruise_room_costs(cruise) == [3000.0, 5000.0]
+
+
+def test_cruise_room_costs_falls_back_to_cruise_cost_without_rooms():
+    cruise = SimpleNamespace(cost=4200, cabin_rooms=[], cabin_pricing=[])
+    assert cruise_room_costs(cruise) == [4200.0]
+
+
+def test_cruise_room_costs_falls_back_to_cabin_pricing():
+    cruise = SimpleNamespace(
+        cost=9000,
+        cabin_rooms=[],
+        cabin_pricing=[{"cost": 3500}, {"cost": 4500}],
+    )
+    assert cruise_room_costs(cruise) == [3500.0, 4500.0]

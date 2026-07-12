@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import AgencyContactSummary from "./AgencyContactSummary";
+import ArchivedInvitationsModal from "./ArchivedInvitationsModal";
 import ChickenSwitchModal from "./ChickenSwitchModal";
 import DeactivateIcon from "./DeactivateIcon";
 import EditIcon from "./EditIcon";
@@ -7,11 +8,12 @@ import IconTooltip from "./IconTooltip";
 import RejectIcon from "./RejectIcon";
 import ReopenIcon from "./ReopenIcon";
 import { createAgencyInvite, cancelAgencyInvite, fetchAgencyTeam, updateAgencyUser } from "./teamApi";
-import type { AgencyTeamMember, User } from "./types";
+import type { AgencyPendingInvite, AgencyTeamMember, User } from "./types";
 import type { UserRole } from "./tenantRoles";
 import { USER_ROLE_TENANT_AGENT, USER_ROLE_TENANT_SUPER_USER } from "./tenantRoles";
 
 const ASSIGNABLE_ROLES: UserRole[] = [USER_ROLE_TENANT_AGENT, USER_ROLE_TENANT_SUPER_USER];
+const INVITE_ARCHIVE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 
 function formatRoleLabel(role: string): string {
   if (role === USER_ROLE_TENANT_SUPER_USER) {
@@ -29,6 +31,29 @@ function formatTimestamp(value: string): string {
     return value;
   }
   return date.toLocaleString();
+}
+
+function inviteEndedAtMs(invite: AgencyPendingInvite): number | null {
+  if (invite.token_status === "Cancelled") {
+    if (!invite.cancelled_at) {
+      return null;
+    }
+    const cancelledAt = new Date(invite.cancelled_at).getTime();
+    return Number.isNaN(cancelledAt) ? null : cancelledAt;
+  }
+  if (invite.token_status === "Expired") {
+    const expiresAt = new Date(invite.expires_at).getTime();
+    return Number.isNaN(expiresAt) ? null : expiresAt;
+  }
+  return null;
+}
+
+function isArchivedInvite(invite: AgencyPendingInvite, nowMs: number = Date.now()): boolean {
+  const endedAt = inviteEndedAtMs(invite);
+  if (endedAt === null) {
+    return false;
+  }
+  return endedAt < nowMs - INVITE_ARCHIVE_AFTER_MS;
 }
 
 type TeamPageProps = {
@@ -67,6 +92,7 @@ export default function TeamPage({ currentUser }: TeamPageProps) {
   const [userStatusFilter, setUserStatusFilter] = useState<UserStatusFilter>("active");
   const [pendingDeactivateUser, setPendingDeactivateUser] = useState<PendingDeactivateUser | null>(null);
   const [togglingUserId, setTogglingUserId] = useState<number | null>(null);
+  const [archivedInvitesOpen, setArchivedInvitesOpen] = useState(false);
 
   const loadTeam = useCallback(async () => {
     setLoading(true);
@@ -221,7 +247,14 @@ export default function TeamPage({ currentUser }: TeamPageProps) {
     }
   }
 
-  const openInvites = invitations;
+  const visibleInvites = useMemo(
+    () => invitations.filter((invite) => !isArchivedInvite(invite)),
+    [invitations],
+  );
+  const archivedInvites = useMemo(
+    () => invitations.filter((invite) => isArchivedInvite(invite)),
+    [invitations],
+  );
 
   return (
     <div className="team-page-grid">
@@ -477,8 +510,15 @@ export default function TeamPage({ currentUser }: TeamPageProps) {
       />
 
       <section className="card section-card team-pending-card">
-        <header className="section-card-header">
+        <header className="section-card-header team-pending-card-header">
           <h3>Pending invitations</h3>
+          <button
+            type="button"
+            className="secondary-button team-archived-invites-button"
+            onClick={() => setArchivedInvitesOpen(true)}
+          >
+            See archived expired/cancelled
+          </button>
         </header>
         <div className="section-card-body">
           {!loading ? (
@@ -494,14 +534,14 @@ export default function TeamPage({ currentUser }: TeamPageProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {openInvites.length === 0 ? (
+                  {visibleInvites.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="muted">
                         No pending invitations.
                       </td>
                     </tr>
                   ) : (
-                    openInvites.map((invite) => (
+                    visibleInvites.map((invite) => (
                       <tr key={invite.id}>
                         <td>{invite.invite_email}</td>
                         <td>{formatRoleLabel(invite.role)}</td>
@@ -533,6 +573,12 @@ export default function TeamPage({ currentUser }: TeamPageProps) {
           ) : null}
         </div>
       </section>
+
+      <ArchivedInvitationsModal
+        open={archivedInvitesOpen}
+        invitations={archivedInvites}
+        onClose={() => setArchivedInvitesOpen(false)}
+      />
     </div>
   );
 }

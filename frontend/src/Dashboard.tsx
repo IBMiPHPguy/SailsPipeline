@@ -6,10 +6,10 @@ import { fetchOpenRequests } from "./api";
 import { formatMoney } from "./cabinPricing";
 import { getNextTaskBadgeClass } from "./nextTaskBadge";
 import OpenRequestQuickActions from "./OpenRequestQuickActions";
+import ReportPagination from "./ReportPagination";
+import { DEFAULT_PAGE_SIZE, type PageSizeOption } from "./pagination";
 import type { DashboardData, DashboardOpenRequest } from "./types";
 import { formatDestinationSummary, formatDate, formatTimestamp } from "./utils";
-
-const OPEN_REQUESTS_PAGE_SIZE = 25;
 
 function formatSuccessfulSalesCloseRate(rate: number | null): string {
   if (rate === null) {
@@ -47,12 +47,13 @@ export default function Dashboard({
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<PageSizeOption>(DEFAULT_PAGE_SIZE);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [listVersion, setListVersion] = useState(0);
   const loadRequestRef = useRef(0);
 
-  async function loadOpenRequests(activeSearch: string, activePage: number) {
+  async function loadOpenRequests(activeSearch: string, activePage: number, activePageSize: number) {
     const requestId = loadRequestRef.current + 1;
     loadRequestRef.current = requestId;
     setOpenRequestsLoading(true);
@@ -61,7 +62,7 @@ export default function Dashboard({
       const response = await fetchOpenRequests({
         q: activeSearch,
         page: activePage,
-        pageSize: OPEN_REQUESTS_PAGE_SIZE,
+        pageSize: activePageSize,
       });
       if (requestId !== loadRequestRef.current) {
         return;
@@ -99,11 +100,9 @@ export default function Dashboard({
   }, [searchInput]);
 
   useEffect(() => {
-    void loadOpenRequests(searchQuery, page);
-  }, [searchQuery, page, dashboard.open_count, listVersion]);
+    void loadOpenRequests(searchQuery, page, pageSize);
+  }, [searchQuery, page, pageSize, dashboard.open_count, listVersion]);
 
-  const pageStart = total === 0 ? 0 : (page - 1) * OPEN_REQUESTS_PAGE_SIZE + 1;
-  const pageEnd = total === 0 ? 0 : Math.min(page * OPEN_REQUESTS_PAGE_SIZE, total);
   const emptyMessage = searchQuery.trim()
     ? "No open requests match your search."
     : "No open requests yet. Create the first one.";
@@ -269,34 +268,19 @@ export default function Dashboard({
                 </table>
               </div>
 
-              <div className="table-pagination">
-                <p className="table-pagination-summary">
-                  {searchQuery.trim()
-                    ? `Showing ${pageStart}-${pageEnd} of ${total} matching open requests`
-                    : `Showing ${pageStart}-${pageEnd} of ${total} open requests`}
-                </p>
-                <div className="table-pagination-controls">
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    disabled={page <= 1 || openRequestsLoading}
-                    onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
-                  >
-                    Previous
-                  </button>
-                  <span className="table-pagination-status">
-                    Page {totalPages === 0 ? 0 : page} of {totalPages}
-                  </span>
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    disabled={page >= totalPages || totalPages === 0 || openRequestsLoading}
-                    onClick={() => setPage((currentPage) => currentPage + 1)}
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
+              <ReportPagination
+                page={page}
+                total={total}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                loading={openRequestsLoading}
+                summaryLabel={searchQuery.trim() ? "matching open requests" : "open requests"}
+                onPageChange={setPage}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  setPage(1);
+                }}
+              />
             </>
           )}
         </div>

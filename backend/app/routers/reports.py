@@ -15,6 +15,7 @@ from app.schemas import (
     SupplierLedgerPageRead,
 )
 from app.services.agent_capability_service import get_capabilities_for_user
+from app.pagination import DEFAULT_PAGE_SIZE
 from app.services.reports_service import (
     ReportQueryFilters,
     normalize_report_qualifiers,
@@ -43,7 +44,7 @@ def _filters_from_query(
     qualifier: list[str] = Query(default=[]),
     state: str = Query(default="all"),
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=25, ge=1, le=100),
+    page_size: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=100),
 ) -> ReportQueryFilters:
     caps = get_capabilities_for_user(db, current_user)
     owned_by_user_id = current_user.id if caps.reports_own_only else None

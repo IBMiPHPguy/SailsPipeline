@@ -26,6 +26,32 @@ def cruise_total_commission(cruise: ProposedCruise) -> Decimal:
     return total
 
 
+def cruise_room_costs(cruise: ProposedCruise) -> list[float]:
+    """Return one cost per booked room for median price-per-room metrics."""
+    costs: list[float] = []
+    for room in cruise.cabin_rooms or []:
+        if not isinstance(room, dict):
+            continue
+        try:
+            costs.append(float(room.get("cost") or 0))
+        except (TypeError, ValueError):
+            continue
+    if costs:
+        return costs
+
+    for item in cruise.cabin_pricing or []:
+        if not isinstance(item, dict):
+            continue
+        try:
+            costs.append(float(item.get("cost") or 0))
+        except (TypeError, ValueError):
+            continue
+    if costs:
+        return costs
+
+    return [float(cruise.cost or 0)]
+
+
 def booked_cruises_query(
     db: Session,
     agency_id: str,

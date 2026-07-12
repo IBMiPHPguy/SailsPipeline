@@ -38,6 +38,7 @@ from app.schemas import (
     TravelRequestRead,
     TravelRequestUpdate,
 )
+from app.pagination import DEFAULT_PAGE_SIZE, PAGE_SIZE_MAX
 from app.services.communication_ai_service import (
     generate_chat_log_ai_summary_note,
     generate_transcript_ai_summary_note,
@@ -86,11 +87,11 @@ def list_requests_route(
 def list_open_requests_route(
     q: str = "",
     page: int = 1,
-    page_size: int = 25,
+    page_size: int = DEFAULT_PAGE_SIZE,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> OpenRequestsPageRead:
-    normalized_page_size = max(1, min(page_size, 100))
+    normalized_page_size = max(1, min(page_size, PAGE_SIZE_MAX))
     items, total = search_open_requests(
         db, query=q, page=page, page_size=normalized_page_size, current_user=current_user
     )
@@ -107,11 +108,11 @@ def list_open_requests_route(
 def list_closed_requests_route(
     q: str = "",
     page: int = 1,
-    page_size: int = 25,
+    page_size: int = DEFAULT_PAGE_SIZE,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> ClosedRequestsPageRead:
-    normalized_page_size = max(1, min(page_size, 100))
+    normalized_page_size = max(1, min(page_size, PAGE_SIZE_MAX))
     items, total = search_closed_requests(
         db, query=q, page=page, page_size=normalized_page_size, current_user=current_user
     )

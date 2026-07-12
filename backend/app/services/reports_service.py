@@ -46,12 +46,16 @@ from app.schemas import (
     SupplierLedgerPageRead,
 )
 from app.services.agency_rollup_service import get_or_refresh_report_metadata_cache
-from app.services.booked_cruise_metrics import cruise_total_commission, sum_booked_cruise_financials
+from app.services.booked_cruise_metrics import (
+    cruise_room_costs,
+    cruise_total_commission,
+    sum_booked_cruise_financials,
+)
 from app.services.request_service import resolve_next_open_task
-from app.services.request_service import resolve_next_open_task
+from app.pagination import DEFAULT_PAGE_SIZE, PAGE_SIZE_MAX
 
-REPORTS_PAGE_SIZE_DEFAULT = 25
-REPORTS_PAGE_SIZE_MAX = 100
+REPORTS_PAGE_SIZE_DEFAULT = DEFAULT_PAGE_SIZE
+REPORTS_PAGE_SIZE_MAX = PAGE_SIZE_MAX
 
 ACTIVE_QUOTE_STATUSES = (
     PROPOSED_CRUISE_STATUS_PROPOSED,
@@ -465,7 +469,7 @@ def _build_supplier_ledger_rows_from_aggregates(
     costs_by_line: dict[str, list[float]] = {}
     for cruise in cruises:
         line = (cruise.cruise_line or "Unknown").strip() or "Unknown"
-        costs_by_line.setdefault(line, []).append(float(cruise.cost or 0))
+        costs_by_line.setdefault(line, []).extend(cruise_room_costs(cruise))
         commission_by_line.setdefault(line, Decimal("0"))
         commission_by_line[line] += Decimal(str(_cruise_total_commission(cruise)))
 

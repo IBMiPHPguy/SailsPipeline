@@ -16,10 +16,11 @@ from app.constants import CABIN_TYPES
 from app.models import AgencyGroup, AgencyGroupInventory, TravelRequest, TravelRequestGroupBooking
 from app.schemas import normalize_cruise_line_value
 from app.services.agency_service import NOT_FOUND, require_record_for_agency
+from app.pagination import DEFAULT_PAGE_SIZE, PAGE_SIZE_MAX
 
 DEFAULT_TC_RATIO = "1:16"
-AGENCY_GROUPS_PAGE_SIZE_DEFAULT = 7
-AGENCY_GROUPS_PAGE_SIZE_MAX = 50
+AGENCY_GROUPS_PAGE_SIZE_DEFAULT = DEFAULT_PAGE_SIZE
+AGENCY_GROUPS_PAGE_SIZE_MAX = PAGE_SIZE_MAX
 AGENCY_GROUPS_PICKER_LIMIT = 100
 
 

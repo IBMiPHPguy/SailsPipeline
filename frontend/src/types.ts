@@ -142,6 +142,7 @@ export type AgencyPendingInvite = {
   invite_email: string;
   role: string;
   expires_at: string;
+  cancelled_at?: string | null;
   token_status: string;
 };
 

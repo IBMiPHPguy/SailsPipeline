@@ -69,6 +69,7 @@ from app.services.booked_cruise_metrics import calculate_open_pipeline_value as 
 from app.services.passenger_service import sync_primary_passenger_from_request
 from app.tenant_context import require_current_agency_id
 from app.services.proposed_cruise_service import proposed_cruise_to_read
+from app.pagination import DEFAULT_PAGE_SIZE, PAGE_SIZE_MAX
 from app.workflow_helpers import (
     TASK_KEY_FOLLOW_UP_RESEARCH,
     ensure_follow_up_due_date,
@@ -309,8 +310,8 @@ def list_requests(db: Session, *, current_user: User | None = None) -> list[Trav
     return query.order_by(TravelRequest.created_at.desc()).all()
 
 
-CLOSED_REQUESTS_PAGE_SIZE_DEFAULT = 25
-CLOSED_REQUESTS_PAGE_SIZE_MAX = 100
+CLOSED_REQUESTS_PAGE_SIZE_DEFAULT = DEFAULT_PAGE_SIZE
+CLOSED_REQUESTS_PAGE_SIZE_MAX = PAGE_SIZE_MAX
 
 
 def search_closed_requests(
