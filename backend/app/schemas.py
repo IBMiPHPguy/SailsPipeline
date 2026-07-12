@@ -340,6 +340,7 @@ class AgencyPendingInvite(BaseModel):
     invite_email: EmailStr
     role: str
     expires_at: datetime
+    cancelled_at: datetime | None = None
     token_status: str
 
 

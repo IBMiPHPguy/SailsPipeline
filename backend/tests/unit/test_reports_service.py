@@ -180,6 +180,66 @@ def test_supplier_ledger_page_aggregates_deposited_volume(db):
     assert row.average_commission_rate_percent == 10.0
 
 
+def test_supplier_ledger_median_price_uses_per_room_costs(db):
+    user = _create_user(db, username="ledger-median-agent")
+    single_room = _create_request(db, user=user)
+    multi_room = _create_request(db, user=user)
+    db.add(
+        ProposedCruise(
+            travel_request_id=single_room.id,
+            departure_date=date(2026, 3, 15),
+            cruise_line="Royal Caribbean International",
+            ship="Icon of the Seas",
+            number_of_nights=7,
+            itinerary_name="Western Caribbean",
+            room_category="Balcony",
+            room_number="1234",
+            passengers_in_room=2,
+            deposit_amount=500,
+            deposit_due_date=date(2026, 1, 15),
+            final_payment_due_date=date(2026, 2, 15),
+            cost=4000,
+            cabin_rooms=[{"cost": 4000, "commission": 400}],
+            status=PROPOSED_CRUISE_STATUS_DEPOSITED,
+            created_by_id=user.id,
+            updated_by_id=user.id,
+        )
+    )
+    db.add(
+        ProposedCruise(
+            travel_request_id=multi_room.id,
+            departure_date=date(2026, 4, 10),
+            cruise_line="Royal Caribbean International",
+            ship="Wonder of the Seas",
+            number_of_nights=7,
+            itinerary_name="Eastern Caribbean",
+            room_category="Suite",
+            room_number="5678",
+            passengers_in_room=4,
+            deposit_amount=1000,
+            deposit_due_date=date(2026, 2, 1),
+            final_payment_due_date=date(2026, 3, 1),
+            cost=8000,
+            cabin_rooms=[
+                {"cost": 3000, "commission": 300},
+                {"cost": 5000, "commission": 500},
+            ],
+            status=PROPOSED_CRUISE_STATUS_ACCEPTED,
+            created_by_id=user.id,
+            updated_by_id=user.id,
+        )
+    )
+    db.commit()
+
+    page = get_supplier_ledger_page(db, ReportQueryFilters(agency_id=DEFAULT_AGENCY_ID,))
+    assert page.total == 1
+    row = page.items[0]
+    assert row.active_booking_count == 2
+    assert row.total_volume == 12000.0
+    # Median of [4000, 3000, 5000] is 4000 — not median of booking totals [4000, 8000] = 6000
+    assert row.median_price_per_room == 4000.0
+
+
 def test_supplier_ledger_page_includes_accepted_and_deposited_cruises(db):
     user = _create_user(db, username="ledger-status-agent")
     open_request = _create_request(db, user=user)

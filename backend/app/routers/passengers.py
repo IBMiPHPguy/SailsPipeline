@@ -23,6 +23,7 @@ from app.passenger_helpers import (
     search_clients_with_request_counts,
     search_passengers,
 )
+from app.pagination import DEFAULT_PAGE_SIZE, PAGE_SIZE_MAX
 from app.schemas import (
     ClientsPageRead,
     PassengerCreate,
@@ -60,11 +61,11 @@ def search_passenger_registry(
 def list_passenger_registry(
     q: str = "",
     page: int = 1,
-    page_size: int = 25,
+    page_size: int = DEFAULT_PAGE_SIZE,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ) -> ClientsPageRead:
-    normalized_page_size = max(1, min(page_size, 100))
+    normalized_page_size = max(1, min(page_size, PAGE_SIZE_MAX))
     rows, total, registry_count = search_clients_with_request_counts(
         db,
         query=q,

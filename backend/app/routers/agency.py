@@ -72,6 +72,7 @@ def read_agency_team(
                 invite_email=invitation.invite_email,
                 role=invitation.role,
                 expires_at=invitation.expires_at,
+                cancelled_at=invitation.cancelled_at,
                 token_status=agency_invitation_token_status(invitation),
             )
             for invitation in team["invitations"]

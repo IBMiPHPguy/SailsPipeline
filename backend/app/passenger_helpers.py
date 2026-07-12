@@ -4,9 +4,10 @@ from sqlalchemy.orm import Session
 from app.models import Passenger, RequestPassenger
 from app.services.agency_service import get_travel_request_for_agency
 from app.tenant_context import require_current_agency_id
+from app.pagination import DEFAULT_PAGE_SIZE, PAGE_SIZE_MAX
 
-CLIENTS_PAGE_SIZE_DEFAULT = 25
-CLIENTS_PAGE_SIZE_MAX = 100
+CLIENTS_PAGE_SIZE_DEFAULT = DEFAULT_PAGE_SIZE
+CLIENTS_PAGE_SIZE_MAX = PAGE_SIZE_MAX
 
 
 def _client_search_filters(term: str) -> list:

@@ -2333,6 +2333,26 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.table-pagination-page-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.88rem;
+  color: #334e68;
+  white-space: nowrap;
+}
+
+.table-pagination-page-size select {
+  min-width: 4.5rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #102a43;
+  font-size: 0.88rem;
 }
 
 .table-pagination-status {
@@ -9209,6 +9229,23 @@ button.modal-ghost:hover:not(:disabled) {
 .team-pending-card {
   padding: 0;
   overflow: hidden;
+}
+
+.team-pending-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.team-pending-card-header h3 {
+  min-width: 0;
+}
+
+.team-archived-invites-button {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .team-members-card,

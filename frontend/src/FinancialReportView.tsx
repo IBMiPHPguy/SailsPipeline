@@ -13,7 +13,6 @@ import ReportPagination from "./ReportPagination";
 import { getReportById, type ReportId } from "./reportsCatalog";
 import {
   DEFAULT_REPORT_FILTERS,
-  REPORT_PAGE_SIZE,
   type ReportFilterState,
 } from "./reportFilters";
 import { buildExcelFilename } from "./reportExport";
@@ -335,9 +334,11 @@ export default function FinancialReportView({ reportId, onBack }: FinancialRepor
           page={filters.page}
           total={total}
           totalPages={totalPages}
-          pageSize={REPORT_PAGE_SIZE}
+          pageSize={filters.pageSize}
           loading={loading}
+          className="report-table-pagination"
           onPageChange={(page) => setFilters((current) => ({ ...current, page }))}
+          onPageSizeChange={(pageSize) => setFilters((current) => ({ ...current, pageSize, page: 1 }))}
         />
       </section>
     </section>

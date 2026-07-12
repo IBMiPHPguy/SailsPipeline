@@ -111,7 +111,7 @@ def test_clients_search_and_pagination(client, auth_headers, sample_request_payl
     assert payload["registry_count"] >= 1
     assert payload["total"] >= 1
     assert payload["page"] == 1
-    assert payload["page_size"] == 25
+    assert payload["page_size"] == 10
     assert len(payload["items"]) >= 1
 
     search_response = client.get("/api/passengers?q=Jane", headers=auth_headers)
