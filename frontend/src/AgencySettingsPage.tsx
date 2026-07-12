@@ -6,6 +6,7 @@ import {
   type AgencySettings,
 } from "./agencySettingsApi";
 import { contrastTextColor, resolveBrandLogoUrl } from "./portalBranding";
+import AgencyAgentPermissionsCard from "./AgencyAgentPermissionsCard";
 import AgencyAiSettingsCard from "./AgencyAiSettingsCard";
 import "./portal-branding.css";
 
@@ -171,6 +172,8 @@ export default function AgencySettingsPage({
       {success ? <p className="status success agency-settings-status">{success}</p> : null}
 
       <AgencyAiSettingsCard />
+
+      <AgencyAgentPermissionsCard />
 
       {!loading && settings && draft ? (
         <form className="agency-settings-form" onSubmit={(event) => void handleSave(event)}>

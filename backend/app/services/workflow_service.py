@@ -268,7 +268,7 @@ def start_workflow(
     payload: RequestWorkflowCreate,
     current_user: User,
 ) -> RequestWorkflowLive:
-    request = get_open_request(db, request_id)
+    request = get_open_request(db, request_id, current_user)
     if get_active_workflow(db, request_id) is not None:
         raise HTTPException(
             status_code=400,
@@ -326,7 +326,7 @@ def update_workflow(
     payload: RequestWorkflowUpdate,
     current_user: User,
 ) -> RequestWorkflowLive:
-    request = get_open_request(db, request_id)
+    request = get_open_request(db, request_id, current_user)
     workflow = db.get(RequestWorkflowLive, workflow_id)
     require_record_for_agency(workflow, agency_id=require_current_agency_id())
     assert_child_belongs_to_request(
@@ -379,7 +379,7 @@ def update_task(
     payload: RequestTaskUpdate,
     current_user: User,
 ) -> RequestWorkflowLive:
-    request = get_open_request(db, request_id)
+    request = get_open_request(db, request_id, current_user)
     task = db.get(RequestTaskLive, task_id)
     require_record_for_agency(task, agency_id=require_current_agency_id())
     assert_child_belongs_to_request(

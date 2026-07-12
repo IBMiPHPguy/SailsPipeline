@@ -15,6 +15,7 @@ from app.schemas import (
 from app.services.agency_service import (
     assert_child_belongs_to_request,
     get_travel_request_for_agency,
+    get_travel_request_for_user,
     require_record_for_agency,
 )
 from app.services.communication_service import (
@@ -66,8 +67,9 @@ def get_communication(
     request_id: int,
     communication_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> RequestCommunication:
+    get_travel_request_for_user(db, request_id, current_user, require_manage=False)
     return _load_communication_for_request(db, request_id=request_id, communication_id=communication_id)
 
 
@@ -81,7 +83,7 @@ def generate_research_communication_from_proposed_cruises_route(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> GenerateResearchCommunicationResponse:
-    request = get_open_request(db, request_id)
+    request = get_open_request(db, request_id, current_user)
     return generate_research_communication_from_proposed_cruises(
         db,
         request=request,
@@ -100,7 +102,7 @@ async def send_research_communication_route(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> SendResearchCommunicationResponse:
-    request = get_open_request(db, request_id)
+    request = get_open_request(db, request_id, current_user)
     communication = _load_communication_for_request(
         db,
         request_id=request_id,
@@ -129,7 +131,7 @@ def add_communication(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> RequestCommunication:
-    request = get_open_request(db, request_id)
+    request = get_open_request(db, request_id, current_user)
     return create_communication(
         db,
         request=request,
@@ -157,7 +159,7 @@ def update_communication(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> RequestCommunication:
-    request = get_open_request(db, request_id)
+    request = get_open_request(db, request_id, current_user)
     communication = _load_communication_for_request(
         db,
         request_id=request_id,
@@ -180,7 +182,7 @@ def delete_communication(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> None:
-    request = get_open_request(db, request_id)
+    request = get_open_request(db, request_id, current_user)
     communication = _load_communication_for_request(
         db,
         request_id=request_id,

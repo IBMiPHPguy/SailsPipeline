@@ -17,4 +17,4 @@ def get_dashboard_route(
 ) -> DashboardResponse:
     if current_user.agency_id is None:
         raise HTTPException(status_code=403, detail="Tenant membership required.")
-    return get_dashboard(db, current_user.agency_id)
+    return get_dashboard(db, current_user.agency_id, current_user=current_user)

@@ -5,13 +5,14 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.rate_limit import limiter
-from app.schemas import MessageResponse, PublicRegisterRequest, TokenResponse, UserRead
+from app.schemas import MessageResponse, PublicRegisterRequest, TokenResponse
 from app.security import create_access_token
 from app.services.public_registration_service import (
     PUBLIC_REGISTRATION_SUCCESS_MESSAGE,
     PublicRegistrationUnavailableError,
     register_public_tenant,
 )
+from app.services.user_read_service import user_to_read
 from app.services.welcome_email_service import dispatch_tenant_welcome_email
 
 router = APIRouter(prefix="/api/public", tags=["public"])
@@ -59,4 +60,4 @@ async def register_agency_workspace(
         agency_id=user.agency_id,
         role=user.role,
     )
-    return TokenResponse(access_token=access_token, user=UserRead.model_validate(user))
+    return TokenResponse(access_token=access_token, user=user_to_read(db, user))

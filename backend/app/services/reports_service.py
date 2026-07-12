@@ -73,6 +73,7 @@ class ReportQueryFilters:
     state: str = "all"
     page: int = 1
     page_size: int = REPORTS_PAGE_SIZE_DEFAULT
+    owned_by_user_id: int | None = None
 
 
 def normalize_report_qualifiers(values: list[str]) -> tuple[str, ...]:
@@ -114,6 +115,8 @@ def _reports_query(db: Session, filters: ReportQueryFilters | None = None):
     )
     if agency_id is not None:
         query = query.filter(TravelRequest.agency_id == agency_id)
+    if filters is not None and filters.owned_by_user_id is not None:
+        query = query.filter(TravelRequest.created_by_id == filters.owned_by_user_id)
     if filters is not None:
         query = _apply_travel_request_report_filters(query, filters)
     return query
@@ -267,6 +270,10 @@ def _booked_cruises_query(db: Session, filters: ReportQueryFilters):
         ProposedCruise.agency_id == filters.agency_id,
         ProposedCruise.status.in_(BOOKED_CRUISE_STATUSES),
     )
+    if filters.owned_by_user_id is not None:
+        query = query.join(
+            TravelRequest, TravelRequest.id == ProposedCruise.travel_request_id
+        ).filter(TravelRequest.created_by_id == filters.owned_by_user_id)
     query = _apply_proposed_cruise_timeframe_filter(query, filters.timeframe)
 
     if filters.cruise_line and filters.cruise_line != "all":

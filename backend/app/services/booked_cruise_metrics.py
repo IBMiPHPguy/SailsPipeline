@@ -26,39 +26,53 @@ def cruise_total_commission(cruise: ProposedCruise) -> Decimal:
     return total
 
 
-def booked_cruises_query(db: Session, agency_id: str) -> Query:
-    return db.query(ProposedCruise).filter(
+def booked_cruises_query(
+    db: Session,
+    agency_id: str,
+    *,
+    owned_by_user_id: int | None = None,
+) -> Query:
+    query = db.query(ProposedCruise).filter(
         ProposedCruise.agency_id == agency_id,
         ProposedCruise.status.in_(BOOKED_CRUISE_STATUSES),
     )
+    if owned_by_user_id is not None:
+        query = query.join(
+            TravelRequest, TravelRequest.id == ProposedCruise.travel_request_id
+        ).filter(TravelRequest.created_by_id == owned_by_user_id)
+    return query
 
 
-def count_booked_cruises(db: Session, agency_id: str) -> int:
-    return (
-        db.query(func.count(ProposedCruise.id))
-        .filter(
-            ProposedCruise.agency_id == agency_id,
-            ProposedCruise.status.in_(BOOKED_CRUISE_STATUSES),
-        )
-        .scalar()
-        or 0
-    )
+def count_booked_cruises(
+    db: Session,
+    agency_id: str,
+    *,
+    owned_by_user_id: int | None = None,
+) -> int:
+    return booked_cruises_query(db, agency_id, owned_by_user_id=owned_by_user_id).count()
 
 
-def sum_booked_cruise_volume(db: Session, agency_id: str) -> float:
+def sum_booked_cruise_volume(
+    db: Session,
+    agency_id: str,
+    *,
+    owned_by_user_id: int | None = None,
+) -> float:
     total = (
-        db.query(func.coalesce(func.sum(ProposedCruise.cost), 0))
-        .filter(
-            ProposedCruise.agency_id == agency_id,
-            ProposedCruise.status.in_(BOOKED_CRUISE_STATUSES),
-        )
+        booked_cruises_query(db, agency_id, owned_by_user_id=owned_by_user_id)
+        .with_entities(func.coalesce(func.sum(ProposedCruise.cost), 0))
         .scalar()
     )
     return float(total or 0)
 
 
-def sum_booked_cruise_commission(db: Session, agency_id: str) -> float:
-    cruises = booked_cruises_query(db, agency_id).all()
+def sum_booked_cruise_commission(
+    db: Session,
+    agency_id: str,
+    *,
+    owned_by_user_id: int | None = None,
+) -> float:
+    cruises = booked_cruises_query(db, agency_id, owned_by_user_id=owned_by_user_id).all()
     return float(sum(cruise_total_commission(cruise) for cruise in cruises))
 
 
@@ -69,16 +83,26 @@ class BookedCruiseAggregates:
     total_commission: float
 
 
-def get_booked_cruise_aggregates(db: Session, agency_id: str) -> BookedCruiseAggregates:
+def get_booked_cruise_aggregates(
+    db: Session,
+    agency_id: str,
+    *,
+    owned_by_user_id: int | None = None,
+) -> BookedCruiseAggregates:
     return BookedCruiseAggregates(
-        booking_count=count_booked_cruises(db, agency_id),
-        total_volume=sum_booked_cruise_volume(db, agency_id),
-        total_commission=sum_booked_cruise_commission(db, agency_id),
+        booking_count=count_booked_cruises(db, agency_id, owned_by_user_id=owned_by_user_id),
+        total_volume=sum_booked_cruise_volume(db, agency_id, owned_by_user_id=owned_by_user_id),
+        total_commission=sum_booked_cruise_commission(db, agency_id, owned_by_user_id=owned_by_user_id),
     )
 
 
-def load_booked_cruises(db: Session, agency_id: str) -> list[ProposedCruise]:
-    return booked_cruises_query(db, agency_id).all()
+def load_booked_cruises(
+    db: Session,
+    agency_id: str,
+    *,
+    owned_by_user_id: int | None = None,
+) -> list[ProposedCruise]:
+    return booked_cruises_query(db, agency_id, owned_by_user_id=owned_by_user_id).all()
 
 
 def booked_cruise_line_aggregates(
@@ -86,9 +110,10 @@ def booked_cruise_line_aggregates(
     agency_id: str,
     *,
     cruises: list[ProposedCruise] | None = None,
+    owned_by_user_id: int | None = None,
 ) -> list[tuple[str, int, float]]:
     if cruises is None:
-        cruises = load_booked_cruises(db, agency_id)
+        cruises = load_booked_cruises(db, agency_id, owned_by_user_id=owned_by_user_id)
 
     volume_by_line: dict[str, float] = {}
     count_by_line: dict[str, int] = {}
@@ -109,11 +134,18 @@ def sum_booked_cruise_financials(cruises: list[ProposedCruise]) -> tuple[float, 
     return gross_total, commission_total
 
 
-def calculate_open_pipeline_value(db: Session, *, agency_id: str | None = None) -> float:
+def calculate_open_pipeline_value(
+    db: Session,
+    *,
+    agency_id: str | None = None,
+    owned_by_user_id: int | None = None,
+) -> float:
     """Sum booked cruise costs on open requests; otherwise the highest active quote per request."""
     request_query = db.query(TravelRequest.id).filter(TravelRequest.status == REQUEST_STATUS_OPEN)
     if agency_id is not None:
         request_query = request_query.filter(TravelRequest.agency_id == agency_id)
+    if owned_by_user_id is not None:
+        request_query = request_query.filter(TravelRequest.created_by_id == owned_by_user_id)
 
     open_request_ids = [row[0] for row in request_query.all()]
     if not open_request_ids:

@@ -11,12 +11,14 @@ import RequestForm, { emptyRequestForm, isReturnAfterDeparture } from "./Request
 import WorkflowsSection from "./WorkflowsSection";
 import WorkspaceBandHeader from "./WorkspaceBandHeader";
 import { REQUEST_STATUS_CLOSED, WORKFLOW_TYPE_ENTER_TRIP_CRM } from "./formOptions";
-import type { TravelRequestDetail, TravelRequestInput } from "./types";
+import type { TravelRequestDetail, TravelRequestInput, User } from "./types";
 import { formatDestinationSummary, formatDate, formatTimestamp } from "./utils";
 import { getActiveWorkflow } from "./workflowForm";
+import { canManageTravelRequest } from "./agentCapabilities";
 
 type RequestWorkspaceProps = {
   requestId: number;
+  currentUser: User;
   onBack: () => void;
   onClosed: () => void;
 };
@@ -86,7 +88,12 @@ function buildSummaryRequest(
   };
 }
 
-export default function RequestWorkspace({ requestId, onBack, onClosed }: RequestWorkspaceProps) {
+export default function RequestWorkspace({
+  requestId,
+  currentUser,
+  onBack,
+  onClosed,
+}: RequestWorkspaceProps) {
   const [request, setRequest] = useState<TravelRequestDetail | null>(null);
   const [form, setForm] = useState<TravelRequestInput>(emptyRequestForm);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("details");
@@ -102,6 +109,9 @@ export default function RequestWorkspace({ requestId, onBack, onClosed }: Reques
   const [error, setError] = useState("");
 
   const isClosed = request?.status === REQUEST_STATUS_CLOSED;
+  const canManage =
+    request != null ? canManageTravelRequest(currentUser, request) : false;
+  const mutationsLocked = Boolean(isClosed || (request != null && !canManage));
   const activeWorkflow = request ? getActiveWorkflow(request.request_workflows) : null;
   const enterTripInCrmActive = activeWorkflow?.workflow_type === WORKFLOW_TYPE_ENTER_TRIP_CRM;
 
@@ -152,7 +162,7 @@ export default function RequestWorkspace({ requestId, onBack, onClosed }: Reques
   }
 
   async function handleSave() {
-    if (isClosed) {
+    if (mutationsLocked) {
       return;
     }
 
@@ -320,7 +330,7 @@ export default function RequestWorkspace({ requestId, onBack, onClosed }: Reques
             </span>
           </div>
 
-          {!isClosed ? (
+          {!mutationsLocked ? (
             <div className="request-summary-compact-actions">
               <button type="button" disabled={submitting} onClick={() => void handleSave()}>
                 {submitting ? "Saving..." : "Save"}
@@ -344,6 +354,13 @@ export default function RequestWorkspace({ requestId, onBack, onClosed }: Reques
           {request.close_reason ? <span>Closed: {request.close_reason}</span> : null}
         </div>
       </section>
+
+      {!canManage && !isClosed ? (
+        <p className="status warning">
+          You can view this request, but your agency permissions do not allow managing another agent&apos;s
+          request.
+        </p>
+      ) : null}
 
       {message || error ? (
         <div className="workspace-status-messages">
@@ -450,7 +467,7 @@ export default function RequestWorkspace({ requestId, onBack, onClosed }: Reques
                 onSubmit={handleSubmit}
                 submitting={submitting}
                 submitLabel="Save Changes"
-                disabled={isClosed}
+                disabled={mutationsLocked}
                 showLeadAttribution
               />
             </div>
@@ -468,7 +485,7 @@ export default function RequestWorkspace({ requestId, onBack, onClosed }: Reques
                 embeddedInWorkspace
                 requestId={requestId}
                 passengers={request.request_passengers}
-                disabled={isClosed}
+                disabled={mutationsLocked}
                 onChanged={refreshRequest}
                 onError={setError}
               />
@@ -494,10 +511,10 @@ export default function RequestWorkspace({ requestId, onBack, onClosed }: Reques
                   quotes={request.quoted_insurance}
                   passengers={request.request_passengers}
                   requestPassengerCount={request.passengers}
-                  disabled={isClosed}
+                  disabled={mutationsLocked}
                   onChanged={refreshRequest}
                   onError={setError}
-                  allowAcceptProposedCruise={enterTripInCrmActive && !isClosed}
+                  allowAcceptProposedCruise={enterTripInCrmActive && !mutationsLocked}
                   focusedTab={proposalsFocusTab}
                   onFocusedTabHandled={() => setProposalsFocusTab(null)}
                 />
@@ -524,7 +541,7 @@ export default function RequestWorkspace({ requestId, onBack, onClosed }: Reques
                   communications={request.request_communications}
                   notes={request.request_notes}
                   workflows={request.request_workflows}
-                  disabled={isClosed}
+                  disabled={mutationsLocked}
                   uploadingTranscript={uploadingTranscript}
                   uploadingChat={uploadingChat}
                   onUploadTranscript={handleUploadTranscript}
@@ -554,7 +571,7 @@ export default function RequestWorkspace({ requestId, onBack, onClosed }: Reques
                   request={request}
                   form={form}
                   workflows={request.request_workflows}
-                  disabled={isClosed}
+                  disabled={mutationsLocked}
                   onChanged={refreshRequest}
                   onError={setError}
                   onCloseRequest={handleCloseRequest}
@@ -582,7 +599,7 @@ export default function RequestWorkspace({ requestId, onBack, onClosed }: Reques
                   researchDocuments={request.research_documents}
                   focusedNoteId={focusedNoteId}
                   onFocusedNoteHandled={() => setFocusedNoteId(null)}
-                  disabled={isClosed}
+                  disabled={mutationsLocked}
                   onChanged={refreshRequest}
                   onError={setError}
                 />

@@ -8,7 +8,7 @@ from decimal import Decimal
 from math import ceil
 
 from fastapi import HTTPException, status
-from sqlalchemy import String, and_, cast, func, or_
+from sqlalchemy import String, and_, cast, false, func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
@@ -254,6 +254,7 @@ def group_to_list_item_payload(group: AgencyGroup) -> dict:
     return {
         "id": group.id,
         "agency_id": group.agency_id,
+        "created_by_id": group.created_by_id,
         "group_name": group.group_name,
         "cruise_line": group.cruise_line,
         "ship_name": group.ship_name,
@@ -271,6 +272,7 @@ def group_to_read_payload(group: AgencyGroup) -> dict:
     return {
         "id": group.id,
         "agency_id": group.agency_id,
+        "created_by_id": group.created_by_id,
         "group_name": group.group_name,
         "cruise_line": group.cruise_line,
         "ship_name": group.ship_name,
@@ -331,12 +333,21 @@ def agency_groups_total_pages(total: int, page_size: int) -> int:
     return ceil(total / page_size)
 
 
+def _apply_visibility_clause(query, visibility_clause):
+    if visibility_clause is True:
+        return query
+    if visibility_clause is False:
+        return query.filter(false())
+    return query.filter(visibility_clause)
+
+
 def _agency_groups_filtered_query(
     db: Session,
     *,
     agency_id: str,
     is_active: bool | None = None,
     query: str = "",
+    visibility_clause=True,
 ):
     base = db.query(AgencyGroup).filter(AgencyGroup.agency_id == agency_id)
     if is_active is not None:
@@ -344,7 +355,7 @@ def _agency_groups_filtered_query(
     search_clause = _agency_group_search_clause(query.strip())
     if search_clause is not None:
         base = base.filter(search_clause)
-    return base
+    return _apply_visibility_clause(base, visibility_clause)
 
 
 def list_agency_groups_page(
@@ -355,6 +366,7 @@ def list_agency_groups_page(
     query: str = "",
     page: int = 1,
     page_size: int = AGENCY_GROUPS_PAGE_SIZE_DEFAULT,
+    visibility_clause=True,
 ) -> tuple[list[AgencyGroup], int]:
     page = max(1, page)
     page_size = max(1, min(page_size, AGENCY_GROUPS_PAGE_SIZE_MAX))
@@ -363,6 +375,7 @@ def list_agency_groups_page(
         agency_id=agency_id,
         is_active=is_active,
         query=query,
+        visibility_clause=visibility_clause,
     )
     total = base.count()
     if total == 0:
@@ -407,6 +420,7 @@ def create_agency_group(
     tc_ratio: str | None = None,
     is_active: bool = True,
     inventory_items: list[dict] | None = None,
+    created_by_id: int | None = None,
 ) -> AgencyGroup:
     inventory_rows = list(inventory_items or [])
     try:
@@ -423,6 +437,7 @@ def create_agency_group(
     group = AgencyGroup(
         id=_new_id(),
         agency_id=agency_id,
+        created_by_id=created_by_id,
         group_name=group_name.strip(),
         cruise_line=normalized_line,
         ship_name=ship_name.strip(),
@@ -684,6 +699,7 @@ def list_active_groups_picker(
     agency_id: str,
     query: str = "",
     limit: int = AGENCY_GROUPS_PICKER_LIMIT,
+    visibility_clause=True,
 ) -> list[AgencyGroup]:
     normalized_limit = max(1, min(limit, AGENCY_GROUPS_PICKER_LIMIT))
     return (
@@ -692,6 +708,7 @@ def list_active_groups_picker(
             agency_id=agency_id,
             is_active=True,
             query=query,
+            visibility_clause=visibility_clause,
         )
         .order_by(AgencyGroup.sailing_date.asc(), AgencyGroup.group_name.asc())
         .limit(normalized_limit)

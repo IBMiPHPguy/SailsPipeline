@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { archiveAgencyGroup, fetchAgencyGroup, fetchAgencyGroups } from "./api";
+import { canCreateGroupBlocks, canMutateGroupBlock } from "./agentCapabilities";
 import BedIcon from "./BedIcon";
 import ChickenSwitchModal from "./ChickenSwitchModal";
 import EditIcon from "./EditIcon";
@@ -8,7 +9,7 @@ import GroupShellModal from "./GroupShellModal";
 import IconTooltip from "./IconTooltip";
 import ReportPagination from "./ReportPagination";
 import TopStatusBar from "./TopStatusBar";
-import type { AgencyGroup, AgencyGroupActiveFilter, AgencyGroupListItem } from "./types";
+import type { AgencyGroup, AgencyGroupActiveFilter, AgencyGroupListItem, User } from "./types";
 import { useTopStatusBar } from "./useTopStatusBar";
 import { formatDate } from "./utils";
 
@@ -18,7 +19,7 @@ function statusLabel(group: AgencyGroupListItem): string {
   return group.is_active ? "Active" : "Archived";
 }
 
-export default function GroupBlocksPage() {
+export default function GroupBlocksPage({ currentUser }: { currentUser: User }) {
   const [groups, setGroups] = useState<AgencyGroupListItem[]>([]);
   const [filter, setFilter] = useState<AgencyGroupActiveFilter>("active");
   const [searchInput, setSearchInput] = useState("");
@@ -29,11 +30,14 @@ export default function GroupBlocksPage() {
   const [loading, setLoading] = useState(true);
   const [inventoryModalGroupId, setInventoryModalGroupId] = useState<string | null>(null);
   const [inventoryModalGroupName, setInventoryModalGroupName] = useState<string | null>(null);
+  const [inventoryModalReadOnly, setInventoryModalReadOnly] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<AgencyGroup | null>(null);
   const [archivingGroup, setArchivingGroup] = useState<AgencyGroupListItem | null>(null);
   const [archivingGroupId, setArchivingGroupId] = useState<string | null>(null);
   const { status, showStatus, clearStatus } = useTopStatusBar();
+
+  const allowCreate = canCreateGroupBlocks(currentUser);
 
   const loadGroups = useCallback(
     async (options?: { silent?: boolean }) => {
@@ -86,22 +90,26 @@ export default function GroupBlocksPage() {
       return "No group blocks match your search.";
     }
     if (filter === "active") {
-      return "No active group blocks yet. Create one to start tracking cabin inventory.";
+      return allowCreate
+        ? "No active group blocks yet. Create one to start tracking cabin inventory."
+        : "No active group blocks match this filter.";
     }
     if (filter === "archived") {
       return "No archived group blocks match this filter.";
     }
     return "No group blocks yet.";
-  }, [filter, searchQuery]);
+  }, [allowCreate, filter, searchQuery]);
 
   function openInventoryLedger(group: AgencyGroupListItem) {
     setInventoryModalGroupId(group.id);
     setInventoryModalGroupName(group.group_name);
+    setInventoryModalReadOnly(!canMutateGroupBlock(currentUser, group));
   }
 
   function closeInventoryLedger() {
     setInventoryModalGroupId(null);
     setInventoryModalGroupName(null);
+    setInventoryModalReadOnly(false);
   }
 
   async function confirmArchiveGroup() {
@@ -157,9 +165,11 @@ export default function GroupBlocksPage() {
               ))}
             </div>
           </div>
-          <button type="button" className="agency-workflows-create-button" onClick={() => setCreateModalOpen(true)}>
-            + Create Group Block
-          </button>
+          {allowCreate ? (
+            <button type="button" className="agency-workflows-create-button" onClick={() => setCreateModalOpen(true)}>
+              + Create Group Block
+            </button>
+          ) : null}
         </header>
 
         <div className="open-requests-table-card-body">
@@ -194,74 +204,81 @@ export default function GroupBlocksPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {groups.map((group) => (
-                      <tr key={group.id}>
-                        <td>
-                          <span className="agency-group-blocks-table-name">{group.group_name}</span>
-                          <span className="meta agency-group-blocks-table-ship">
-                            {group.cruise_line} · {group.ship_name}
-                          </span>
-                        </td>
-                        <td>{formatDate(group.sailing_date)}</td>
-                        <td>{group.summary.total_cabins_allocated}</td>
-                        <td>{group.summary.total_cabins_remaining}</td>
-                        <td>
-                          <span
-                            className={`agency-group-blocks-status-badge${
-                              group.is_active ? " agency-group-blocks-status-badge-active" : ""
-                            }`}
-                          >
-                            {statusLabel(group)}
-                          </span>
-                        </td>
-                        <td className="dashboard-table-actions-cell">
-                          <div className="dashboard-table-actions">
-                            <IconTooltip label="View inventory ledger">
-                              <button
-                                type="button"
-                                className="icon-button icon-button-inventory"
-                                aria-label="View inventory ledger"
-                                onClick={() => openInventoryLedger(group)}
-                              >
-                                <BedIcon />
-                              </button>
-                            </IconTooltip>
-                            <IconTooltip label="Edit group block">
-                              <button
-                                type="button"
-                                className="icon-button"
-                                aria-label="Edit group block"
-                                onClick={() => {
-                                  void fetchAgencyGroup(group.id)
-                                    .then((detail) => setEditingGroup(detail))
-                                    .catch((editError) =>
-                                      showStatus(
-                                        editError instanceof Error ? editError.message : "Unable to load group block.",
-                                        "error",
-                                      ),
-                                    );
-                                }}
-                              >
-                                <EditIcon />
-                              </button>
-                            </IconTooltip>
-                            {group.is_active ? (
-                              <IconTooltip label="Archive group block">
+                    {groups.map((group) => {
+                      const canMutate = canMutateGroupBlock(currentUser, group);
+                      return (
+                        <tr key={group.id}>
+                          <td>
+                            <span className="agency-group-blocks-table-name">{group.group_name}</span>
+                            <span className="meta agency-group-blocks-table-ship">
+                              {group.cruise_line} · {group.ship_name}
+                            </span>
+                          </td>
+                          <td>{formatDate(group.sailing_date)}</td>
+                          <td>{group.summary.total_cabins_allocated}</td>
+                          <td>{group.summary.total_cabins_remaining}</td>
+                          <td>
+                            <span
+                              className={`agency-group-blocks-status-badge${
+                                group.is_active ? " agency-group-blocks-status-badge-active" : ""
+                              }`}
+                            >
+                              {statusLabel(group)}
+                            </span>
+                          </td>
+                          <td className="dashboard-table-actions-cell">
+                            <div className="dashboard-table-actions">
+                              <IconTooltip label={canMutate ? "View inventory ledger" : "View inventory (read-only)"}>
                                 <button
                                   type="button"
-                                  className="icon-button icon-button-danger"
-                                  aria-label="Archive group block"
-                                  disabled={archivingGroupId === group.id}
-                                  onClick={() => setArchivingGroup(group)}
+                                  className="icon-button icon-button-inventory"
+                                  aria-label={canMutate ? "View inventory ledger" : "View inventory (read-only)"}
+                                  onClick={() => openInventoryLedger(group)}
                                 >
-                                  ×
+                                  <BedIcon />
                                 </button>
                               </IconTooltip>
-                            ) : null}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                              {canMutate ? (
+                                <IconTooltip label="Edit group block">
+                                  <button
+                                    type="button"
+                                    className="icon-button"
+                                    aria-label="Edit group block"
+                                    onClick={() => {
+                                      void fetchAgencyGroup(group.id)
+                                        .then((detail) => setEditingGroup(detail))
+                                        .catch((editError) =>
+                                          showStatus(
+                                            editError instanceof Error
+                                              ? editError.message
+                                              : "Unable to load group block.",
+                                            "error",
+                                          ),
+                                        );
+                                    }}
+                                  >
+                                    <EditIcon />
+                                  </button>
+                                </IconTooltip>
+                              ) : null}
+                              {canMutate && group.is_active ? (
+                                <IconTooltip label="Archive group block">
+                                  <button
+                                    type="button"
+                                    className="icon-button icon-button-danger"
+                                    aria-label="Archive group block"
+                                    disabled={archivingGroupId === group.id}
+                                    onClick={() => setArchivingGroup(group)}
+                                  >
+                                    ×
+                                  </button>
+                                </IconTooltip>
+                              ) : null}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -285,6 +302,7 @@ export default function GroupBlocksPage() {
         open={inventoryModalGroupId !== null}
         groupId={inventoryModalGroupId}
         groupName={inventoryModalGroupName}
+        readOnly={inventoryModalReadOnly}
         onClose={closeInventoryLedger}
         onGroupUpdated={() => void loadGroups({ silent: true })}
         showStatus={showStatus}
@@ -300,6 +318,7 @@ export default function GroupBlocksPage() {
           void loadGroups({ silent: true });
           setInventoryModalGroupId(group.id);
           setInventoryModalGroupName(group.group_name);
+          setInventoryModalReadOnly(false);
         }}
       />
 
@@ -308,7 +327,7 @@ export default function GroupBlocksPage() {
         mode="edit"
         group={editingGroup}
         onClose={() => setEditingGroup(null)}
-        onSaved={(group) => {
+        onSaved={() => {
           showStatus("Group block updated.", "success");
           setEditingGroup(null);
           void loadGroups({ silent: true });

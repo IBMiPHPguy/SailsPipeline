@@ -9,6 +9,7 @@ type GroupInventoryLedgerModalProps = {
   open: boolean;
   groupId: string | null;
   groupName?: string | null;
+  readOnly?: boolean;
   onClose: () => void;
   onGroupUpdated: () => void;
   showStatus: (message: string, variant: TopStatusBarVariant) => void;
@@ -18,6 +19,7 @@ export default function GroupInventoryLedgerModal({
   open,
   groupId,
   groupName,
+  readOnly = false,
   onClose,
   onGroupUpdated,
   showStatus,
@@ -79,6 +81,7 @@ export default function GroupInventoryLedgerModal({
           {!loading && !error && group ? (
             <GroupInventoryLedger
               group={group}
+              readOnly={readOnly}
               onGroupUpdated={(updated) => {
                 setGroup(updated);
                 onGroupUpdated();

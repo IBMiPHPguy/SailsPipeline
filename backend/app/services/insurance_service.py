@@ -380,7 +380,7 @@ class InsuranceService:
         payload: AnnualInsuranceUpdate,
         current_user: User,
     ) -> dict:
-        request = get_open_request(self.db, travel_request_id)
+        request = get_open_request(self.db, travel_request_id, current_user)
         primary = get_primary_passenger(self.db, travel_request_id)
         if primary is None:
             raise HTTPException(status_code=400, detail="A primary passenger is required.")
@@ -429,7 +429,7 @@ class InsuranceService:
         travel_request_id: int,
         current_user: User,
     ) -> None:
-        request = get_open_request(self.db, travel_request_id)
+        request = get_open_request(self.db, travel_request_id, current_user)
         primary = get_primary_passenger(self.db, travel_request_id)
         if primary is None:
             raise HTTPException(status_code=400, detail="A primary passenger is required.")
@@ -455,7 +455,7 @@ class InsuranceService:
         travel_request_id: int,
         current_user: User,
     ) -> None:
-        request = get_open_request(self.db, travel_request_id)
+        request = get_open_request(self.db, travel_request_id, current_user)
         primary = get_primary_passenger(self.db, travel_request_id)
         if primary is None or not primary.has_annual_insurance:
             raise HTTPException(status_code=400, detail="Annual insurance is not enabled for the primary passenger.")
@@ -473,5 +473,5 @@ class InsuranceService:
     async def send_insurance_waiver_email(self, travel_request_id: int, current_user: User) -> dict[str, object]:
         from app.services.insurance_communication_service import send_insurance_waiver_email
 
-        request = get_open_request(self.db, travel_request_id)
+        request = get_open_request(self.db, travel_request_id, current_user)
         return await send_insurance_waiver_email(self.db, request=request, current_user=current_user)

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.deps import get_current_user, require_tenant_super_user
+from app.deps import get_current_user
 from app.models import User
 from app.schemas import (
     AgencyGroupCreate,
@@ -26,6 +26,7 @@ from app.services.agency_group_service import (
     create_agency_group_inventory,
     delete_agency_group_inventory,
     get_agency_group_detail,
+    get_agency_group_inventory_for_agency,
     group_picker_item_payload,
     group_to_list_item_payload,
     group_to_read_payload,
@@ -34,6 +35,15 @@ from app.services.agency_group_service import (
     list_group_inventory_options,
     update_agency_group,
     update_agency_group_inventory,
+)
+from app.services.agent_capability_service import (
+    assert_can_access_group_blocks_page,
+    assert_can_create_groups,
+    assert_can_mutate_group,
+    assert_can_view_group,
+    get_capabilities_for_user,
+    group_visibility_filter,
+    picker_visibility_filter,
 )
 
 router = APIRouter(prefix="/api/agency-groups", tags=["agency-groups"])
@@ -62,9 +72,11 @@ def list_agency_groups_route(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=AGENCY_GROUPS_PAGE_SIZE_DEFAULT, ge=1),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_tenant_super_user),
+    current_user: User = Depends(get_current_user),
 ) -> AgencyGroupListPageRead:
     agency_id = _require_agency_id(current_user)
+    caps = get_capabilities_for_user(db, current_user)
+    assert_can_access_group_blocks_page(caps)
     normalized_page_size = max(1, min(page_size, AGENCY_GROUPS_PAGE_SIZE_MAX))
     groups, total = list_agency_groups_page(
         db,
@@ -73,6 +85,7 @@ def list_agency_groups_route(
         query=q,
         page=page,
         page_size=normalized_page_size,
+        visibility_clause=group_visibility_filter(current_user, caps),
     )
     return AgencyGroupListPageRead(
         items=[AgencyGroupListItemRead.model_validate(group_to_list_item_payload(group)) for group in groups],
@@ -90,7 +103,13 @@ def list_active_groups_picker_route(
     current_user: User = Depends(get_current_user),
 ) -> list[AgencyGroupPickerItemRead]:
     agency_id = _require_agency_id(current_user)
-    groups = list_active_groups_picker(db, agency_id=agency_id, query=q)
+    caps = get_capabilities_for_user(db, current_user)
+    groups = list_active_groups_picker(
+        db,
+        agency_id=agency_id,
+        query=q,
+        visibility_clause=picker_visibility_filter(current_user, caps),
+    )
     return [AgencyGroupPickerItemRead.model_validate(group_picker_item_payload(group)) for group in groups]
 
 
@@ -98,9 +117,11 @@ def list_active_groups_picker_route(
 def create_agency_group_route(
     payload: AgencyGroupCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_tenant_super_user),
+    current_user: User = Depends(get_current_user),
 ) -> AgencyGroupRead:
     agency_id = _require_agency_id(current_user)
+    caps = get_capabilities_for_user(db, current_user)
+    assert_can_create_groups(caps)
     inventory_items = [item.model_dump() for item in payload.inventory_items]
     group = create_agency_group(
         db,
@@ -115,6 +136,7 @@ def create_agency_group_route(
         tc_ratio=payload.tc_ratio,
         is_active=payload.is_active,
         inventory_items=inventory_items,
+        created_by_id=current_user.id,
     )
     return AgencyGroupRead.model_validate(group_to_read_payload(group))
 
@@ -126,6 +148,9 @@ def list_group_inventory_options_route(
     current_user: User = Depends(get_current_user),
 ) -> list[AgencyGroupInventoryOptionRead]:
     agency_id = _require_agency_id(current_user)
+    caps = get_capabilities_for_user(db, current_user)
+    group = get_agency_group_detail(db, agency_id=agency_id, group_id=group_id)
+    assert_can_view_group(current_user, group, caps)
     options = list_group_inventory_options(db, agency_id=agency_id, group_id=group_id)
     return [AgencyGroupInventoryOptionRead.model_validate(option) for option in options]
 
@@ -137,6 +162,9 @@ def get_agency_group_metrics_route(
     current_user: User = Depends(get_current_user),
 ) -> AgencyGroupMetricsRead:
     agency_id = _require_agency_id(current_user)
+    caps = get_capabilities_for_user(db, current_user)
+    group = get_agency_group_detail(db, agency_id=agency_id, group_id=group_id)
+    assert_can_view_group(current_user, group, caps)
     metrics = build_agency_group_metrics(db, agency_id=agency_id, group_id=group_id)
     return AgencyGroupMetricsRead.model_validate(metrics)
 
@@ -148,7 +176,9 @@ def get_agency_group_route(
     current_user: User = Depends(get_current_user),
 ) -> AgencyGroupRead:
     agency_id = _require_agency_id(current_user)
+    caps = get_capabilities_for_user(db, current_user)
     group = get_agency_group_detail(db, agency_id=agency_id, group_id=group_id)
+    assert_can_view_group(current_user, group, caps)
     return AgencyGroupRead.model_validate(group_to_read_payload(group))
 
 
@@ -157,9 +187,12 @@ def update_agency_group_route(
     group_id: str,
     payload: AgencyGroupUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_tenant_super_user),
+    current_user: User = Depends(get_current_user),
 ) -> AgencyGroupRead:
     agency_id = _require_agency_id(current_user)
+    caps = get_capabilities_for_user(db, current_user)
+    group = get_agency_group_detail(db, agency_id=agency_id, group_id=group_id)
+    assert_can_mutate_group(current_user, group, caps)
     updates = payload.model_dump(exclude_unset=True)
     group = update_agency_group(db, agency_id=agency_id, group_id=group_id, updates=updates)
     return AgencyGroupRead.model_validate(group_to_read_payload(group))
@@ -169,9 +202,12 @@ def update_agency_group_route(
 def archive_agency_group_route(
     group_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_tenant_super_user),
+    current_user: User = Depends(get_current_user),
 ) -> AgencyGroupRead:
     agency_id = _require_agency_id(current_user)
+    caps = get_capabilities_for_user(db, current_user)
+    group = get_agency_group_detail(db, agency_id=agency_id, group_id=group_id)
+    assert_can_mutate_group(current_user, group, caps)
     group = archive_agency_group(db, agency_id=agency_id, group_id=group_id)
     return AgencyGroupRead.model_validate(group_to_read_payload(group))
 
@@ -181,9 +217,12 @@ def create_agency_group_inventory_route(
     group_id: str,
     payload: AgencyGroupInventoryCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_tenant_super_user),
+    current_user: User = Depends(get_current_user),
 ) -> AgencyGroupRead:
     agency_id = _require_agency_id(current_user)
+    caps = get_capabilities_for_user(db, current_user)
+    group = get_agency_group_detail(db, agency_id=agency_id, group_id=group_id)
+    assert_can_mutate_group(current_user, group, caps)
     group = create_agency_group_inventory(
         db,
         agency_id=agency_id,
@@ -204,9 +243,13 @@ def update_agency_group_inventory_route(
     inventory_id: str,
     payload: AgencyGroupInventoryUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_tenant_super_user),
+    current_user: User = Depends(get_current_user),
 ) -> AgencyGroupRead:
     agency_id = _require_agency_id(current_user)
+    caps = get_capabilities_for_user(db, current_user)
+    inventory = get_agency_group_inventory_for_agency(db, inventory_id, agency_id)
+    group = get_agency_group_detail(db, agency_id=agency_id, group_id=inventory.group_id)
+    assert_can_mutate_group(current_user, group, caps)
     updates = payload.model_dump(exclude_unset=True)
     group = update_agency_group_inventory(
         db,
@@ -221,8 +264,12 @@ def update_agency_group_inventory_route(
 def delete_agency_group_inventory_route(
     inventory_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_tenant_super_user),
+    current_user: User = Depends(get_current_user),
 ) -> AgencyGroupRead:
     agency_id = _require_agency_id(current_user)
+    caps = get_capabilities_for_user(db, current_user)
+    inventory = get_agency_group_inventory_for_agency(db, inventory_id, agency_id)
+    group = get_agency_group_detail(db, agency_id=agency_id, group_id=inventory.group_id)
+    assert_can_mutate_group(current_user, group, caps)
     group = delete_agency_group_inventory(db, agency_id=agency_id, inventory_id=inventory_id)
     return AgencyGroupRead.model_validate(group_to_read_payload(group))

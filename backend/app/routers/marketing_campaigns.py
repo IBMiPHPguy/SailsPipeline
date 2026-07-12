@@ -11,6 +11,10 @@ from app.schemas import (
     MarketingCampaignUpdate,
 )
 from app.services.agency_service import get_marketing_campaign_for_agency
+from app.services.agent_capability_service import (
+    assert_can_manage_marketing_campaigns,
+    get_capabilities_for_user,
+)
 from app.services.marketing_campaign_service import (
     create_marketing_campaign,
     delete_marketing_campaign,
@@ -43,6 +47,8 @@ def get_marketing_campaign_summary_route(
 ) -> MarketingCampaignSummaryRead:
     if current_user.agency_id is None:
         raise HTTPException(status_code=403, detail="Tenant membership required.")
+    caps = get_capabilities_for_user(db, current_user)
+    assert_can_manage_marketing_campaigns(caps)
     summary = get_marketing_campaign_summary(db, current_user.agency_id)
     return MarketingCampaignSummaryRead.model_validate(summary)
 
@@ -55,6 +61,8 @@ def create_marketing_campaign_route(
 ) -> MarketingCampaignRead:
     if current_user.agency_id is None:
         raise HTTPException(status_code=403, detail="Tenant membership required.")
+    caps = get_capabilities_for_user(db, current_user)
+    assert_can_manage_marketing_campaigns(caps)
     campaign = create_marketing_campaign(
         db,
         agency_id=current_user.agency_id,
@@ -88,6 +96,8 @@ def update_marketing_campaign_route(
 ) -> MarketingCampaignRead:
     if current_user.agency_id is None:
         raise HTTPException(status_code=403, detail="Tenant membership required.")
+    caps = get_capabilities_for_user(db, current_user)
+    assert_can_manage_marketing_campaigns(caps)
     updates = payload.model_dump(exclude_unset=True)
     campaign = update_marketing_campaign(
         db,
@@ -106,4 +116,6 @@ def delete_marketing_campaign_route(
 ) -> None:
     if current_user.agency_id is None:
         raise HTTPException(status_code=403, detail="Tenant membership required.")
+    caps = get_capabilities_for_user(db, current_user)
+    assert_can_manage_marketing_campaigns(caps)
     delete_marketing_campaign(db, agency_id=current_user.agency_id, campaign_id=campaign_id)

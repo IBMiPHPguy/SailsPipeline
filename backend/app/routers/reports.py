@@ -14,6 +14,7 @@ from app.schemas import (
     SalesManifestPageRead,
     SupplierLedgerPageRead,
 )
+from app.services.agent_capability_service import get_capabilities_for_user
 from app.services.reports_service import (
     ReportQueryFilters,
     normalize_report_qualifiers,
@@ -30,6 +31,7 @@ router = APIRouter(prefix="/api/reports", tags=["reports"])
 
 def _filters_from_query(
     *,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
     cruise_line: str = Query(default="all"),
     timeframe: str = Query(default="all_time"),
@@ -43,6 +45,8 @@ def _filters_from_query(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=25, ge=1, le=100),
 ) -> ReportQueryFilters:
+    caps = get_capabilities_for_user(db, current_user)
+    owned_by_user_id = current_user.id if caps.reports_own_only else None
     return ReportQueryFilters(
         agency_id=current_user.agency_id,
         cruise_line=cruise_line,
@@ -56,6 +60,7 @@ def _filters_from_query(
         state=state.strip() or "all",
         page=page,
         page_size=page_size,
+        owned_by_user_id=owned_by_user_id,
     )
 
 

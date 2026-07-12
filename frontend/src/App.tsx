@@ -44,9 +44,21 @@ import type {
   TravelRequestInput,
   User,
 } from "./types";
-import { isTenantSuperUser } from "./tenantRoles";
+import {
+  canAccessCapabilityView,
+  shouldSkipGroupIntakePrompt,
+  type CapabilityGatedView,
+} from "./agentCapabilities";
 import { formatDate, formatDestinationSummary } from "./utils";
 import "./App.css";
+
+const CAPABILITY_GATED_VIEWS: CapabilityGatedView[] = [
+  "marketing-campaigns",
+  "workflows",
+  "group-blocks",
+  "agency-settings",
+  "team",
+];
 
 function formToSummaryPreview(form: TravelRequestInput): TravelRequest {
   return {
@@ -213,12 +225,9 @@ function App() {
 
   useEffect(() => {
     if (
-      (view.type === "team" ||
-        view.type === "agency-settings" ||
-        view.type === "workflows" ||
-        view.type === "group-blocks") &&
       currentUser &&
-      !isTenantSuperUser(currentUser.role)
+      CAPABILITY_GATED_VIEWS.includes(view.type as CapabilityGatedView) &&
+      !canAccessCapabilityView(currentUser, view.type as CapabilityGatedView)
     ) {
       setView({ type: "dashboard" });
     }
@@ -464,6 +473,10 @@ function App() {
           <Dashboard
             dashboard={dashboard}
             onNewRequest={() => {
+              if (shouldSkipGroupIntakePrompt(currentUser)) {
+                beginStandardNewRequest();
+                return;
+              }
               setGroupRequestPromptOpen(true);
             }}
             onOpenRequest={(requestId) => {
@@ -499,7 +512,9 @@ function App() {
 
       {view.type === "workflows" && currentUser ? <WorkflowsPage /> : null}
 
-      {view.type === "group-blocks" && currentUser ? <GroupBlocksPage /> : null}
+      {view.type === "group-blocks" && currentUser ? (
+        <GroupBlocksPage currentUser={currentUser} />
+      ) : null}
 
       {view.type === "clients" ? <ClientsPage /> : null}
 
@@ -643,9 +658,10 @@ function App() {
         </div>
       ) : null}
 
-      {view.type === "edit" ? (
+      {view.type === "edit" && currentUser ? (
         <RequestWorkspace
           requestId={view.requestId}
+          currentUser={currentUser}
           onBack={() => {
             setView({ type: "dashboard" });
             loadDashboard().catch(() => undefined);

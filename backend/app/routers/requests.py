@@ -69,6 +69,7 @@ from app.services.request_service import (
     reopen_request,
     update_request,
 )
+from app.services.agency_service import get_travel_request_for_user
 
 router = APIRouter(prefix="/api/requests", tags=["requests"])
 
@@ -76,9 +77,9 @@ router = APIRouter(prefix="/api/requests", tags=["requests"])
 @router.get("", response_model=list[TravelRequestRead])
 def list_requests_route(
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> list[TravelRequest]:
-    return list_requests(db)
+    return list_requests(db, current_user=current_user)
 
 
 @router.get("/open", response_model=OpenRequestsPageRead)
@@ -90,7 +91,9 @@ def list_open_requests_route(
     current_user: User = Depends(get_current_user),
 ) -> OpenRequestsPageRead:
     normalized_page_size = max(1, min(page_size, 100))
-    items, total = search_open_requests(db, query=q, page=page, page_size=normalized_page_size)
+    items, total = search_open_requests(
+        db, query=q, page=page, page_size=normalized_page_size, current_user=current_user
+    )
     return OpenRequestsPageRead(
         items=items,
         total=total,
@@ -106,10 +109,12 @@ def list_closed_requests_route(
     page: int = 1,
     page_size: int = 25,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> ClosedRequestsPageRead:
     normalized_page_size = max(1, min(page_size, 100))
-    items, total = search_closed_requests(db, query=q, page=page, page_size=normalized_page_size)
+    items, total = search_closed_requests(
+        db, query=q, page=page, page_size=normalized_page_size, current_user=current_user
+    )
     return ClosedRequestsPageRead(
         items=items,
         total=total,
@@ -141,26 +146,27 @@ def create_request_route(
 def get_request_route(
     request_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> TravelRequestDetailRead:
-    return get_request_detail(db, request_id)
+    return get_request_detail(db, request_id, current_user=current_user)
 
 
 @router.get("/{request_id}/change-history", response_model=RequestChangeHistoryRead)
 def get_request_change_history_route(
     request_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> RequestChangeHistoryRead:
-    return get_request_change_history(db, request_id)
+    return get_request_change_history(db, request_id, current_user=current_user)
 
 
 @router.get("/{request_id}/notes", response_model=list[RequestNoteRead])
 def list_request_notes_route(
     request_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> list[RequestNote]:
+    get_travel_request_for_user(db, request_id, current_user, require_manage=False)
     return list_request_notes(db, request_id)
 
 
@@ -169,8 +175,9 @@ def get_request_note_route(
     request_id: int,
     note_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> RequestNote:
+    get_travel_request_for_user(db, request_id, current_user, require_manage=False)
     return get_request_note(db, request_id, note_id)
 
 
@@ -191,6 +198,7 @@ async def add_transcript_route(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> CallTranscript:
+    get_travel_request_for_user(db, request_id, current_user, require_manage=True)
     return await add_transcript(db, request_id=request_id, file=file, current_user=current_user)
 
 
@@ -199,8 +207,9 @@ def get_transcript_content_route(
     request_id: int,
     transcript_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> PlainTextResponse:
+    get_travel_request_for_user(db, request_id, current_user, require_manage=False)
     return get_transcript_content(db, request_id, transcript_id)
 
 
@@ -211,6 +220,7 @@ async def add_chat_log_route(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> ChatLog:
+    get_travel_request_for_user(db, request_id, current_user, require_manage=True)
     return await add_chat_log(db, request_id=request_id, file=file, current_user=current_user)
 
 
@@ -219,8 +229,9 @@ def get_chat_log_content_route(
     request_id: int,
     chat_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> PlainTextResponse:
+    get_travel_request_for_user(db, request_id, current_user, require_manage=False)
     return get_chat_log_content(db, request_id, chat_id)
 
 
@@ -232,8 +243,9 @@ def generate_transcript_ai_summary_route(
     request_id: int,
     transcript_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> CommunicationAiSummaryRead:
+    get_travel_request_for_user(db, request_id, current_user, require_manage=True)
     return generate_transcript_ai_summary_note(
         db,
         request_id=request_id,
@@ -249,8 +261,9 @@ def generate_chat_log_ai_summary_route(
     request_id: int,
     chat_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> CommunicationAiSummaryRead:
+    get_travel_request_for_user(db, request_id, current_user, require_manage=True)
     return generate_chat_log_ai_summary_note(
         db,
         request_id=request_id,
@@ -265,6 +278,7 @@ def add_note_route(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> RequestNote:
+    get_travel_request_for_user(db, request_id, current_user, require_manage=True)
     return add_note(db, request_id=request_id, payload=payload, current_user=current_user)
 
 
@@ -276,6 +290,7 @@ def update_note_route(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> RequestNote:
+    get_travel_request_for_user(db, request_id, current_user, require_manage=True)
     return update_note(
         db,
         request_id=request_id,
@@ -292,6 +307,7 @@ def add_proposed_cruise_route(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> ProposedCruiseRead:
+    get_travel_request_for_user(db, request_id, current_user, require_manage=True)
     return add_proposed_cruise(db, request_id=request_id, payload=payload, current_user=current_user)
 
 
@@ -305,6 +321,7 @@ def generate_proposed_cruises_from_research_document_route(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> GenerateProposedCruisesResponse:
+    get_travel_request_for_user(db, request_id, current_user, require_manage=True)
     return generate_proposed_cruises_from_research_document(
         db,
         request_id=request_id,
@@ -324,6 +341,7 @@ def add_proposed_cruises_bulk_route(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> BulkProposedCruiseCreateResponse:
+    get_travel_request_for_user(db, request_id, current_user, require_manage=True)
     return add_proposed_cruises_bulk(
         db,
         request_id=request_id,
@@ -343,6 +361,7 @@ def update_proposed_cruise_route(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> ProposedCruiseRead:
+    get_travel_request_for_user(db, request_id, current_user, require_manage=True)
     return update_proposed_cruise(
         db,
         request_id=request_id,
@@ -359,6 +378,7 @@ def add_quoted_insurance_route(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> QuotedInsurance:
+    get_travel_request_for_user(db, request_id, current_user, require_manage=True)
     return add_quoted_insurance(db, request_id=request_id, payload=payload, current_user=current_user)
 
 
@@ -373,6 +393,7 @@ def update_quoted_insurance_route(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> QuotedInsurance:
+    get_travel_request_for_user(db, request_id, current_user, require_manage=True)
     return update_quoted_insurance(
         db,
         request_id=request_id,
@@ -393,6 +414,7 @@ async def upload_research_document_route(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> RequestResearchDocument:
+    get_travel_request_for_user(db, request_id, current_user, require_manage=True)
     return await upload_research_document(
         db,
         request_id=request_id,
@@ -406,6 +428,7 @@ def get_research_document_content_route(
     request_id: int,
     document_id: int,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> PlainTextResponse:
+    get_travel_request_for_user(db, request_id, current_user, require_manage=False)
     return get_research_document_content(db, request_id, document_id)

@@ -222,8 +222,17 @@ def load_change_history(db: Session, request_id: int) -> TravelRequest | None:
     )
 
 
-def get_open_request(db: Session, request_id: int) -> TravelRequest:
-    request = get_travel_request_for_agency(db, request_id, require_current_agency_id())
+def get_open_request(
+    db: Session,
+    request_id: int,
+    current_user: User | None = None,
+) -> TravelRequest:
+    if current_user is not None:
+        from app.services.agency_service import get_travel_request_for_user
+
+        request = get_travel_request_for_user(db, request_id, current_user, require_manage=True)
+    else:
+        request = get_travel_request_for_agency(db, request_id, require_current_agency_id())
     if request.status == REQUEST_STATUS_CLOSED:
         raise HTTPException(status_code=400, detail="Closed requests cannot be updated.")
     return request
@@ -287,8 +296,17 @@ def sync_communicate_research_follow_up_due_dates(db: Session, request: TravelRe
         db.commit()
 
 
-def list_requests(db: Session) -> list[TravelRequest]:
-    return request_query(db).order_by(TravelRequest.created_at.desc()).all()
+def list_requests(db: Session, *, current_user: User | None = None) -> list[TravelRequest]:
+    query = request_query(db)
+    if current_user is not None:
+        from app.services.agent_capability_service import (
+            filter_requests_query_for_user,
+            get_capabilities_for_user,
+        )
+
+        caps = get_capabilities_for_user(db, current_user)
+        query = filter_requests_query_for_user(query, current_user, caps)
+    return query.order_by(TravelRequest.created_at.desc()).all()
 
 
 CLOSED_REQUESTS_PAGE_SIZE_DEFAULT = 25
@@ -301,11 +319,20 @@ def search_closed_requests(
     query: str = "",
     page: int = 1,
     page_size: int = CLOSED_REQUESTS_PAGE_SIZE_DEFAULT,
+    current_user: User | None = None,
 ) -> tuple[list[TravelRequest], int]:
     page = max(1, page)
     page_size = max(1, min(page_size, CLOSED_REQUESTS_PAGE_SIZE_MAX))
 
     base = request_query(db).filter(TravelRequest.status == REQUEST_STATUS_CLOSED)
+    if current_user is not None:
+        from app.services.agent_capability_service import (
+            filter_requests_query_for_user,
+            get_capabilities_for_user,
+        )
+
+        caps = get_capabilities_for_user(db, current_user)
+        base = filter_requests_query_for_user(base, current_user, caps)
     term = query.strip()
     if term:
         pattern = f"%{term}%"
@@ -352,11 +379,20 @@ def search_open_requests(
     query: str = "",
     page: int = 1,
     page_size: int = CLOSED_REQUESTS_PAGE_SIZE_DEFAULT,
+    current_user: User | None = None,
 ) -> tuple[list[DashboardOpenRequest], int]:
     page = max(1, page)
     page_size = max(1, min(page_size, CLOSED_REQUESTS_PAGE_SIZE_MAX))
 
     base = dashboard_query(db).filter(TravelRequest.status == REQUEST_STATUS_OPEN)
+    if current_user is not None:
+        from app.services.agent_capability_service import (
+            filter_requests_query_for_user,
+            get_capabilities_for_user,
+        )
+
+        caps = get_capabilities_for_user(db, current_user)
+        base = filter_requests_query_for_user(base, current_user, caps)
     term = query.strip()
     if term:
         pattern = f"%{term}%"
@@ -393,7 +429,9 @@ def search_open_requests(
 
 
 def reopen_request(db: Session, request_id: int, current_user: User) -> TravelRequest:
-    request = get_travel_request_for_agency(db, request_id, require_current_agency_id())
+    from app.services.agency_service import get_travel_request_for_user
+
+    request = get_travel_request_for_user(db, request_id, current_user, require_manage=True)
     if request.status != REQUEST_STATUS_CLOSED:
         raise HTTPException(status_code=400, detail="Only closed requests can be reopened.")
     if request.close_reason == PRIMARY_CLOSE_REASON:
@@ -459,6 +497,18 @@ def create_request(db: Session, payload: TravelRequestCreate, current_user: User
 
     group_booking_rows: list[dict] = []
     if payload.group_id:
+        from app.models import AgencyGroup
+        from app.services.agent_capability_service import (
+            assert_can_book_into_group,
+            get_capabilities_for_user,
+        )
+
+        group_for_caps = db.get(AgencyGroup, payload.group_id)
+        if group_for_caps is None or group_for_caps.agency_id != current_user.agency_id:
+            raise HTTPException(status_code=404, detail="Group not found.")
+        caps = get_capabilities_for_user(db, current_user)
+        assert_can_book_into_group(current_user, group_for_caps, caps)
+
         validate_travel_request_group_linkage(
             db,
             agency_id=current_user.agency_id,
@@ -564,9 +614,19 @@ def create_request(db: Session, payload: TravelRequestCreate, current_user: User
     return request_query(db).filter(TravelRequest.id == request.id).one()
 
 
-def get_request_detail(db: Session, request_id: int) -> TravelRequestDetailRead:
-    agency_id = require_current_agency_id()
-    get_travel_request_for_agency(db, request_id, agency_id)
+def get_request_detail(
+    db: Session,
+    request_id: int,
+    *,
+    current_user: User | None = None,
+) -> TravelRequestDetailRead:
+    if current_user is not None:
+        from app.services.agency_service import get_travel_request_for_user
+
+        get_travel_request_for_user(db, request_id, current_user, require_manage=False)
+    else:
+        agency_id = require_current_agency_id()
+        get_travel_request_for_agency(db, request_id, agency_id)
     request = detail_query(db).filter(TravelRequest.id == request_id).first()
     if request is None:
         raise HTTPException(status_code=404, detail="Travel request not found.")
@@ -587,8 +647,18 @@ def get_request_detail(db: Session, request_id: int) -> TravelRequestDetailRead:
     return request_detail_to_read(request)
 
 
-def get_request_change_history(db: Session, request_id: int) -> RequestChangeHistoryRead:
-    get_travel_request_for_agency(db, request_id, require_current_agency_id())
+def get_request_change_history(
+    db: Session,
+    request_id: int,
+    *,
+    current_user: User | None = None,
+) -> RequestChangeHistoryRead:
+    if current_user is not None:
+        from app.services.agency_service import get_travel_request_for_user
+
+        get_travel_request_for_user(db, request_id, current_user, require_manage=False)
+    else:
+        get_travel_request_for_agency(db, request_id, require_current_agency_id())
     request = load_change_history(db, request_id)
     if request is None:
         raise HTTPException(status_code=404, detail="Travel request not found.")
@@ -607,6 +677,9 @@ def update_request(
     payload: TravelRequestUpdate,
     current_user: User,
 ) -> TravelRequestDetailRead:
+    from app.services.agency_service import get_travel_request_for_user
+
+    get_travel_request_for_user(db, request_id, current_user, require_manage=True)
     request = get_open_request(db, request_id)
     updates = payload.model_dump(exclude_unset=True)
     departure = updates.get("departure_date", request.departure_date)

@@ -1,6 +1,26 @@
 import type { ReportId } from "./reportsCatalog";
 import type { UserRole } from "./tenantRoles";
 
+export type AgentCapabilities = {
+  view_other_agent_requests: boolean;
+  manage_other_agent_requests: boolean;
+  create_own_groups: boolean;
+  manage_other_agent_groups: boolean;
+  book_other_agent_groups: boolean;
+  sales_analytics_own_only: boolean;
+  reports_own_only: boolean;
+  show_marketing_campaigns_tab: boolean;
+  show_workflows_tab: boolean;
+  show_agency_settings_tab: boolean;
+  show_team_tab: boolean;
+  clients_full_access: boolean;
+  show_group_blocks_tab: boolean;
+  skip_group_intake_prompt: boolean;
+  other_agent_groups_read_only: boolean;
+  can_manage_marketing_campaigns: boolean;
+  is_unrestricted: boolean;
+};
+
 export type User = {
   id: number;
   agency_id: string | null;
@@ -11,6 +31,7 @@ export type User = {
   can_view_all_agency_leads: boolean;
   avatar_url?: string | null;
   email_signature_block?: string | null;
+  capabilities?: AgentCapabilities | null;
 };
 
 export type UserAudit = {
@@ -1165,6 +1186,7 @@ export type AgencyGroupListItem = {
   sailing_date: string;
   disembarkation_date: string;
   group_id_code: string | null;
+  created_by_id?: number | null;
   is_active: boolean;
   summary: AgencyGroupSummary;
   created_at: string;
